@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Color Palette */
+  --color-navy: #16213E;
+  --color-navy-light: #1A2744;
+  --color-navy-dark: #0F1729;
+  --color-coral: #E94560;
+  --color-coral-light: #FF6B81;
+  --color-coral-dark: #C73A52;
+  --color-gold: #F5A623;
+  --color-gold-light: #FFD166;
+  --color-gold-dark: #D4900E;
+  --color-offwhite: #FAFAFA;
+  --color-silver: #C0C0C0;
+  --color-bronze: #CD7F32;
+
+  /* Background / Foreground */
+  --color-background: #FAFAFA;
+  --color-foreground: #16213E;
+  --color-muted: #64748B;
+  --color-border: #E2E8F0;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #16213E;
+
+  /* Announcement Colors */
+  --color-info: #3B82F6;
+  --color-success: #22C55E;
+  --color-warning: #F5A623;
+  --color-danger: #EF4444;
+  --color-celebration: #A855F7;
+
+  /* Fonts */
+  --font-display: "Oswald", "Barlow Condensed", sans-serif;
+  --font-body: "Plus Jakarta Sans", "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+/* Base styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-navy-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-coral);
+  border-radius: 4px;
+}
+
+/* Medal shimmer animation */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.medal-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Glow effect for position changes */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(233, 69, 96, 0); }
+  50% { box-shadow: 0 0 20px 4px rgba(233, 69, 96, 0.4); }
+}
+
+.glow-pulse {
+  animation: glow-pulse 1.5s ease-in-out;
+}
+
+/* Confetti burst keyframes */
+@keyframes confetti-fall {
+  0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}

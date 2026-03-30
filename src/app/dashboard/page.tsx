@@ -117,7 +117,7 @@ export default function DashboardPage() {
       {/* Welcome Header */}
       <div className="mb-8">
         <h1 className="font-display text-3xl font-bold text-foreground">
-          WELCOME BACK{user?.display_name ? `, ${user.display_name.toUpperCase()}` : ""}
+          WELCOME BACK{user?.first_name ? `, ${user.first_name.toUpperCase()}` : user?.display_name ? `, ${user.display_name.toUpperCase()}` : ""}
         </h1>
         <p className="text-muted mt-1">
           Here&apos;s what&apos;s happening in the Neighborhood Olympics

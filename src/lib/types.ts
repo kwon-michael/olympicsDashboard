@@ -3,9 +3,12 @@ export type UserRole = "participant" | "admin";
 export interface User {
   id: string;
   email: string;
+  first_name: string | null;
+  last_name: string | null;
   display_name: string;
   avatar_url: string | null;
   role: UserRole;
+  profile_completed: boolean;
   created_at: string;
 }
 

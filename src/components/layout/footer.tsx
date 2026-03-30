@@ -46,7 +46,7 @@ export function Footer() {
               Get Involved
             </h4>
             <div className="flex flex-col gap-2 text-sm">
-              <Link href="/login" className="hover:text-white transition-colors">
+              <Link href="/signup" className="hover:text-white transition-colors">
                 Sign Up
               </Link>
               <Link href="/teams/create" className="hover:text-white transition-colors">

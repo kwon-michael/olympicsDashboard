@@ -38,7 +38,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protected routes that require authentication
-  const protectedPaths = ["/dashboard", "/teams/create", "/admin"];
+  const protectedPaths = ["/dashboard", "/teams/create", "/admin", "/setup-profile", "/set-password", "/reset-password"];
   const isProtected = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
@@ -50,15 +50,28 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Admin routes require admin role
-  if (request.nextUrl.pathname.startsWith("/admin") && user) {
+  // Redirect users with incomplete profiles to setup page
+  // These paths are exempt from the profile completion check
+  const bypassProfileCheck = ["/setup-profile", "/set-password", "/reset-password", "/auth/", "/login", "/signup", "/forgot-password"];
+  const shouldCheckProfile = !bypassProfileCheck.some((path) =>
+    request.nextUrl.pathname.startsWith(path)
+  );
+
+  if (user && shouldCheckProfile) {
     const { data: profile } = await supabase
       .from("users")
-      .select("role")
+      .select("role, profile_completed")
       .eq("id", user.id)
       .single();
 
-    if (profile?.role !== "admin") {
+    if (profile && !profile.profile_completed) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/setup-profile";
+      return NextResponse.redirect(url);
+    }
+
+    // Admin routes require admin role
+    if (request.nextUrl.pathname.startsWith("/admin") && profile?.role !== "admin") {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);

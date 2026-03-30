@@ -12,9 +12,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE public.users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
+  first_name TEXT,
+  last_name TEXT,
   display_name TEXT NOT NULL DEFAULT 'Neighbor',
   avatar_url TEXT,
   role TEXT NOT NULL DEFAULT 'participant' CHECK (role IN ('participant', 'admin')),
+  profile_completed BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -292,11 +295,12 @@ EXECUTE FUNCTION refresh_leaderboard();
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.users (id, email, display_name)
+  INSERT INTO public.users (id, email, display_name, profile_completed)
   VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'display_name', split_part(NEW.email, '@', 1))
+    COALESCE(NEW.raw_user_meta_data->>'display_name', split_part(NEW.email, '@', 1)),
+    false
   );
   RETURN NEW;
 END;

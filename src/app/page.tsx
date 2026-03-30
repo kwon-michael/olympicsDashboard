@@ -18,6 +18,7 @@ import {
   StaggerContainer,
   StaggerItem,
 } from "@/components/ui/page-transition";
+import { useAppStore } from "@/lib/store";
 
 const features = [
   {
@@ -60,6 +61,8 @@ const events = [
 ];
 
 export default function HomePage() {
+  const user = useAppStore((s) => s.user);
+
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
@@ -100,12 +103,21 @@ export default function HomePage() {
 
             <StaggerItem>
               <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link href="/login">
-                  <Button size="lg" className="text-base">
-                    Join the Games
-                    <ArrowRight className="w-5 h-5" />
-                  </Button>
-                </Link>
+                {user ? (
+                  <Link href="/dashboard">
+                    <Button size="lg" className="text-base">
+                      Go to Dashboard
+                      <ArrowRight className="w-5 h-5" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link href="/signup">
+                    <Button size="lg" className="text-base">
+                      Join the Games
+                      <ArrowRight className="w-5 h-5" />
+                    </Button>
+                  </Link>
+                )}
                 <Link href="/leaderboard">
                   <Button
                     variant="outline"
@@ -255,19 +267,20 @@ export default function HomePage() {
             viewport={{ once: true }}
           >
             <h2 className="font-display text-4xl sm:text-5xl font-bold mb-6">
-              READY TO COMPETE?
+              {user ? "YOUR GAMES AWAIT" : "READY TO COMPETE?"}
             </h2>
             <p className="text-lg text-white/80 mb-10 max-w-2xl mx-auto">
-              Sign up, form your team, and get ready for the most exciting day
-              in the neighborhood. It only takes 2 minutes.
+              {user
+                ? "Head to your dashboard to check scores, manage your team, and stay on top of the action."
+                : "Sign up, form your team, and get ready for the most exciting day in the neighborhood. It only takes 2 minutes."}
             </p>
-            <Link href="/login">
+            <Link href={user ? "/dashboard" : "/signup"}>
               <Button
                 variant="secondary"
                 size="lg"
                 className="text-base bg-white text-coral hover:bg-white/90"
               >
-                Get Started Now
+                {user ? "Go to Dashboard" : "Get Started Now"}
                 <ArrowRight className="w-5 h-5" />
               </Button>
             </Link>

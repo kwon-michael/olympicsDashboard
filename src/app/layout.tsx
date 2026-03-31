@@ -41,6 +41,7 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${oswald.variable} ${plusJakarta.variable} ${jetbrainsMono.variable} antialiased`}
+        suppressHydrationWarning
       >
         <QueryProvider>
           <RealtimeProvider>

@@ -17,9 +17,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { PageTransition } from "@/components/ui/page-transition";
+import {
+  allEvents as rulesEvents,
+  parseInputToDbValue,
+  formatDbValue,
+  type ScoringInput,
+} from "@/lib/events";
 
-interface EventOption {
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+/** DB event row (id comes from Supabase, slug ties back to rules page) */
+interface DbEvent {
   id: string;
+  slug: string;
   name: string;
 }
 
@@ -29,12 +41,17 @@ interface TeamOption {
   color: string;
 }
 
+interface MemberOption {
+  id: string;
+  display_name: string;
+  team_id: string;
+}
+
 interface ScoreEntry {
-  id?: string;
-  event_id: string;
+  event_slug: string;   // ties to the rules page event
   team_id: string;
   user_id: string;
-  value: number;
+  raw_input: string;    // the admin types time / distance / points here
   notes: string;
 }
 
@@ -42,18 +59,35 @@ interface ExistingScore {
   id: string;
   value: number;
   notes: string | null;
-  event: { id: string; name: string } | null;
+  metadata: Record<string, unknown> | null;
+  event: { id: string; name: string; slug: string } | null;
   team: { id: string; name: string; color: string } | null;
   user: { id: string; display_name: string } | null;
   created_at: string;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Get the ScoringInput for a rules-page event by slug */
+function modeForSlug(slug: string): ScoringInput {
+  return rulesEvents.find((e) => e.slug === slug)?.scoringInput ?? "points";
+}
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
+
 export default function AdminScoresPage() {
   const supabase = createClient();
-  const [events, setEvents] = useState<EventOption[]>([]);
+
+  // DB-backed data
+  const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
   const [teams, setTeams] = useState<TeamOption[]>([]);
-  const [users, setUsers] = useState<{ id: string; display_name: string }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<MemberOption[]>([]);
   const [existingScores, setExistingScores] = useState<ExistingScore[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -63,44 +97,96 @@ export default function AdminScoresPage() {
 
   // Batch entry
   const [batchEntries, setBatchEntries] = useState<ScoreEntry[]>([
-    { event_id: "", team_id: "", user_id: "", value: 0, notes: "" },
+    { event_slug: "", team_id: "", user_id: "", raw_input: "", notes: "" },
   ]);
 
   // Filter for existing scores
   const [filterEvent, setFilterEvent] = useState("");
 
+  /* ---- bootstrap: ensure every rules-page event has a row in the DB events table ---- */
+
   useEffect(() => {
-    async function fetchData() {
-      const [eventsRes, teamsRes, usersRes, scoresRes] = await Promise.all([
-        supabase.from("events").select("id, name").order("name"),
+    async function bootstrap() {
+      // 1. Fetch existing DB events
+      const { data: existing } = await supabase
+        .from("events")
+        .select("id, slug, name")
+        .order("name");
+
+      const existingBySlug: Record<string, DbEvent> = {};
+      for (const e of existing ?? []) {
+        existingBySlug[e.slug] = e;
+      }
+
+      // 2. Upsert any rules-page events that don't exist yet
+      const missing = rulesEvents.filter((re) => !existingBySlug[re.slug]);
+      if (missing.length > 0) {
+        const { data: inserted } = await supabase
+          .from("events")
+          .upsert(
+            missing.map((re) => ({
+              name: re.name,
+              slug: re.slug,
+              description: re.description,
+              category: re.category,
+              scoring_type: re.scoringInput === "time" ? "time_asc" : "points",
+              difficulty: "medium" as const,
+              status: "upcoming" as const,
+            })),
+            { onConflict: "slug" }
+          )
+          .select("id, slug, name");
+
+        for (const row of inserted ?? []) {
+          existingBySlug[row.slug] = row;
+        }
+      }
+
+      // 3. Build the ordered DB events list (only those from the rules page)
+      const orderedDbEvents = rulesEvents
+        .map((re) => existingBySlug[re.slug])
+        .filter(Boolean) as DbEvent[];
+      setDbEvents(orderedDbEvents);
+
+      // 4. Fetch teams, members, scores in parallel
+      const [teamsRes, membersRes, scoresRes] = await Promise.all([
         supabase.from("teams").select("id, name, color").order("name"),
         supabase
-          .from("users")
-          .select("id, display_name")
-          .order("display_name"),
+          .from("team_members")
+          .select("user_id, team_id, user:users(id, display_name)"),
         supabase
           .from("scores")
           .select(
-            "id, value, notes, created_at, event:events(id, name), team:teams(id, name, color), user:users(id, display_name)"
+            "id, value, notes, metadata, created_at, event:events(id, name, slug), team:teams(id, name, color), user:users(id, display_name)"
           )
           .order("created_at", { ascending: false })
           .limit(50),
       ]);
 
-      setEvents(eventsRes.data ?? []);
       setTeams(teamsRes.data ?? []);
-      setUsers(usersRes.data ?? []);
+
+      const members: MemberOption[] = [];
+      for (const m of membersRes.data ?? []) {
+        const user = m.user as unknown as { id: string; display_name: string } | null;
+        if (user) {
+          members.push({ id: user.id, display_name: user.display_name, team_id: m.team_id });
+        }
+      }
+      setTeamMembers(members);
+
       setExistingScores((scoresRes.data ?? []) as unknown as ExistingScore[]);
       setLoading(false);
     }
 
-    fetchData();
+    bootstrap();
   }, []);
+
+  /* ---- entry helpers ---- */
 
   function addEntry() {
     setBatchEntries([
       ...batchEntries,
-      { event_id: "", team_id: "", user_id: "", value: 0, notes: "" },
+      { event_slug: "", team_id: "", user_id: "", raw_input: "", notes: "" },
     ]);
   }
 
@@ -109,75 +195,124 @@ export default function AdminScoresPage() {
     setBatchEntries(batchEntries.filter((_, i) => i !== index));
   }
 
-  function updateEntry(
-    index: number,
-    field: keyof ScoreEntry,
-    value: string | number
-  ) {
+  function updateEntry(index: number, field: keyof ScoreEntry, value: string) {
     const updated = [...batchEntries];
-    (updated[index] as unknown as Record<string, string | number>)[field] = value;
+    (updated[index] as unknown as Record<string, string>)[field] = value;
+
+    // Clear participant when team changes
+    if (field === "team_id") {
+      const currentUserId = updated[index].user_id;
+      const belongsToTeam = teamMembers.some(
+        (m) => m.id === currentUserId && m.team_id === value
+      );
+      if (!belongsToTeam) updated[index].user_id = "";
+    }
+
     setBatchEntries(updated);
   }
 
+  function membersForEntry(entry: ScoreEntry) {
+    if (!entry.team_id) return [];
+    return teamMembers
+      .filter((m) => m.team_id === entry.team_id)
+      .map((m) => ({ value: m.id, label: m.display_name }));
+  }
+
+  /* ---- submit ---- */
+
   async function submitScores() {
-    // Validate
-    const valid = batchEntries.filter(
-      (e) => e.event_id && e.team_id && e.user_id && e.value > 0
-    );
-    if (valid.length === 0) {
-      setFeedback({
-        type: "error",
-        message: "Please fill in at least one complete score entry.",
+    setFeedback(null);
+
+    const rows: {
+      event_id: string;
+      team_id: string;
+      user_id: string;
+      value: number;
+      notes: string | null;
+      metadata: Record<string, unknown> | null;
+    }[] = [];
+
+    for (const entry of batchEntries) {
+      if (!entry.event_slug || !entry.team_id || !entry.user_id) continue;
+
+      const mode = modeForSlug(entry.event_slug);
+      const dbValue = parseInputToDbValue(entry.raw_input, mode);
+      if (dbValue === null) continue;
+
+      const dbEvent = dbEvents.find((e) => e.slug === entry.event_slug);
+      if (!dbEvent) continue;
+
+      rows.push({
+        event_id: dbEvent.id,
+        team_id: entry.team_id,
+        user_id: entry.user_id,
+        value: dbValue,
+        notes: entry.notes || null,
+        metadata: { input_type: mode },
       });
+    }
+
+    if (rows.length === 0) {
+      setFeedback({ type: "error", message: "Please fill in at least one complete score entry." });
       return;
     }
 
     setSaving(true);
-    setFeedback(null);
 
-    const { error } = await supabase.from("scores").insert(
-      valid.map((e) => ({
-        event_id: e.event_id,
-        team_id: e.team_id,
-        user_id: e.user_id,
-        value: e.value,
-        notes: e.notes || null,
-      }))
-    );
+    const { error } = await supabase.from("scores").insert(rows);
 
     if (error) {
       setFeedback({ type: "error", message: error.message });
     } else {
-      setFeedback({
-        type: "success",
-        message: `${valid.length} score(s) saved successfully!`,
-      });
-      setBatchEntries([
-        { event_id: "", team_id: "", user_id: "", value: 0, notes: "" },
-      ]);
-      // Refresh existing scores
-      const { data } = await supabase
-        .from("scores")
-        .select(
-          "id, value, notes, created_at, event:events(id, name), team:teams(id, name, color), user:users(id, display_name)"
-        )
-        .order("created_at", { ascending: false })
-        .limit(50);
-      setExistingScores((data ?? []) as unknown as ExistingScore[]);
+      setFeedback({ type: "success", message: `${rows.length} score(s) saved successfully!` });
+      setBatchEntries([{ event_slug: "", team_id: "", user_id: "", raw_input: "", notes: "" }]);
+      refreshScores();
+      window.dispatchEvent(new CustomEvent("scores-updated"));
     }
     setSaving(false);
+  }
+
+  async function refreshScores() {
+    const { data } = await supabase
+      .from("scores")
+      .select(
+        "id, value, notes, metadata, created_at, event:events(id, name, slug), team:teams(id, name, color), user:users(id, display_name)"
+      )
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setExistingScores((data ?? []) as unknown as ExistingScore[]);
   }
 
   async function deleteScore(scoreId: string) {
     const { error } = await supabase.from("scores").delete().eq("id", scoreId);
     if (!error) {
       setExistingScores(existingScores.filter((s) => s.id !== scoreId));
+      window.dispatchEvent(new CustomEvent("scores-updated"));
     }
   }
 
   const filteredScores = filterEvent
     ? existingScores.filter((s) => s.event?.id === filterEvent)
     : existingScores;
+
+  /* ---- grouped event options for the dropdown ---- */
+
+  const soloEventSlugs = new Set(rulesEvents.filter((e) => e.type === "solo").map((e) => e.slug));
+
+  const eventOptions: { value: string; label: string }[] = [
+    { value: "", label: "Select event..." },
+    // We use a separator-style label for grouping
+    { value: "__solo_header__", label: "── Solo Events ──" },
+    ...rulesEvents
+      .filter((e) => e.type === "solo")
+      .map((e) => ({ value: e.slug, label: e.name })),
+    { value: "__team_header__", label: "── Team Events ──" },
+    ...rulesEvents
+      .filter((e) => e.type === "team")
+      .map((e) => ({ value: e.slug, label: e.name })),
+  ];
+
+  /* ---- render ---- */
 
   return (
     <PageTransition>
@@ -231,78 +366,95 @@ export default function AdminScoresPage() {
           </h2>
           <div className="bg-card rounded-xl border border-border p-6">
             {loading ? (
-              <div className="text-center text-muted py-8 text-sm">
-                Loading...
-              </div>
+              <div className="text-center text-muted py-8 text-sm">Loading...</div>
             ) : (
               <>
                 <div className="space-y-4">
-                  {batchEntries.map((entry, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="grid grid-cols-1 sm:grid-cols-6 gap-3 items-end p-3 bg-background rounded-lg border border-border"
-                    >
-                      <Select
-                        label="Event"
-                        value={entry.event_id}
-                        onChange={(e) =>
-                          updateEntry(i, "event_id", e.target.value)
-                        }
-                        options={events.map((ev) => ({
-                          value: ev.id,
-                          label: ev.name,
-                        }))}
-                      />
-                      <Select
-                        label="Team"
-                        value={entry.team_id}
-                        onChange={(e) =>
-                          updateEntry(i, "team_id", e.target.value)
-                        }
-                        options={teams.map((t) => ({
-                          value: t.id,
-                          label: t.name,
-                        }))}
-                      />
-                      <Select
-                        label="Participant"
-                        value={entry.user_id}
-                        onChange={(e) =>
-                          updateEntry(i, "user_id", e.target.value)
-                        }
-                        options={users.map((u) => ({
-                          value: u.id,
-                          label: u.display_name,
-                        }))}
-                      />
-                      <Input
-                        label="Score"
-                        type="number"
-                        min={0}
-                        value={entry.value || ""}
-                        onChange={(e) =>
-                          updateEntry(i, "value", Number(e.target.value))
-                        }
-                      />
-                      <Input
-                        label="Notes"
-                        value={entry.notes}
-                        onChange={(e) =>
-                          updateEntry(i, "notes", e.target.value)
-                        }
-                        placeholder="Optional"
-                      />
-                      <button
-                        onClick={() => removeEntry(i)}
-                        className="text-muted hover:text-danger transition-colors p-2 self-end"
-                        disabled={batchEntries.length === 1}
+                  {batchEntries.map((entry, i) => {
+                    const mode = entry.event_slug ? modeForSlug(entry.event_slug) : "points";
+                    const memberOptions = membersForEntry(entry);
+
+                    return (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-3 bg-background rounded-lg border border-border space-y-3"
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </motion.div>
-                  ))}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <Select
+                            label="Event"
+                            value={entry.event_slug}
+                            onChange={(e) => {
+                              // Ignore header options
+                              if (e.target.value.startsWith("__")) return;
+                              updateEntry(i, "event_slug", e.target.value);
+                            }}
+                            options={eventOptions}
+                          />
+                          <Select
+                            label="Team"
+                            value={entry.team_id}
+                            onChange={(e) => updateEntry(i, "team_id", e.target.value)}
+                            options={[
+                              { value: "", label: "Select team..." },
+                              ...teams.map((t) => ({ value: t.id, label: t.name })),
+                            ]}
+                          />
+                          <Select
+                            label="Participant"
+                            value={entry.user_id}
+                            onChange={(e) => updateEntry(i, "user_id", e.target.value)}
+                            options={
+                              entry.team_id
+                                ? [{ value: "", label: "Select member..." }, ...memberOptions]
+                                : [{ value: "", label: "Select a team first" }]
+                            }
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                          {/* Score input – adapts based on event type */}
+                          <Input
+                            label={
+                              mode === "time"
+                                ? "Time (e.g. 12.34 or 1:12.34)"
+                                : mode === "distance"
+                                ? "Distance in meters (e.g. 3.45)"
+                                : "Points"
+                            }
+                            type={mode === "distance" ? "number" : "text"}
+                            step={mode === "distance" ? "0.01" : undefined}
+                            min={mode !== "time" ? 0 : undefined}
+                            placeholder={
+                              mode === "time"
+                                ? "e.g. 12.34 or 1:12.34"
+                                : mode === "distance"
+                                ? "e.g. 3.45"
+                                : "e.g. 5"
+                            }
+                            value={entry.raw_input}
+                            onChange={(e) => updateEntry(i, "raw_input", e.target.value)}
+                          />
+
+                          <Input
+                            label="Notes"
+                            value={entry.notes}
+                            onChange={(e) => updateEntry(i, "notes", e.target.value)}
+                            placeholder="Optional"
+                          />
+
+                          <button
+                            onClick={() => removeEntry(i)}
+                            className="text-muted hover:text-danger transition-colors p-2 self-end"
+                            disabled={batchEntries.length === 1}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
 
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
@@ -336,7 +488,7 @@ export default function AdminScoresPage() {
                 onChange={(e) => setFilterEvent(e.target.value)}
                 options={[
                   { value: "", label: "All Events" },
-                  ...events.map((ev) => ({ value: ev.id, label: ev.name })),
+                  ...dbEvents.map((ev) => ({ value: ev.id, label: ev.name })),
                 ]}
               />
             </div>
@@ -362,7 +514,7 @@ export default function AdminScoresPage() {
                         Participant
                       </th>
                       <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
-                        Score
+                        Result
                       </th>
                       <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
                         Notes
@@ -371,43 +523,46 @@ export default function AdminScoresPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredScores.map((score) => (
-                      <tr key={score.id} className="hover:bg-background/50">
-                        <td className="px-4 py-3">
-                          {score.event?.name ?? "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="flex items-center gap-2">
-                            {score.team?.color && (
-                              <span
-                                className="w-3 h-3 rounded-full inline-block"
-                                style={{
-                                  backgroundColor: score.team.color,
-                                }}
-                              />
-                            )}
-                            {score.team?.name ?? "—"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {score.user?.display_name ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono font-bold text-foreground">
-                          {score.value}
-                        </td>
-                        <td className="px-4 py-3 text-muted">
-                          {score.notes || "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() => deleteScore(score.id)}
-                            className="text-muted hover:text-danger transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredScores.map((score) => {
+                      const slug = score.event?.slug ?? "";
+                      const mode = modeForSlug(slug);
+
+                      return (
+                        <tr key={score.id} className="hover:bg-background/50">
+                          <td className="px-4 py-3">
+                            {score.event?.name ?? "—"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="flex items-center gap-2">
+                              {score.team?.color && (
+                                <span
+                                  className="w-3 h-3 rounded-full inline-block"
+                                  style={{ backgroundColor: score.team.color }}
+                                />
+                              )}
+                              {score.team?.name ?? "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {score.user?.display_name ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono font-bold text-foreground">
+                            {formatDbValue(score.value, mode)}
+                          </td>
+                          <td className="px-4 py-3 text-muted">
+                            {score.notes || "—"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => deleteScore(score.id)}
+                              className="text-muted hover:text-danger transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

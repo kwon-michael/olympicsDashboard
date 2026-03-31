@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Activity,
   ChevronRight,
+  UserX,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
@@ -54,6 +55,13 @@ const adminLinks = [
     description: "Manage teams and roster changes",
     icon: Users,
     color: "#22C55E",
+  },
+  {
+    href: "/admin/players",
+    label: "Player Management",
+    description: "View and remove registered players",
+    icon: UserX,
+    color: "#EF4444",
   },
 ];
 

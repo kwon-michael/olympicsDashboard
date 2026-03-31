@@ -11,11 +11,18 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+export type ScoringInput = "time" | "distance" | "points";
+
 export interface EventRule {
   slug: string;
   name: string;
   category: string;
   type: "solo" | "team";
+  scoringInput: ScoringInput;
   description: string;
   icon: LucideIcon;
   color: string;
@@ -28,12 +35,91 @@ export interface EventRule {
   tips?: string[];
 }
 
+/* ------------------------------------------------------------------ */
+/*  Helpers – shared across scores page, leaderboard, etc.             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Values are stored as integers in the DB:
+ *   time     → centiseconds  (12.34s stored as 1234)
+ *   distance → centimeters   (3.45m  stored as 345)
+ *   points   → raw integer
+ */
+
+/** Convert a raw admin input string → integer for DB storage. Returns null on invalid input. */
+export function parseInputToDbValue(raw: string, mode: ScoringInput): number | null {
+  if (mode === "time") {
+    const parts = raw.trim().split(":");
+    let totalSeconds: number;
+    if (parts.length === 2) {
+      const mins = parseInt(parts[0], 10);
+      const secs = parseFloat(parts[1]);
+      if (isNaN(mins) || isNaN(secs)) return null;
+      totalSeconds = mins * 60 + secs;
+    } else if (parts.length === 1) {
+      totalSeconds = parseFloat(parts[0]);
+      if (isNaN(totalSeconds)) return null;
+    } else {
+      return null;
+    }
+    if (totalSeconds <= 0) return null;
+    return Math.round(totalSeconds * 100); // centiseconds
+  }
+
+  if (mode === "distance") {
+    const meters = parseFloat(raw);
+    if (isNaN(meters) || meters <= 0) return null;
+    return Math.round(meters * 100); // centimeters
+  }
+
+  // points
+  const pts = parseInt(raw, 10);
+  if (isNaN(pts) || pts <= 0) return null;
+  return pts;
+}
+
+/** Format an integer DB value → human-readable string */
+export function formatDbValue(dbValue: number, mode: ScoringInput): string {
+  if (mode === "time") {
+    const totalSeconds = dbValue / 100;
+    if (totalSeconds >= 60) {
+      const mins = Math.floor(totalSeconds / 60);
+      const secs = (totalSeconds % 60).toFixed(2);
+      return `${mins}:${secs.padStart(5, "0")}`;
+    }
+    return `${totalSeconds.toFixed(2)}s`;
+  }
+  if (mode === "distance") {
+    const meters = dbValue / 100;
+    return `${meters.toFixed(2)}m`;
+  }
+  return String(dbValue);
+}
+
+/** Column header label for leaderboard tables */
+export function getUnitLabel(mode: ScoringInput): string {
+  if (mode === "time") return "Time";
+  if (mode === "distance") return "Distance";
+  return "Points";
+}
+
+/** Look up the scoring input mode for a given event slug */
+export function getScoringInputBySlug(slug: string): ScoringInput {
+  const ev = allEvents.find((e) => e.slug === slug);
+  return ev?.scoringInput ?? "points";
+}
+
+/* ------------------------------------------------------------------ */
+/*  Solo Events                                                        */
+/* ------------------------------------------------------------------ */
+
 export const soloEvents: EventRule[] = [
   {
     slug: "standing-long-jump",
     name: "Standing Long Jump",
     category: "Field",
     type: "solo",
+    scoringInput: "distance",
     description:
       "Launch yourself as far as possible from a standing position. Explosive power and technique determine how far you go.",
     icon: Ruler,
@@ -62,6 +148,7 @@ export const soloEvents: EventRule[] = [
     name: "100m Sprint",
     category: "Track",
     type: "solo",
+    scoringInput: "time",
     description:
       "A straight-line dash testing pure speed. The fastest time from start to finish wins.",
     icon: Timer,
@@ -88,6 +175,7 @@ export const soloEvents: EventRule[] = [
     name: "Triple Jump",
     category: "Field",
     type: "solo",
+    scoringInput: "distance",
     description:
       "A hop, skip, and jump sequence covering maximum distance. Rhythm and coordination are key.",
     icon: Footprints,
@@ -115,6 +203,7 @@ export const soloEvents: EventRule[] = [
     name: "200m Sprint",
     category: "Track",
     type: "solo",
+    scoringInput: "time",
     description:
       "A longer sprint that tests both speed and stamina. Runners navigate a curve before the home straight.",
     icon: Timer,
@@ -141,6 +230,7 @@ export const soloEvents: EventRule[] = [
     name: "Shotput",
     category: "Field",
     type: "solo",
+    scoringInput: "distance",
     description:
       "Put the shot as far as possible using an open-palm pushing motion. Strength and form combine for distance.",
     icon: Weight,
@@ -173,6 +263,7 @@ export const soloEvents: EventRule[] = [
     name: "Garbage Basketball",
     category: "Accuracy",
     type: "solo",
+    scoringInput: "points",
     description:
       "Toss balls of varying sizes into bins at different distances to rack up points. Accuracy under pressure is everything.",
     icon: Trash2,
@@ -207,12 +298,17 @@ export const soloEvents: EventRule[] = [
   },
 ];
 
+/* ------------------------------------------------------------------ */
+/*  Team Events                                                        */
+/* ------------------------------------------------------------------ */
+
 export const teamEvents: EventRule[] = [
   {
     slug: "7-legged-race",
     name: "7-Legged Race",
     category: "Coordination",
     type: "team",
+    scoringInput: "time",
     description:
       "Teams are tied together at the ankles and must move as one unit to cross the finish line first. Communication and rhythm are everything.",
     icon: Footprints,
@@ -247,6 +343,7 @@ export const teamEvents: EventRule[] = [
     name: "Tail Grab",
     category: "Strategy",
     type: "team",
+    scoringInput: "points",
     description:
       "Teams form human chains and try to snatch towels from opponents while protecting their own. This game requires integrity and honesty from all players.",
     icon: ShieldAlert,
@@ -281,6 +378,7 @@ export const teamEvents: EventRule[] = [
     name: "Dodgeball",
     category: "Agility",
     type: "team",
+    scoringInput: "points",
     description:
       "Two teams face off — throw, dodge, and catch your way to victory. Hit opponents to eliminate them, or catch a throw to bring a teammate back.",
     icon: Crosshair,
@@ -316,6 +414,7 @@ export const teamEvents: EventRule[] = [
     name: "Tug of War",
     category: "Strength",
     type: "team",
+    scoringInput: "points",
     description:
       "Two teams grip a single rope and pull with everything they've got. The team that drags the center marker past their line wins.",
     icon: Swords,
@@ -351,6 +450,7 @@ export const teamEvents: EventRule[] = [
     name: "Conditioned 75m Relay",
     category: "Track",
     type: "team",
+    scoringInput: "time",
     description:
       "A relay race where each 75m leg comes with a unique condition — run backwards, hop on one foot, or carry a teammate. Versatility wins.",
     icon: RotateCcw,
@@ -383,6 +483,10 @@ export const teamEvents: EventRule[] = [
     ],
   },
 ];
+
+/* ------------------------------------------------------------------ */
+/*  Exports                                                            */
+/* ------------------------------------------------------------------ */
 
 export const allEvents: EventRule[] = [...soloEvents, ...teamEvents];
 

@@ -1,20 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
   Trophy,
-  Link as LinkIcon,
   Edit3,
   UserPlus,
+  UserMinus,
   Crown,
   ArrowLeft,
   Copy,
   Check,
+  LogOut,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,73 +48,79 @@ export default function TeamProfilePage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "leave" | "kick";
+    memberId: string;
+    memberName: string;
+  } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const loadTeam = useCallback(async () => {
+    const supabase = createClient();
+
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    if (authUser) {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", authUser.id)
+        .single();
+      if (profile) setCurrentUser(profile);
+    }
+
+    const { data: teamData } = await supabase
+      .from("teams")
+      .select("*")
+      .eq("id", teamId)
+      .single();
+
+    if (!teamData) {
+      router.push("/teams");
+      return;
+    }
+
+    setTeam(teamData);
+    setEditName(teamData.name);
+    setEditMotto(teamData.motto || "");
+    setEditColor(teamData.color);
+
+    const { data: membersData } = await supabase
+      .from("team_members")
+      .select("*, user:users(*)")
+      .eq("team_id", teamId);
+
+    if (membersData) {
+      setMembers(membersData as any);
+      if (authUser) {
+        setIsMember(membersData.some((m) => m.user_id === authUser.id));
+        setIsCaptain(teamData.captain_id === authUser.id);
+      }
+    }
+
+    const { data: scoresData } = await supabase
+      .from("scores")
+      .select("*, event:events(*)")
+      .eq("team_id", teamId)
+      .order("created_at", { ascending: false });
+
+    if (scoresData) setScores(scoresData as any);
+
+    setLoading(false);
+  }, [teamId, router]);
 
   useEffect(() => {
-    const loadTeam = async () => {
-      const supabase = createClient();
-
-      // Get current user
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        const { data: profile } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", authUser.id)
-          .single();
-        if (profile) setCurrentUser(profile);
-      }
-
-      // Load team
-      const { data: teamData } = await supabase
-        .from("teams")
-        .select("*")
-        .eq("id", teamId)
-        .single();
-
-      if (!teamData) {
-        router.push("/teams");
-        return;
-      }
-
-      setTeam(teamData);
-      setEditName(teamData.name);
-      setEditMotto(teamData.motto || "");
-      setEditColor(teamData.color);
-
-      // Load members
-      const { data: membersData } = await supabase
-        .from("team_members")
-        .select("*, user:users(*)")
-        .eq("team_id", teamId);
-
-      if (membersData) {
-        setMembers(membersData as any);
-        if (authUser) {
-          setIsMember(membersData.some((m) => m.user_id === authUser.id));
-          setIsCaptain(teamData.captain_id === authUser.id);
-        }
-      }
-
-      // Load team scores
-      const { data: scoresData } = await supabase
-        .from("scores")
-        .select("*, event:events(*)")
-        .eq("team_id", teamId)
-        .order("created_at", { ascending: false });
-
-      if (scoresData) setScores(scoresData as any);
-
-      setLoading(false);
-    };
-
     loadTeam();
-  }, [teamId, router]);
+  }, [loadTeam]);
 
   const handleJoin = async () => {
     setJoining(true);
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
       router.push("/login");
       return;
@@ -122,7 +131,40 @@ export default function TeamProfilePage() {
       user_id: user.id,
     });
 
-    window.location.reload();
+    await loadTeam();
+    setJoining(false);
+  };
+
+  const handleLeaveTeam = async () => {
+    if (!currentUser) return;
+    setActionLoading(true);
+
+    const supabase = createClient();
+    await supabase
+      .from("team_members")
+      .delete()
+      .eq("team_id", teamId)
+      .eq("user_id", currentUser.id);
+
+    setConfirmAction(null);
+    setActionLoading(false);
+    setIsMember(false);
+    setMembers((prev) => prev.filter((m) => m.user_id !== currentUser.id));
+  };
+
+  const handleKickMember = async (userId: string) => {
+    setActionLoading(true);
+
+    const supabase = createClient();
+    await supabase
+      .from("team_members")
+      .delete()
+      .eq("team_id", teamId)
+      .eq("user_id", userId);
+
+    setConfirmAction(null);
+    setActionLoading(false);
+    setMembers((prev) => prev.filter((m) => m.user_id !== userId));
   };
 
   const handleSave = async () => {
@@ -255,7 +297,7 @@ export default function TeamProfilePage() {
               )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {isCaptain && !team.is_locked && !editing && (
                 <Button
                   variant="outline"
@@ -280,6 +322,22 @@ export default function TeamProfilePage() {
                   Join Team
                 </Button>
               )}
+              {isMember && !isCaptain && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setConfirmAction({
+                      type: "leave",
+                      memberId: currentUser!.id,
+                      memberName: currentUser!.display_name,
+                    })
+                  }
+                >
+                  <LogOut className="w-4 h-4" />
+                  Leave Team
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -293,31 +351,51 @@ export default function TeamProfilePage() {
             ROSTER
           </h2>
           <StaggerContainer className="space-y-3">
-            {members.map((member) => (
-              <StaggerItem key={member.id}>
-                <div className="flex items-center gap-3 p-3 bg-background rounded-xl">
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                    style={{ backgroundColor: team.color }}
-                  >
-                    {member.user?.display_name?.[0]?.toUpperCase() || "?"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">
-                      {member.user?.display_name || "Unknown"}
-                    </p>
-                    {member.event_nickname && (
-                      <p className="text-xs text-muted">
-                        &ldquo;{member.event_nickname}&rdquo;
+            {members.map((member) => {
+              const memberIsCaptain = member.user_id === team.captain_id;
+
+              return (
+                <StaggerItem key={member.id}>
+                  <div className="flex items-center gap-3 p-3 bg-background rounded-xl group">
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+                      style={{ backgroundColor: team.color }}
+                    >
+                      {member.user?.display_name?.[0]?.toUpperCase() || "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">
+                        {member.user?.display_name || "Unknown"}
                       </p>
+                      {member.event_nickname && (
+                        <p className="text-xs text-muted">
+                          &ldquo;{member.event_nickname}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                    {memberIsCaptain && (
+                      <Crown className="w-4 h-4 text-gold shrink-0" />
+                    )}
+                    {isCaptain && !memberIsCaptain && (
+                      <button
+                        onClick={() =>
+                          setConfirmAction({
+                            type: "kick",
+                            memberId: member.user_id,
+                            memberName:
+                              member.user?.display_name || "this member",
+                          })
+                        }
+                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-all shrink-0"
+                        title="Remove from team"
+                      >
+                        <UserMinus className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
-                  {member.user_id === team.captain_id && (
-                    <Crown className="w-4 h-4 text-gold" />
-                  )}
-                </div>
-              </StaggerItem>
-            ))}
+                </StaggerItem>
+              );
+            })}
           </StaggerContainer>
         </div>
 
@@ -347,6 +425,113 @@ export default function TeamProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <AnimatePresence>
+        {confirmAction && (
+          <ConfirmDialog
+            type={confirmAction.type}
+            memberName={confirmAction.memberName}
+            teamName={team.name}
+            loading={actionLoading}
+            onConfirm={() => {
+              if (confirmAction.type === "leave") {
+                handleLeaveTeam();
+              } else {
+                handleKickMember(confirmAction.memberId);
+              }
+            }}
+            onCancel={() => setConfirmAction(null)}
+          />
+        )}
+      </AnimatePresence>
     </PageTransition>
+  );
+}
+
+function ConfirmDialog({
+  type,
+  memberName,
+  teamName,
+  loading,
+  onConfirm,
+  onCancel,
+}: {
+  type: "leave" | "kick";
+  memberName: string;
+  teamName: string;
+  loading: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const isLeave = type === "leave";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50"
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 8 }}
+        transition={{ duration: 0.15 }}
+        className="bg-card rounded-2xl border border-border shadow-2xl p-6 w-full max-w-sm"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              isLeave ? "bg-warning/10" : "bg-danger/10"
+            }`}
+          >
+            {isLeave ? (
+              <LogOut className="w-5 h-5 text-warning" />
+            ) : (
+              <UserMinus className="w-5 h-5 text-danger" />
+            )}
+          </div>
+          <button
+            onClick={onCancel}
+            className="p-1 rounded-lg text-muted hover:text-foreground hover:bg-background transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <h3 className="font-display text-lg font-bold text-foreground mb-1">
+          {isLeave ? "LEAVE TEAM" : "REMOVE MEMBER"}
+        </h3>
+        <p className="text-sm text-muted mb-6">
+          {isLeave
+            ? `Are you sure you want to leave ${teamName}? You can rejoin later if the team is still open.`
+            : `Remove ${memberName} from ${teamName}? They will be able to rejoin unless the team is locked.`}
+        </p>
+
+        <div className="flex gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1"
+            onClick={onCancel}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant={isLeave ? "primary" : "danger"}
+            size="sm"
+            className="flex-1"
+            loading={loading}
+            onClick={onConfirm}
+          >
+            {isLeave ? "Leave Team" : "Remove"}
+          </Button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

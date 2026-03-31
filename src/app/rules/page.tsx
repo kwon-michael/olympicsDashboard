@@ -1,105 +1,84 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
-  Timer,
-  Target,
-  Droplets,
-  Flag,
-  Brain,
-  Mountain,
-  Egg,
-  Swords,
   BookOpen,
+  User,
+  Users,
   ArrowRight,
+  RotateCcw,
 } from "lucide-react";
 import {
   PageTransition,
   StaggerContainer,
   StaggerItem,
 } from "@/components/ui/page-transition";
+import { soloEvents, teamEvents, type EventRule } from "@/lib/events";
 
-const games = [
-  {
-    slug: "relay-race",
-    name: "Relay Race",
-    category: "Track",
-    difficulty: "medium",
-    description: "Sprint your heart out and pass the baton to your teammate!",
-    icon: Timer,
-    color: "#E94560",
-  },
-  {
-    slug: "tug-of-war",
-    name: "Tug of War",
-    category: "Strength",
-    difficulty: "hard",
-    description: "Dig in your heels and pull with all your might!",
-    icon: Swords,
-    color: "#3B82F6",
-  },
-  {
-    slug: "water-balloon-toss",
-    name: "Water Balloon Toss",
-    category: "Accuracy",
-    difficulty: "easy",
-    description: "Toss and catch without getting soaked!",
-    icon: Droplets,
-    color: "#06B6D4",
-  },
-  {
-    slug: "sack-race",
-    name: "Sack Race",
-    category: "Track",
-    difficulty: "easy",
-    description: "Hop your way to the finish line in a burlap sack!",
-    icon: Timer,
-    color: "#F5A623",
-  },
-  {
-    slug: "capture-the-flag",
-    name: "Capture the Flag",
-    category: "Strategy",
-    difficulty: "hard",
-    description: "Outsmart the opposition and capture their flag!",
-    icon: Flag,
-    color: "#22C55E",
-  },
-  {
-    slug: "trivia-bowl",
-    name: "Trivia Bowl",
-    category: "Knowledge",
-    difficulty: "medium",
-    description: "Test your brainpower against the neighborhood&apos;s best!",
-    icon: Brain,
-    color: "#A855F7",
-  },
-  {
-    slug: "obstacle-course",
-    name: "Obstacle Course",
-    category: "Endurance",
-    difficulty: "hard",
-    description: "Navigate the ultimate challenge course against the clock!",
-    icon: Mountain,
-    color: "#F43F5E",
-  },
-  {
-    slug: "egg-and-spoon-race",
-    name: "Egg & Spoon Race",
-    category: "Balance",
-    difficulty: "easy",
-    description: "Steady hands win the race!",
-    icon: Egg,
-    color: "#EC4899",
-  },
-];
+/* ------------------------------------------------------------------ */
+/*  Event Card (links to detail page)                                  */
+/* ------------------------------------------------------------------ */
 
-const difficultyConfig = {
-  easy: { bg: "bg-success/10", text: "text-success" },
-  medium: { bg: "bg-warning/10", text: "text-warning" },
-  hard: { bg: "bg-danger/10", text: "text-danger" },
-};
+function EventCard({ event }: { event: EventRule }) {
+  const Icon = event.icon;
+
+  return (
+    <Link href={`/rules/${event.slug}`}>
+      <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer h-full">
+        <div
+          className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl"
+          style={{ backgroundColor: event.color }}
+        />
+
+        <div className="flex items-start gap-4">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+            style={{ backgroundColor: event.color + "15" }}
+          >
+            <Icon className="w-6 h-6" style={{ color: event.color }} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                {event.category}
+              </span>
+            </div>
+            <h3 className="font-display text-lg font-bold text-foreground group-hover:text-coral transition-colors">
+              {event.name}
+            </h3>
+          </div>
+        </div>
+
+        <p className="text-sm text-muted mt-3 line-clamp-2">
+          {event.description}
+        </p>
+
+        {/* Quick info pills */}
+        <div className="flex flex-wrap gap-2 mt-4">
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted bg-background rounded-full px-2.5 py-1 border border-border">
+            <User className="w-3 h-3" />
+            {event.participants}
+          </span>
+          {event.attempts && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted bg-background rounded-full px-2.5 py-1 border border-border">
+              <RotateCcw className="w-3 h-3" />
+              {event.attempts}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 mt-4 text-sm text-coral opacity-0 group-hover:opacity-100 transition-opacity">
+          Read Rules
+          <ArrowRight className="w-4 h-4" />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
 
 export default function RulesPage() {
   return (
@@ -115,71 +94,85 @@ export default function RulesPage() {
               </span>
             </div>
             <h1 className="font-display text-4xl sm:text-5xl font-bold">
-              GAME RULES
+              EVENT RULES
             </h1>
             <p className="mt-3 text-white/60 max-w-lg mx-auto">
               Everything you need to know about each event. Study up before game
               day!
             </p>
+            <div className="flex items-center justify-center gap-6 mt-6">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-coral" />
+                <span className="text-sm text-white/70">
+                  <span className="font-mono font-bold text-coral">
+                    {soloEvents.length}
+                  </span>{" "}
+                  Solo Events
+                </span>
+              </div>
+              <div className="w-px h-4 bg-white/20" />
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-gold" />
+                <span className="text-sm text-white/70">
+                  <span className="font-mono font-bold text-gold">
+                    {teamEvents.length}
+                  </span>{" "}
+                  Team Events
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Games Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {games.map((game) => {
-            const Icon = game.icon;
-            const diff = difficultyConfig[game.difficulty as keyof typeof difficultyConfig];
-
-            return (
-              <StaggerItem key={game.slug}>
-                <Link href={`/rules/${game.slug}`}>
-                  <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer h-full">
-                    <div
-                      className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl"
-                      style={{ backgroundColor: game.color }}
-                    />
-
-                    <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-                      style={{ backgroundColor: game.color + "15" }}
-                    >
-                      <Icon
-                        className="w-6 h-6"
-                        style={{ color: game.color }}
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                        {game.category}
-                      </span>
-                      <span
-                        className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${diff.bg} ${diff.text}`}
-                      >
-                        {game.difficulty}
-                      </span>
-                    </div>
-
-                    <h3 className="font-display text-lg font-bold text-foreground group-hover:text-coral transition-colors mb-2">
-                      {game.name}
-                    </h3>
-
-                    <p className="text-sm text-muted line-clamp-2">
-                      {game.description}
-                    </p>
-
-                    <div className="flex items-center gap-1 mt-4 text-sm text-coral opacity-0 group-hover:opacity-100 transition-opacity">
-                      Read Rules
-                      <ArrowRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </Link>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
+        {/* Solo Events Section */}
+        <section>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-coral/10 flex items-center justify-center">
+              <User className="w-5 h-5 text-coral" />
+            </div>
+            <div>
+              <h2 className="font-display text-2xl font-bold text-foreground">
+                SOLO EVENTS
+              </h2>
+              <p className="text-sm text-muted">
+                Individual competitions — your performance, your glory
+              </p>
+            </div>
+          </div>
+          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {soloEvents.map((event) => (
+              <StaggerItem key={event.slug}>
+                <EventCard event={event} />
               </StaggerItem>
-            );
-          })}
-        </StaggerContainer>
+            ))}
+          </StaggerContainer>
+        </section>
+
+        {/* Team Events Section */}
+        <section>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center">
+              <Users className="w-5 h-5 text-gold" />
+            </div>
+            <div>
+              <h2 className="font-display text-2xl font-bold text-foreground">
+                TEAM EVENTS
+              </h2>
+              <p className="text-sm text-muted">
+                Compete together — coordination and teamwork win the day
+              </p>
+            </div>
+          </div>
+          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {teamEvents.map((event) => (
+              <StaggerItem key={event.slug}>
+                <EventCard event={event} />
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
+        </section>
       </div>
     </PageTransition>
   );

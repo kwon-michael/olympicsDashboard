@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Palette, Users, Sparkles, ArrowLeft } from "lucide-react";
+import { Palette, Users, Sparkles, ArrowLeft, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,31 @@ export default function CreateTeamPage() {
   const [motto, setMotto] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [existingTeam, setExistingTeam] = useState<string | null>(null);
+  const [checking, setChecking] = useState(true);
+
+  // Check if user is already on a team
+  useEffect(() => {
+    async function check() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setChecking(false); return; }
+
+      const { data } = await supabase
+        .from("team_members")
+        .select("team:teams(id, name)")
+        .eq("user_id", user.id)
+        .limit(1)
+        .single();
+
+      if (data?.team) {
+        const team = data.team as unknown as { id: string; name: string };
+        setExistingTeam(team.name);
+      }
+      setChecking(false);
+    }
+    check();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +76,18 @@ export default function CreateTeamPage() {
 
     if (!user) {
       router.push("/login");
+      return;
+    }
+
+    // Check again in case they joined a team in another tab
+    const { count } = await supabase
+      .from("team_members")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    if ((count ?? 0) > 0) {
+      setError("You are already on a team. Leave your current team before creating a new one.");
+      setLoading(false);
       return;
     }
 
@@ -105,6 +142,25 @@ export default function CreateTeamPage() {
           </p>
         </div>
 
+        {checking ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="w-8 h-8 border-4 border-coral border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : existingTeam ? (
+          <div className="text-center py-12">
+            <AlertCircle className="w-12 h-12 text-warning mx-auto mb-4" />
+            <h3 className="font-display text-xl font-bold text-foreground mb-2">
+              ALREADY ON A TEAM
+            </h3>
+            <p className="text-muted mb-6">
+              You are currently a member of <span className="font-semibold text-foreground">{existingTeam}</span>.
+              Leave your current team before creating a new one.
+            </p>
+            <Link href="/teams">
+              <Button variant="outline">Back to Teams</Button>
+            </Link>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Team Name */}
           <Input
@@ -205,6 +261,7 @@ export default function CreateTeamPage() {
             Create Team
           </Button>
         </form>
+        )}
       </div>
     </PageTransition>
   );

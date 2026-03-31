@@ -9,9 +9,6 @@ import {
   BookOpen,
   ArrowRight,
   Flame,
-  Timer,
-  Target,
-  Medal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +16,7 @@ import {
   StaggerItem,
 } from "@/components/ui/page-transition";
 import { useAppStore } from "@/lib/store";
+import { allEvents } from "@/lib/events";
 
 const features = [
   {
@@ -51,14 +49,6 @@ const features = [
   },
 ];
 
-const events = [
-  { name: "Relay Race", icon: Timer, category: "Track" },
-  { name: "Tug of War", icon: Target, category: "Strength" },
-  { name: "Water Balloon Toss", icon: Target, category: "Accuracy" },
-  { name: "Capture the Flag", icon: Flame, category: "Strategy" },
-  { name: "Trivia Bowl", icon: BookOpen, category: "Knowledge" },
-  { name: "Obstacle Course", icon: Medal, category: "Endurance" },
-];
 
 export default function HomePage() {
   const user = useAppStore((s) => s.user);
@@ -136,7 +126,7 @@ export default function HomePage() {
           <StaggerContainer className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
             {[
               { label: "Teams", value: "8+" },
-              { label: "Events", value: "8" },
+              { label: "Events", value: String(allEvents.length) },
               { label: "Neighbors", value: "50+" },
               { label: "Glory", value: "∞" },
             ].map((stat) => (
@@ -214,31 +204,32 @@ export default function HomePage() {
               THE EVENTS
             </h2>
             <p className="mt-4 text-white/60 text-lg max-w-2xl mx-auto">
-              Eight thrilling competitions spanning track, strength, strategy,
-              and knowledge. Something for everyone.
+              {allEvents.length} competitions spanning track, field, strategy,
+              and teamwork. Something for everyone.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {events.map((event, index) => {
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {allEvents.map((event, index) => {
               const Icon = event.icon;
               return (
-                <motion.div
-                  key={event.name}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.05 }}
-                  className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-5 text-center hover:bg-white/10 transition-colors group cursor-pointer"
-                >
-                  <Icon className="w-8 h-8 mx-auto mb-3 text-gold group-hover:scale-110 transition-transform" />
-                  <p className="font-display text-sm font-bold">
-                    {event.name}
-                  </p>
-                  <p className="text-xs text-white/40 mt-1">
-                    {event.category}
-                  </p>
-                </motion.div>
+                <Link key={event.slug} href={`/rules/${event.slug}`}>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.03 }}
+                    className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-5 text-center hover:bg-white/10 transition-colors group cursor-pointer"
+                  >
+                    <Icon className="w-8 h-8 mx-auto mb-3 text-gold group-hover:scale-110 transition-transform" />
+                    <p className="font-display text-sm font-bold">
+                      {event.name}
+                    </p>
+                    <p className="text-xs text-white/40 mt-1">
+                      {event.category}
+                    </p>
+                  </motion.div>
+                </Link>
               );
             })}
           </div>

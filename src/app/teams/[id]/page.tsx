@@ -48,6 +48,7 @@ export default function TeamProfilePage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [hasTeam, setHasTeam] = useState(false); // user is already on any team
   const [confirmAction, setConfirmAction] = useState<{
     type: "leave" | "kick";
     memberId: string;
@@ -96,6 +97,13 @@ export default function TeamProfilePage() {
       if (authUser) {
         setIsMember(membersData.some((m) => m.user_id === authUser.id));
         setIsCaptain(teamData.captain_id === authUser.id);
+
+        // Check if user is on any team (to prevent joining multiple)
+        const { count } = await supabase
+          .from("team_members")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", authUser.id);
+        setHasTeam((count ?? 0) > 0);
       }
     }
 
@@ -316,11 +324,16 @@ export default function TeamProfilePage() {
                 )}
                 {copied ? "Copied!" : "Invite Link"}
               </Button>
-              {!isMember && currentUser && (
+              {!isMember && currentUser && !hasTeam && (
                 <Button size="sm" loading={joining} onClick={handleJoin}>
                   <UserPlus className="w-4 h-4" />
                   Join Team
                 </Button>
+              )}
+              {!isMember && currentUser && hasTeam && (
+                <span className="text-xs text-muted bg-background rounded-lg px-3 py-2 border border-border">
+                  You are already on a team
+                </span>
               )}
               {isMember && !isCaptain && (
                 <Button

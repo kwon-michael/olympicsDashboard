@@ -19,10 +19,15 @@ export default function TeamsPage() {
   const [teams, setTeams] = useState<(Team & { memberCount: number })[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const loadTeams = async () => {
       const supabase = createClient();
+
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAuthenticated(!!user);
+
       const { data } = await supabase
         .from("teams")
         .select("*, team_members(count)")
@@ -58,12 +63,14 @@ export default function TeamsPage() {
             {teams.length} team{teams.length !== 1 ? "s" : ""} competing
           </p>
         </div>
-        <Link href="/teams/create">
-          <Button>
-            <Plus className="w-4 h-4" />
-            Create Team
-          </Button>
-        </Link>
+        {isAuthenticated && (
+          <Link href="/teams/create">
+            <Button>
+              <Plus className="w-4 h-4" />
+              Create Team
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Search */}
@@ -150,14 +157,18 @@ export default function TeamsPage() {
           <p className="text-muted mb-6">
             {search
               ? "No teams match your search"
-              : "Be the first to create a team!"}
+              : isAuthenticated
+              ? "Be the first to create a team!"
+              : "Sign in to create a team."}
           </p>
-          <Link href="/teams/create">
-            <Button>
-              <Plus className="w-4 h-4" />
-              Create Team
-            </Button>
-          </Link>
+          {isAuthenticated && (
+            <Link href="/teams/create">
+              <Button>
+                <Plus className="w-4 h-4" />
+                Create Team
+              </Button>
+            </Link>
+          )}
         </div>
       )}
     </PageTransition>

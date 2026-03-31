@@ -62,7 +62,7 @@ export function Footer() {
         <div className="border-t border-white/10 mt-8 pt-8 text-center text-xs">
           <p>
             &copy; {new Date().getFullYear()} Neighborhood Olympics. Built with
-            &hearts; for the community.
+            &hearts; by mk for the community.
           </p>
         </div>
       </div>

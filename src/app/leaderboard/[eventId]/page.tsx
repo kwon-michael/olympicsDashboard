@@ -14,6 +14,7 @@ import {
   getScoringInputBySlug,
   formatDbValue,
   getUnitLabel,
+  getEventBySlug,
   type ScoringInput,
 } from "@/lib/events";
 import type { Event, Score, Team, User } from "@/lib/types";
@@ -60,18 +61,50 @@ export default function EventLeaderboardPage() {
   // Determine scoring mode from the event's slug (ties to rules page)
   const mode: ScoringInput = event ? getScoringInputBySlug(event.slug) : "points";
   const isMeasurement = mode === "time" || mode === "distance";
+  const eventRule = event ? getEventBySlug(event.slug) : undefined;
+  const isSoloEvent = eventRule?.type === "solo";
 
-  // For measurement events: rank individual scores
-  //   time     → ascending  (lower centiseconds = faster = better)
-  //   distance → descending (higher centimeters  = farther = better)
-  const rankedIndividuals = isMeasurement
+  // Solo events (any mode) and team measurement events: rank individual scores
+  const showIndividualRanking = isSoloEvent || isMeasurement;
+
+  const rankedIndividuals = showIndividualRanking
     ? [...scores]
         .sort((a, b) => (mode === "time" ? a.value - b.value : b.value - a.value))
         .map((score, index) => ({ ...score, rank: index + 1 }))
     : [];
 
-  // For points-based events: aggregate by team
-  const teamScores = !isMeasurement
+  // Solo events: compute placement-based team points
+  // 1st place team = N-1 points, last = 0
+  const teamPlacements = new Map<string, { rank: number; points: number; team: Team }>();
+
+  if (isSoloEvent && scores.length > 0) {
+    const bestByTeam = new Map<string, { value: number; team: Team }>();
+    for (const score of scores) {
+      const current = bestByTeam.get(score.team_id);
+      if (!current) {
+        bestByTeam.set(score.team_id, { value: score.value, team: score.team });
+      } else {
+        const isBetter = mode === "time"
+          ? score.value < current.value
+          : score.value > current.value;
+        if (isBetter) {
+          bestByTeam.set(score.team_id, { value: score.value, team: score.team });
+        }
+      }
+    }
+
+    const sorted = [...bestByTeam.entries()].sort(([, a], [, b]) =>
+      mode === "time" ? a.value - b.value : b.value - a.value
+    );
+
+    const N = sorted.length;
+    sorted.forEach(([teamId, { team }], i) => {
+      teamPlacements.set(teamId, { rank: i + 1, points: N - 1 - i, team });
+    });
+  }
+
+  // For team points-based events: aggregate by team
+  const teamScores = !showIndividualRanking
     ? scores.reduce<
         Record<string, { team: Team; totalPoints: number; playerCount: number; scores: EventScore[] }>
       >((acc, score) => {
@@ -167,81 +200,132 @@ export default function EventLeaderboardPage() {
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-4 border-coral border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : isMeasurement && rankedIndividuals.length > 0 ? (
-          /* ---- Measurement leaderboard: individual ranking ---- */
-          <div className="bg-card rounded-2xl border border-border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-background border-b border-border">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase w-16">
-                      Rank
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                      Participant
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                      Team
-                    </th>
-                    <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
-                      {getUnitLabel(mode)}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {rankedIndividuals.map((score) => {
-                    const medal =
-                      score.rank === 1 ? "🥇" : score.rank === 2 ? "🥈" : score.rank === 3 ? "🥉" : null;
-
-                    return (
-                      <tr
-                        key={score.id}
-                        className={`hover:bg-background/50 ${score.rank <= 3 ? "bg-gold/5" : ""}`}
-                      >
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-lg font-bold text-muted">
-                            {medal ?? `#${score.rank}`}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                              style={{ backgroundColor: score.team.color }}
-                            >
-                              {(score.user?.display_name ?? "?").charAt(0)}
-                            </div>
-                            <span className="font-medium text-foreground">
-                              {score.user?.display_name ?? "Unknown"}
+        ) : showIndividualRanking && rankedIndividuals.length > 0 ? (
+          /* ---- Individual ranking (solo events + team measurement events) ---- */
+          <div className="space-y-6">
+            {/* Team Standings – placement points (solo events only) */}
+            {isSoloEvent && teamPlacements.size > 0 && (
+              <div className="bg-card rounded-2xl border border-border overflow-hidden">
+                <div className="px-4 py-3 bg-background border-b border-border">
+                  <h3 className="font-display text-sm font-bold text-foreground uppercase tracking-wider">
+                    Team Standings — Placement Points
+                  </h3>
+                </div>
+                <div className="divide-y divide-border">
+                  {[...teamPlacements.entries()]
+                    .sort(([, a], [, b]) => a.rank - b.rank)
+                    .map(([teamId, { rank, points, team }]) => {
+                      const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
+                      return (
+                        <div key={teamId} className={`flex items-center justify-between px-4 py-3 ${rank <= 3 ? "bg-gold/5" : ""}`}>
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono text-lg font-bold text-muted w-10">
+                              {medal ?? `#${rank}`}
                             </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="flex items-center gap-1.5">
                             <span
-                              className="w-2.5 h-2.5 rounded-full"
-                              style={{ backgroundColor: score.team.color }}
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: team.color }}
                             />
-                            {score.team.name}
+                            <span className="font-medium text-foreground">{team.name}</span>
+                          </div>
+                          <span className="font-mono text-lg font-bold" style={{ color: team.color }}>
+                            {points} pt{points !== 1 ? "s" : ""}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span
-                            className="font-mono text-lg font-bold"
-                            style={{ color: score.team.color }}
-                          >
-                            {formatDbValue(score.value, mode)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Individual Results Table */}
+            <div className="bg-card rounded-2xl border border-border overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-background border-b border-border">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase w-16">
+                        Rank
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
+                        Participant
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
+                        Team
+                      </th>
+                      <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
+                        {isMeasurement ? getUnitLabel(mode) : "Score"}
+                      </th>
+                      {isSoloEvent && (
+                        <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
+                          Team Pts
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {rankedIndividuals.map((score) => {
+                      const medal =
+                        score.rank === 1 ? "🥇" : score.rank === 2 ? "🥈" : score.rank === 3 ? "🥉" : null;
+                      const placement = teamPlacements.get(score.team_id);
+
+                      return (
+                        <tr
+                          key={score.id}
+                          className={`hover:bg-background/50 ${score.rank <= 3 ? "bg-gold/5" : ""}`}
+                        >
+                          <td className="px-4 py-3">
+                            <span className="font-mono text-lg font-bold text-muted">
+                              {medal ?? `#${score.rank}`}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                                style={{ backgroundColor: score.team.color }}
+                              >
+                                {(score.user?.display_name ?? "?").charAt(0)}
+                              </div>
+                              <span className="font-medium text-foreground">
+                                {score.user?.display_name ?? "Unknown"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="flex items-center gap-1.5">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full"
+                                style={{ backgroundColor: score.team.color }}
+                              />
+                              {score.team.name}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span
+                              className="font-mono text-lg font-bold"
+                              style={{ color: score.team.color }}
+                            >
+                              {isMeasurement ? formatDbValue(score.value, mode) : score.value}
+                            </span>
+                          </td>
+                          {isSoloEvent && placement && (
+                            <td className="px-4 py-3 text-right">
+                              <span className="font-mono text-sm font-bold text-gold">
+                                {placement.points}
+                              </span>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        ) : !isMeasurement && rankedTeams.length > 0 ? (
-          /* ---- Points-based leaderboard: team aggregation ---- */
+        ) : !showIndividualRanking && rankedTeams.length > 0 ? (
+          /* ---- Team points-based leaderboard: team aggregation ---- */
           <StaggerContainer className="space-y-6">
             {rankedTeams.map((entry) => (
               <StaggerItem key={entry.team.id}>

@@ -73,9 +73,9 @@ export function parseInputToDbValue(raw: string, mode: ScoringInput): number | n
   }
 
   // points
-  const pts = parseInt(raw, 10);
-  if (isNaN(pts) || pts <= 0) return null;
-  return pts;
+  const pts = parseFloat(raw);
+  if (isNaN(pts) || pts < 0) return null;
+  return Math.round(pts);
 }
 
 /** Format an integer DB value → human-readable string */

@@ -12,6 +12,10 @@ import {
   StaggerContainer,
   StaggerItem,
 } from "@/components/ui/page-transition";
+import {
+  getScoringInputBySlug,
+  getEventBySlug,
+} from "@/lib/events";
 import type { LeaderboardEntry, Event } from "@/lib/types";
 
 export default function LeaderboardPage() {
@@ -22,32 +26,83 @@ export default function LeaderboardPage() {
   const loadLeaderboard = useCallback(async () => {
     const supabase = createClient();
 
-    // Try materialized view first, fallback to computed query
-    const { data: mvData, error: mvError } = await supabase
-      .from("mv_leaderboard")
-      .select("*")
-      .order("rank", { ascending: true });
-
-    if (mvData && !mvError) {
-      setLeaderboard(mvData);
-    } else {
-      // Fallback: compute leaderboard from scores
+    {
+      // Compute leaderboard from scores with placement-based points for solo events
+      // Solo events use placement-based points (1st = N-1, last = 0)
+      // Team events use raw point sums
       const { data: teams } = await supabase.from("teams").select("*");
-      const { data: scores } = await supabase.from("scores").select("*");
+      const { data: scores } = await supabase
+        .from("scores")
+        .select("*, event:events(id, slug)");
 
       if (teams && scores) {
-        const teamScores = teams.map((team) => {
-          const teamScoreList = scores.filter((s) => s.team_id === team.id);
-          return {
-            team_id: team.id,
-            team_name: team.name,
-            team_color: team.color,
-            team_avatar_url: team.avatar_url,
-            total_points: teamScoreList.reduce((sum, s) => sum + s.value, 0),
-            event_count: new Set(teamScoreList.map((s) => s.event_id)).size,
-            rank: 0,
-          };
-        });
+        // Group scores by event
+        const scoresByEvent: Record<string, typeof scores> = {};
+        for (const s of scores) {
+          const eid = (s.event as any)?.id;
+          if (!eid) continue;
+          if (!scoresByEvent[eid]) scoresByEvent[eid] = [];
+          scoresByEvent[eid].push(s);
+        }
+
+        // Accumulate points per team
+        const teamPointsMap: Record<string, number> = {};
+        const teamEventsMap: Record<string, Set<string>> = {};
+
+        for (const [eventId, eventScores] of Object.entries(scoresByEvent)) {
+          const slug = (eventScores[0]?.event as any)?.slug;
+          if (!slug) continue;
+
+          const eventRule = getEventBySlug(slug);
+          const mode = getScoringInputBySlug(slug);
+
+          if (eventRule?.type === "solo") {
+            // Placement-based scoring for solo events
+            const bestByTeam = new Map<string, number>();
+            for (const s of eventScores) {
+              const current = bestByTeam.get(s.team_id);
+              if (current === undefined) {
+                bestByTeam.set(s.team_id, s.value);
+              } else {
+                bestByTeam.set(
+                  s.team_id,
+                  mode === "time"
+                    ? Math.min(current, s.value)
+                    : Math.max(current, s.value)
+                );
+              }
+            }
+
+            const sorted = [...bestByTeam.entries()].sort(([, a], [, b]) =>
+              mode === "time" ? a - b : b - a
+            );
+
+            const N = sorted.length;
+            sorted.forEach(([teamId], i) => {
+              const pts = N - 1 - i;
+              teamPointsMap[teamId] = (teamPointsMap[teamId] ?? 0) + pts;
+              if (!teamEventsMap[teamId]) teamEventsMap[teamId] = new Set();
+              teamEventsMap[teamId].add(eventId);
+            });
+          } else {
+            // Team events: sum raw values
+            for (const s of eventScores) {
+              teamPointsMap[s.team_id] = (teamPointsMap[s.team_id] ?? 0) + s.value;
+              if (!teamEventsMap[s.team_id]) teamEventsMap[s.team_id] = new Set();
+              teamEventsMap[s.team_id].add(eventId);
+            }
+          }
+        }
+
+        const teamScores = teams.map((team) => ({
+          team_id: team.id,
+          team_name: team.name,
+          team_color: team.color,
+          team_avatar_url: team.avatar_url,
+          total_points: teamPointsMap[team.id] ?? 0,
+          event_count: teamEventsMap[team.id]?.size ?? 0,
+          rank: 0,
+        }));
 
         teamScores.sort((a, b) => b.total_points - a.total_points);
         teamScores.forEach((entry, index) => {
@@ -57,6 +112,7 @@ export default function LeaderboardPage() {
         setLeaderboard(teamScores);
       }
     }
+
 
     // Load events for filter
     const { data: eventsData } = await supabase

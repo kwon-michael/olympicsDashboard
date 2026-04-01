@@ -121,24 +121,31 @@ export default function AdminScoresPage() {
       // 2. Upsert any rules-page events that don't exist yet
       const missing = rulesEvents.filter((re) => !existingBySlug[re.slug]);
       if (missing.length > 0) {
-        const { data: inserted } = await supabase
-          .from("events")
-          .upsert(
-            missing.map((re) => ({
-              name: re.name,
-              slug: re.slug,
-              description: re.description,
-              category: re.category,
-              scoring_type: re.scoringInput === "time" ? "time_asc" : "points",
-              difficulty: "medium" as const,
-              status: "upcoming" as const,
-            })),
-            { onConflict: "slug" }
-          )
-          .select("id, slug, name");
+        // Need the current user's ID for the created_by column
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const createdBy = authUser?.id;
 
-        for (const row of inserted ?? []) {
-          existingBySlug[row.slug] = row;
+        if (createdBy) {
+          const { data: inserted } = await supabase
+            .from("events")
+            .upsert(
+              missing.map((re) => ({
+                name: re.name,
+                slug: re.slug,
+                description: re.description,
+                category: re.category,
+                scoring_type: re.scoringInput === "time" ? "time_asc" : "points",
+                difficulty: "medium" as const,
+                status: "upcoming" as const,
+                created_by: createdBy,
+              })),
+              { onConflict: "slug" }
+            )
+            .select("id, slug, name");
+
+          for (const row of inserted ?? []) {
+            existingBySlug[row.slug] = row;
+          }
         }
       }
 
@@ -266,7 +273,7 @@ export default function AdminScoresPage() {
     } else {
       setFeedback({ type: "success", message: `${rows.length} score(s) saved successfully!` });
       setBatchEntries([{ event_slug: "", team_id: "", user_id: "", raw_input: "", notes: "" }]);
-      refreshScores();
+      await refreshScores();
       window.dispatchEvent(new CustomEvent("scores-updated"));
     }
     setSaving(false);

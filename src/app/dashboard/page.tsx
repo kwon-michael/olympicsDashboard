@@ -120,7 +120,7 @@ export default function DashboardPage() {
           WELCOME BACK{user?.first_name ? `, ${user.first_name.toUpperCase()}` : user?.display_name ? `, ${user.display_name.toUpperCase()}` : ""}
         </h1>
         <p className="text-muted mt-1">
-          Here&apos;s what&apos;s happening in the Neighborhood Olympics
+          Here&apos;s what&apos;s happening in the Casualympics&trade;
         </p>
       </div>
 

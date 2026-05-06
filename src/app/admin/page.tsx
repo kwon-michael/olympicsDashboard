@@ -24,7 +24,7 @@ interface AdminStats {
   totalEvents: number;
   totalScores: number;
   totalAnnouncements: number;
-  recentActivity: { action: string; target_type: string; created_at: string; user_id: string }[];
+  recentActivity: { action: string; entity_type: string; entity_id: string; details: Record<string, unknown> | null; created_at: string; actor_id: string; actor: { display_name: string }[] }[];
 }
 
 const adminLinks = [
@@ -43,11 +43,11 @@ const adminLinks = [
     color: "#E94560",
   },
   {
-    href: "/admin/events",
-    label: "Event Management",
-    description: "Create and manage Olympic events",
+    href: "/admin/schedule",
+    label: "Schedule & Events",
+    description: "Build the event-day calendar and manage time blocks",
     icon: Calendar,
-    color: "#3B82F6",
+    color: "#8B5CF6",
   },
   {
     href: "/admin/teams",
@@ -90,7 +90,7 @@ export default function AdminDashboardPage() {
             .select("id", { count: "exact", head: true }),
           supabase
             .from("audit_log")
-            .select("action, target_type, created_at, user_id")
+            .select("action, entity_type, entity_id, details, created_at, actor_id, actor:users!audit_log_actor_id_fkey(display_name)")
             .order("created_at", { ascending: false })
             .limit(10),
         ]);
@@ -144,7 +144,7 @@ export default function AdminDashboardPage() {
               ADMIN DASHBOARD
             </h1>
             <p className="text-sm text-muted">
-              Manage the Neighborhood Olympics
+              Manage the Casualympics&trade;
             </p>
           </div>
         </div>
@@ -224,33 +224,48 @@ export default function AdminDashboardPage() {
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {stats.recentActivity.map((entry, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="px-4 py-3 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-coral" />
-                    <div>
-                      <p className="text-sm text-foreground">
-                        <span className="font-medium capitalize">
-                          {entry.action.replace("_", " ")}
+              {stats.recentActivity.map((entry, i) => {
+                const actorName = entry.actor?.[0]?.display_name ?? "Admin";
+                const detailLabel =
+                  (entry.details as Record<string, unknown> | null)?.title ??
+                  (entry.details as Record<string, unknown> | null)?.name ??
+                  "";
+
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="px-4 py-3 flex items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-2 h-2 rounded-full bg-coral shrink-0" />
+                      <p className="text-sm text-foreground truncate">
+                        <span className="font-medium text-muted">
+                          {actorName}
                         </span>{" "}
-                        on{" "}
-                        <span className="text-muted capitalize">
-                          {entry.target_type}
+                        <span className="capitalize">
+                          {entry.action.replace("_", " ")}d
+                        </span>{" "}
+                        a{" "}
+                        <span className="font-medium capitalize">
+                          {entry.entity_type.replace("_", " ")}
                         </span>
+                        {detailLabel ? (
+                          <span className="text-muted">
+                            {" "}
+                            &mdash; {String(detailLabel)}
+                          </span>
+                        ) : null}
                       </p>
                     </div>
-                  </div>
-                  <span className="text-xs text-muted">
-                    {new Date(entry.created_at).toLocaleString()}
-                  </span>
-                </motion.div>
-              ))}
+                    <span className="text-xs text-muted whitespace-nowrap shrink-0">
+                      {new Date(entry.created_at).toLocaleString()}
+                    </span>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </div>

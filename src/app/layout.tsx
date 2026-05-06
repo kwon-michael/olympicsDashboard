@@ -26,10 +26,10 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Neighborhood Olympics | Digital Command Center",
+  title: "Casualympics™ | Digital Command Center",
   description:
-    "The single hub for organizing, tracking, and celebrating your community-run neighborhood Olympics event.",
-  keywords: ["neighborhood", "olympics", "community", "sports", "leaderboard"],
+    "The single hub for organizing, tracking, and celebrating your community-run Casualympics™ event.",
+  keywords: ["casualympics", "community", "sports", "leaderboard"],
 };
 
 export default function RootLayout({

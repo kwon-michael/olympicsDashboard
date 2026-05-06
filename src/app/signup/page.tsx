@@ -68,7 +68,7 @@ function SignupForm() {
   return (
     <div className="min-h-[80vh] bg-navy flex items-center justify-center px-4">
       <PageTransition className="w-full max-w-5xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 bg-card rounded-2xl shadow-2xl overflow-hidden">
           {/* Left: Value proposition */}
           <div className="bg-gradient-to-br from-coral to-coral-dark p-8 lg:p-10 flex flex-col justify-center">
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-6">

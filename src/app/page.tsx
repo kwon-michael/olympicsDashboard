@@ -77,9 +77,9 @@ export default function HomePage() {
 
             <StaggerItem>
               <h1 className="font-display text-5xl sm:text-6xl lg:text-8xl font-bold tracking-tight leading-none">
-                <span className="text-white">NEIGHBORHOOD</span>
-                <br />
-                <span className="text-coral">OLYMPICS</span>
+                <span className="text-white">CASUAL</span>
+                <span className="text-coral">YMPICS</span>
+                <span className="text-gold text-2xl sm:text-3xl lg:text-4xl align-super">™</span>
               </h1>
             </StaggerItem>
 
@@ -154,7 +154,7 @@ export default function HomePage() {
             </h2>
             <p className="mt-4 text-muted text-lg max-w-2xl mx-auto">
               From sign-up to celebration, the Digital Command Center handles
-              every aspect of your neighborhood Olympics.
+              every aspect of your Casualympics™.
             </p>
           </div>
 

@@ -12,8 +12,12 @@ export function Footer() {
               <div className="w-8 h-8 bg-coral rounded-lg flex items-center justify-center">
                 <Flame className="w-4 h-4 text-white" />
               </div>
-              <span className="font-display text-lg text-white font-bold tracking-wide">
-                NEIGHBORHOOD OLYMPICS
+              <span className="font-display text-lg font-bold tracking-wide">
+                <span className="text-white">CASUAL</span>
+                <span className="text-coral">YMPICS</span>
+              </span>
+              <span className="text-[10px] text-gold align-super font-semibold">
+                TM
               </span>
             </div>
             <p className="text-sm max-w-md">
@@ -61,7 +65,7 @@ export function Footer() {
 
         <div className="border-t border-white/10 mt-8 pt-8 text-center text-xs">
           <p>
-            &copy; {new Date().getFullYear()} Neighborhood Olympics. Built with
+            &copy; {new Date().getFullYear()} Casualympics&trade;. Built with
             &hearts; by mk for the community.
           </p>
         </div>

@@ -103,6 +103,23 @@ export interface AnnouncementRead {
   read_at: string;
 }
 
+export type ScheduleCategory = "ceremony" | "solo_event" | "team_event" | "break" | "general";
+
+export interface ScheduleEntry {
+  id: string;
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  location: string | null;
+  category: ScheduleCategory;
+  event_slug: string | null;
+  sort_order: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AuditLogEntry {
   id: string;
   actor_id: string;
@@ -165,6 +182,11 @@ export interface Database {
         Row: AuditLogEntry;
         Insert: Omit<AuditLogEntry, "id" | "created_at">;
         Update: never;
+      };
+      schedule_entries: {
+        Row: ScheduleEntry;
+        Insert: Omit<ScheduleEntry, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<ScheduleEntry, "id" | "created_at">>;
       };
     };
     Views: {

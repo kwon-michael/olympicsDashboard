@@ -1,5 +1,5 @@
 /**
- * Seed Script for Neighborhood Olympics Dashboard
+ * Seed Script for Casualympics™ Dashboard
  *
  * Populates the database with sample data for development/demo purposes.
  *
@@ -25,7 +25,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function seed() {
-  console.log("🏟️  Seeding Neighborhood Olympics database...\n");
+  console.log("🏟️  Seeding Casualympics™ database...\n");
 
   // ─── 1. Create sample users ───────────────────────────────────────────
   console.log("👤 Creating sample users...");
@@ -283,7 +283,7 @@ async function seed() {
   console.log("\n📢 Creating announcements...");
   const announcementsData = [
     {
-      title: "Welcome to the Neighborhood Olympics!",
+      title: "Welcome to the Casualympics™!",
       body: "We're thrilled to have everyone here. Check the schedule and get your team ready. Let the games begin! 🏟️",
       type: "general",
       author_id: userIds[0],

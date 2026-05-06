@@ -33,6 +33,7 @@ export interface EventRule {
   scoring?: string;
   setup: string[];
   tips?: string[];
+  conditions?: string[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -121,26 +122,22 @@ export const soloEvents: EventRule[] = [
     type: "solo",
     scoringInput: "distance",
     description:
-      "Launch yourself as far as possible from a standing position. Explosive power and technique determine how far you go.",
+      "Launch yourself as far as possible from a standing position and see who can jump the farthest.",
     icon: Ruler,
     color: "#3B82F6",
     participants: "Individual",
     attempts: "2 attempts per participant",
     equipment: ["Measuring tape", "Rake", "Start line marker"],
     rules: [
-      "Jumper must start behind the line — stepping on the line counts as a fault",
-      "Distance is measured from the start line to the body part closest to it upon landing",
+      "Participants must start their jump from behind the line (on the line counts as a fault)",
+      "Distance is measured from the start line to the most proximal body part upon landing (hands included)",
       "Both attempts are recorded; the best distance counts",
       "No running start permitted — both feet must remain stationary before the jump",
     ],
     setup: [
       "Clearly indicate the start line",
       "Demonstrate the event before participants begin",
-      "Assign supporters for measuring distances and raking the landing area",
-    ],
-    tips: [
-      "Swing your arms back before launching forward for extra momentum",
-      "Land with both feet and try to fall forward, not backward",
+      "Assign supporters for measuring distances and raking the landing area before each attempt",
     ],
   },
   {
@@ -160,15 +157,14 @@ export const soloEvents: EventRule[] = [
       "Start & finish line markers",
     ],
     rules: [
-      "Runners must stay in their designated lane for the entire race",
-      "A whistle blast signals the start — any movement before the whistle is a false start",
-      "Time is recorded when the runner's torso crosses the finish line",
+      "Participants must stay in their designated line for the entire race",
+      "A whistle will signal the start of the race — any movement past the start line before the whistle will count as a false start (false starts will be penalized by being put 5m behind after 2nd false start)",
+      "Time is recorded when the participant's torso crosses the finish line",
     ],
     setup: [
       "Clearly indicate start and finish lines",
-      "Assign one time-keeper per runner, stationed at the finish line with a timer",
+      "Assign one timekeeper per participant, stationed at the finish line with a timer",
     ],
-    scoring: "Fastest time wins. Times recorded to the nearest tenth of a second.",
   },
   {
     slug: "triple-jump",
@@ -184,18 +180,13 @@ export const soloEvents: EventRule[] = [
     attempts: "2 attempts per participant",
     equipment: ["Measuring tape", "Rake", "Start line marker"],
     rules: [
-      "The sequence must follow hop → step → jump (takeoff foot, same foot, opposite foot)",
-      "The initial hop must begin behind the line — on the line counts as a fault",
-      "Distance is measured from the start line to the most proximal body part upon landing (hands included)",
-      "Both attempts are recorded; the best distance counts",
+      "2 attempts per participant",
+      "Initial hop must be behind the start line (on the line counts as a fault)",
+      "Distance of jump is measured from take-off point to most proximal body part upon landing (hands included)",
+      "Assign supporters for measuring distances and raking the landing area before each attempt",
     ],
     setup: [
-      "Demonstrate the full hop-step-jump sequence before participants begin",
-      "Assign supporters for measuring distances and raking the landing area",
-    ],
-    tips: [
-      "Maintain forward momentum through all three phases",
-      "Keep your eyes forward and drive your arms upward on the final jump",
+      "Demonstrate event",
     ],
   },
   {
@@ -205,7 +196,7 @@ export const soloEvents: EventRule[] = [
     type: "solo",
     scoringInput: "time",
     description:
-      "A longer sprint that tests both speed and stamina. Runners navigate a curve before the home straight.",
+      "A longer sprint that tests both speed and stamina. The fastest time from start to finish wins.",
     icon: Timer,
     color: "#F5A623",
     participants: "Individual",
@@ -215,15 +206,14 @@ export const soloEvents: EventRule[] = [
       "Start & finish line markers",
     ],
     rules: [
-      "Runners must stay in their designated lane for the entire race",
-      "A whistle blast signals the start — any movement before the whistle is a false start",
-      "Time is recorded when the runner's torso crosses the finish line",
+      "Runners must stay in their designated line for the entire race",
+      "A whistle will signal the start of the race — any movement past the start line before the whistle will count as a false start",
+      "Time is recorded when the participant's torso crosses the finish line",
     ],
     setup: [
       "Clearly indicate start and finish lines",
-      "Assign one time-keeper per runner, stationed at the finish line with a timer",
+      "Assign one timekeeper per participant, stationed at the finish line with a timer",
     ],
-    scoring: "Fastest time wins. Times recorded to the nearest tenth of a second.",
   },
   {
     slug: "shotput",
@@ -232,31 +222,22 @@ export const soloEvents: EventRule[] = [
     type: "solo",
     scoringInput: "distance",
     description:
-      "Put the shot as far as possible using an open-palm pushing motion. Strength and form combine for distance.",
+      "Put the ball as far as possible using an open-palm motion. Strength and form combined will send it the distance.",
     icon: Weight,
     color: "#22C55E",
     participants: "Individual",
     equipment: [
       "Shot put ball",
       "Tape measure",
-      "Pre-measured 5m interval markers",
       "Throw line marker",
     ],
     rules: [
       "The throw must be made with an open palm — no gripping or throwing overhand",
       "The participant must release the shot from behind the throw line",
-      "Distance is measured from the throw line to where the shot first lands and rolls to a stop",
-      "Stepping over the throw line before the shot lands is a foul",
+      "Distance of the throw is measured from the start line to where the shot first lands and rolls to a stop",
+      "No running start permitted — both feet must remain stationary before the throw",
     ],
-    setup: [
-      "Mark pre-measured intervals of 5m on the field for quick distance estimation",
-      "Demonstrate the correct open-palm putting technique",
-      "Assign a supporter with a tape measure for precise distance recording",
-    ],
-    tips: [
-      "Tuck the shot against your neck and push it outward and upward at roughly 45 degrees",
-      "Use your legs and core to generate power, not just your arm",
-    ],
+    setup: [],
   },
   {
     slug: "garbage-basketball",
@@ -265,35 +246,29 @@ export const soloEvents: EventRule[] = [
     type: "solo",
     scoringInput: "points",
     description:
-      "Toss balls of varying sizes into bins at different distances to rack up points. Accuracy under pressure is everything.",
+      "Toss balls of varying sizes into bins at different distances and try to score as many points as you can before time runs out.",
     icon: Trash2,
     color: "#EC4899",
     participants: "Individual",
     equipment: [
       "3 bins (trash cans or buckets)",
-      "5 balls: ping-pong, tennis, baseball, volleyball, basketball",
-      "Border markers",
+      "5 balls of different sizes and weights",
       "Throw line marker",
       "Stopwatch",
     ],
     rules: [
-      "Hands cannot cross over the throw line and feet cannot cross the border",
       "Each participant receives 5 balls of different sizes and weights",
-      "All throws must be completed within 20 seconds (one attempt per ball)",
-      "Participants may throw at any bin in any order they choose",
-      "Missed throws score zero — no penalty, just no points",
+      "Bins are placed at 5m, 10m, and 15m — the further the bin, the more points",
+      "Participants can choose where to aim each ball in whichever order they want",
+      "Hands and feet cannot cross over the throw line",
+      "All throws must be completed in X time",
+      "Missed throws score zero",
     ],
     setup: [
-      "Place three bins at 5m, 10m, and 15m from the throw line",
-      "Clearly indicate the border and throw line",
+      "Clearly indicate the throw line",
+      "Place three bins at ~5m, ~10m, and ~15m from the throw line",
       "Demonstrate the event and explain scoring before starting",
-    ],
-    scoring:
-      "5m bin = 1 point per ball made, 10m bin = 2 points, 15m bin = 3 points. Maximum possible score is 15 points.",
-    tips: [
-      "Start with the ball you're most confident with to build momentum",
-      "Heavier balls (basketball, volleyball) are easier to control at shorter distances",
-      "Lighter balls (ping-pong) may be worth saving for close-range bins",
+      "Assign someone to collect missed balls and return them to the throw line",
     ],
   },
 ];
@@ -310,7 +285,7 @@ export const teamEvents: EventRule[] = [
     type: "team",
     scoringInput: "time",
     description:
-      "Teams are tied together at the ankles and must move as one unit to cross the finish line first. Communication and rhythm are everything.",
+      "Teams are tied together at the ankles and must move as one connected unit to cross the finish line first. Move together with good communication and rhythm or else you won't move at all.",
     icon: Footprints,
     color: "#3B82F6",
     participants: "Full team (tied together)",
@@ -320,22 +295,16 @@ export const teamEvents: EventRule[] = [
       "Whistle",
     ],
     rules: [
-      "2–3 teams race simultaneously in parallel lanes",
+      "2–3 teams race simultaneously in parallel lines",
       "All team members stand in a line and are tied at the ankles with rope",
       "Teams are given 2 minutes to discuss strategy before the race begins",
       "A whistle blast signals the start of the race",
       "The team's time is recorded when the last tied member crosses the finish line",
     ],
     setup: [
-      "Mark parallel lanes with clear start and finish lines",
+      "Mark parallel lines with clear start and finish lines",
       "Assign one time-keeper per team, stationed at the finish line",
       "Ensure ropes/straps are secure but not painfully tight",
-    ],
-    scoring: "Fastest team time wins.",
-    tips: [
-      "Establish a rhythm — count or chant together to stay synchronized",
-      "Start slow and build speed rather than sprinting from the start",
-      "The tallest or strongest members can anchor from the center",
     ],
   },
   {
@@ -345,7 +314,7 @@ export const teamEvents: EventRule[] = [
     type: "team",
     scoringInput: "points",
     description:
-      "Teams form human chains and try to snatch towels from opponents while protecting their own. This game requires integrity and honesty from all players.",
+      "Teams arrange themselves in a line formation and try to snatch towels from opponents while protecting their own. This game requires integrity and honesty from all players.",
     icon: ShieldAlert,
     color: "#F43F5E",
     participants: "Full team (4+ players per team)",
@@ -355,22 +324,17 @@ export const teamEvents: EventRule[] = [
       "Border markers",
     ],
     rules: [
-      "All players line up single file with hands on the shoulders of the teammate in front",
-      "The 2nd, 3rd, and 4th players in line each have a towel clipped to the back of their shirt so it visibly sticks out",
-      "The 1st player (leader) has their hands free — their job is to grab the opposing team's towels",
-      "When a player loses their tail (towel), the entire team exits the play area for 5 seconds, then re-enters without the last player in line",
-      "If the chain breaks (a hand comes off a teammate's shoulders), the team loses the backmost player and their tail",
+      "All players will line up single file with hands on the shoulders of the teammate in front",
+      "The 2nd, 3rd, and 4th player in line each have a towel clipped onto the back of their shirt so it visibly sticks out",
+      "The 1st player (line leader) has their hands free — their job is to grab the opposing team's towels",
+      "When a player loses their tail (towel), the entire team will leave the play area for 5 seconds, and will then re-enter the game without the last player in line",
+      "If the chain breaks (e.g., a hand comes off a teammate's shoulder), the team loses their backmost player and their tail",
       "The game ends when one team has no tails remaining — the other team wins",
     ],
     setup: [
       "Mark clear borders for the play area",
-      "Clip towels securely but so they can be pulled off with a firm tug",
+      "Clip towels securely so that they can be pulled off with a firm tug",
       "Assign a referee to watch for chain breaks and boundary violations",
-    ],
-    tips: [
-      "The leader should be agile and quick — they do all the grabbing",
-      "The chain should move as a coordinated unit to protect their tails",
-      "Communicate constantly — the leader can't see behind them",
     ],
   },
   {
@@ -390,23 +354,17 @@ export const teamEvents: EventRule[] = [
       "Boundary markers",
     ],
     rules: [
-      "Teams start on opposite sides of the centerline",
-      "Players may not cross the centerline at any time",
+      "Start on opposite sides of the centerline",
+      "Wait for a whistle to start the game; only then can players run towards the balls in the middle of the court",
       "A player is eliminated if hit by a thrown ball before it bounces",
-      "Catching a thrown ball eliminates the thrower and allows one eliminated teammate to return",
-      "Headshots do not count — the thrower is eliminated instead",
-      "The last team with players remaining wins the round",
+      "Headshots do not count; hits must be from the neck downwards",
+      "Catching a thrown ball eliminates the thrower and allows one eliminated teammate to return on your side",
+      "The team with more players remaining wins the round",
     ],
     setup: [
       "Mark the centerline and side boundaries clearly",
       "Place balls along the centerline for a rush at the start",
       "Assign referees to monitor eliminations and boundary violations",
-    ],
-    scoring: "Best of 3 rounds. The team that wins 2 rounds takes the match.",
-    tips: [
-      "Spread out to make yourselves harder targets",
-      "Coordinate throws to overwhelm a single opponent",
-      "Keep at least one good catcher near the front",
     ],
   },
   {
@@ -416,7 +374,7 @@ export const teamEvents: EventRule[] = [
     type: "team",
     scoringInput: "points",
     description:
-      "Two teams grip a single rope and pull with everything they've got. The team that drags the center marker past their line wins.",
+      "Two teams grab a single rope and pull with all their might. The team that drags the center marker past their line proves their strength.",
     icon: Swords,
     color: "#6366F1",
     participants: "Full team",
@@ -430,29 +388,23 @@ export const teamEvents: EventRule[] = [
       "The rope's center marker starts above the halfway line",
       "On the whistle, both teams pull — the team that drags the center marker past their side's line wins",
       "Players may not wrap the rope around any body part",
-      "Sitting or lying down to anchor is not permitted",
+      "Sitting down or lying down to anchor is not permitted",
       "If the rope is dropped by an entire team, the other team wins automatically",
     ],
     setup: [
-      "Mark the center line and each team's target line (usually 2–3m from center)",
+      "Mark the center line and each team's target line (approximately 2–3m from the center)",
       "Tie a visible marker at the rope's midpoint",
       "Ensure the ground is even and safe for footing on both sides",
-    ],
-    scoring: "Best of 3 pulls. The team that wins 2 pulls takes the match.",
-    tips: [
-      "Place your strongest members at the back as anchors",
-      "Lean back and dig your heels in — use body weight, not just arms",
-      "Pull in coordinated bursts on a count rather than continuous strain",
     ],
   },
   {
     slug: "conditioned-relay",
-    name: "Conditioned 75m Relay",
+    name: "Conditional Relay",
     category: "Track",
     type: "team",
     scoringInput: "time",
     description:
-      "A relay race where each 75m leg comes with a unique condition — run backwards, hop on one foot, or carry a teammate. Versatility wins.",
+      "A relay race where each leg comes with a unique condition. This is where real teamwork is put to the test.",
     icon: RotateCcw,
     color: "#22C55E",
     participants: "Full team (one runner per leg)",
@@ -461,25 +413,28 @@ export const teamEvents: EventRule[] = [
       "Whistle",
       "Stopwatch",
       "Leg markers",
-      "Condition signs",
+      "Balloons",
+      "Rubber bands",
     ],
     rules: [
-      "Each leg of the relay is 75m with a specific condition that must be followed",
-      "The baton must be handed off within the designated exchange zone",
-      "Failing to follow a leg's condition results in the team repeating that leg",
-      "A whistle blast signals the start of the race",
+      "Each leg of the race is 75m with a specific condition that must be followed",
+      "Players will line up at opposite ends of the boundary lines — complete your leg and hand the baton to your teammate waiting at the other side",
+      "The baton can only be handed off once the player passes the boundary line",
+      "A whistle will signal the start of the race",
+      "Failure to follow a leg's condition results in the team having to repeat that leg",
       "The team's time is recorded when the final runner crosses the finish line with the baton",
     ],
     setup: [
-      "Mark each 75m leg with clear start/end lines and exchange zones",
-      "Post the condition for each leg visibly at the start of that segment",
-      "Assign one time-keeper per team at the finish line",
+      "Mark each 75m leg with clear start/end lines",
+      "Explain and demonstrate each condition before starting",
+      "Assign one time-keeper/referee per team at the finish line",
     ],
-    scoring:
-      "Fastest total team time wins. Penalties (repeat legs) add to total time.",
-    tips: [
-      "Assign legs based on each runner's strengths and the condition requirements",
-      "Practice baton handoffs to avoid fumbles in the exchange zone",
+    conditions: [
+      "Leg 1 — Leap Frog: Two players work together — one crouches while the other leapfrogs over them, alternating all the way to the boundary line before the baton is handed off.",
+      "Leg 2 — Balloon Between Legs: Players carry a balloon between their knees from one end to the other. If the balloon drops, the player has to count 5 seconds before they can continue again. If the balloon pops, they have to stop, replace it, and start again from the beginning of the leg.",
+      "Leg 3 — Elephant Trunk Spins: The player must cross their arms, look down, and spin three times before they can take off and run their leg.",
+      "Leg 4 — Balloon Keep-Ups",
+      "Leg 5 — Rubber Band Shooting Gallery",
     ],
   },
 ];

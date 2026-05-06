@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { PageTransition } from "@/components/ui/page-transition";
 import type { Announcement, AnnouncementType } from "@/lib/types";
+import { logAudit } from "@/lib/audit";
 
 const typeConfig: Record<
   AnnouncementType,
@@ -121,6 +122,13 @@ export default function AdminAnnouncementsPage() {
     if (error) {
       setFeedback({ type: "error", message: error.message });
     } else {
+      if (data) {
+        await logAudit(supabase, "create", "announcement", (data as Announcement).id, {
+          title: title.trim(),
+          type: announcementType,
+        });
+        setAnnouncements([data as Announcement, ...announcements]);
+      }
       setFeedback({
         type: "success",
         message: "Announcement published! It will appear to all users via real-time.",
@@ -129,9 +137,6 @@ export default function AdminAnnouncementsPage() {
       setBody("");
       setAnnouncementType("general");
       setPreview(false);
-      if (data) {
-        setAnnouncements([data as Announcement, ...announcements]);
-      }
     }
     setSaving(false);
   }
@@ -142,6 +147,7 @@ export default function AdminAnnouncementsPage() {
       .delete()
       .eq("id", id);
     if (!error) {
+      await logAudit(supabase, "delete", "announcement", id);
       setAnnouncements(announcements.filter((a) => a.id !== id));
     }
   }

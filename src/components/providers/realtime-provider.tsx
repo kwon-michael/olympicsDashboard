@@ -49,10 +49,22 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       )
       .subscribe();
 
+    const scheduleChannel = supabase
+      .channel("schedule")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "schedule_entries" },
+        () => {
+          window.dispatchEvent(new CustomEvent("schedule-updated"));
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(announcementChannel);
       supabase.removeChannel(scoresChannel);
       supabase.removeChannel(teamsChannel);
+      supabase.removeChannel(scheduleChannel);
     };
   }, [pushAnnouncement]);
 

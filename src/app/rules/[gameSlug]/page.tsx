@@ -141,25 +141,27 @@ export default function RuleDetailPage() {
         </section>
 
         {/* Setup */}
-        <section>
-          <h2 className="font-display text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-info" />
-            SETUP
-          </h2>
-          <div className="bg-card rounded-xl border border-border p-5">
-            <ul className="space-y-2.5">
-              {event.setup.map((item, i) => (
-                <li
-                  key={i}
-                  className="text-sm text-muted flex items-start gap-2.5"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-info shrink-0 mt-1.5" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
+        {event.setup.length > 0 && (
+          <section>
+            <h2 className="font-display text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-info" />
+              SETUP
+            </h2>
+            <div className="bg-card rounded-xl border border-border p-5">
+              <ul className="space-y-2.5">
+                {event.setup.map((item, i) => (
+                  <li
+                    key={i}
+                    className="text-sm text-muted flex items-start gap-2.5"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-info shrink-0 mt-1.5" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
 
         {/* Scoring */}
         {event.scoring && (
@@ -199,6 +201,33 @@ export default function RuleDetailPage() {
             ))}
           </div>
         </section>
+
+        {/* Conditions */}
+        {event.conditions && event.conditions.length > 0 && (
+          <section>
+            <h2 className="font-display text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-coral" />
+              CONDITIONS
+            </h2>
+            <div className="bg-card rounded-xl border border-border p-5">
+              <ol className="space-y-3">
+                {event.conditions.map((condition, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5"
+                      style={{ backgroundColor: event.color }}
+                    >
+                      {i + 1}
+                    </span>
+                    <p className="text-sm text-muted leading-relaxed">
+                      {condition}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        )}
 
         {/* Tips */}
         {event.tips && event.tips.length > 0 && (

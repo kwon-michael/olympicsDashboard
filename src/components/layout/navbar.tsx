@@ -9,6 +9,7 @@ import {
   Users,
   LayoutDashboard,
   BookOpen,
+  Clock,
   Menu,
   X,
   Shield,
@@ -26,6 +27,7 @@ const publicLinks = [
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/teams", label: "Teams", icon: Users },
   { href: "/rules", label: "Rules", icon: BookOpen },
+  { href: "/schedule", label: "Schedule", icon: Clock },
 ];
 
 const authLinks = [
@@ -52,11 +54,12 @@ export function Navbar() {
                 <Flame className="w-5 h-5 text-white" />
               </div>
               <div className="hidden sm:block">
-                <span className="font-display text-lg text-white font-bold tracking-wide">
-                  NEIGHBORHOOD
+                <span className="font-display text-lg font-bold tracking-wide">
+                  <span className="text-white">CASUAL</span>
+                  <span className="text-coral">YMPICS</span>
                 </span>
-                <span className="font-display text-lg text-gold font-bold tracking-wide ml-1">
-                  OLYMPICS
+                <span className="text-[10px] text-gold align-super font-semibold">
+                  TM
                 </span>
               </div>
             </Link>

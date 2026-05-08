@@ -14,6 +14,7 @@ import {
   Activity,
   ChevronRight,
   UserX,
+  ScrollText,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
@@ -24,7 +25,7 @@ interface AdminStats {
   totalEvents: number;
   totalScores: number;
   totalAnnouncements: number;
-  recentActivity: { action: string; entity_type: string; entity_id: string; details: Record<string, unknown> | null; created_at: string; actor_id: string; actor: { display_name: string }[] }[];
+  recentActivity: { action: string; entity_type: string; entity_id: string; details: Record<string, unknown> | null; created_at: string; actor_id: string; actor: { display_name: string } | { display_name: string }[] }[];
 }
 
 const adminLinks = [
@@ -62,6 +63,13 @@ const adminLinks = [
     description: "View and remove registered players",
     icon: UserX,
     color: "#EF4444",
+  },
+  {
+    href: "/admin/audit",
+    label: "Activity Logs",
+    description: "Admin actions and user activity with filters",
+    icon: ScrollText,
+    color: "#64748B",
   },
 ];
 
@@ -225,7 +233,11 @@ export default function AdminDashboardPage() {
           ) : (
             <div className="divide-y divide-border">
               {stats.recentActivity.map((entry, i) => {
-                const actorName = entry.actor?.[0]?.display_name ?? "Admin";
+                const actorName = entry.actor
+                  ? Array.isArray(entry.actor)
+                    ? entry.actor[0]?.display_name ?? "Admin"
+                    : entry.actor.display_name ?? "Admin"
+                  : "Admin";
                 const detailLabel =
                   (entry.details as Record<string, unknown> | null)?.title ??
                   (entry.details as Record<string, unknown> | null)?.name ??

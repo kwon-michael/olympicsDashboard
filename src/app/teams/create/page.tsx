@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PageTransition } from "@/components/ui/page-transition";
+import { logActivity } from "@/lib/audit";
 import Link from "next/link";
 
 const presetColors = [
@@ -119,6 +120,7 @@ export default function CreateTeamPage() {
       user_id: user.id,
     });
 
+    logActivity(supabase, "create_team", { team_name: name });
     router.push(`/teams/${team.id}`);
   };
 

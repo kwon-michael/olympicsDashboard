@@ -3,7 +3,12 @@
     "allow": [
       "Bash(npx next:*)",
       "Bash(npx tsc *)",
-      "PowerShell(npx tsc --noEmit 2>&1)"
+      "PowerShell(npx tsc --noEmit 2>&1)",
+      "PowerShell(Remove-Item *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\michael\\\\olympicsDashboard\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(xargs grep *)",
+      "PowerShell(mkdir C:\\\\michael\\\\olympicsDashboard\\\\src\\\\app\\\\admin\\\\audit)"
     ]
   }
 }

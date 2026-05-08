@@ -20,3 +20,20 @@ export async function logAudit(
     details: details ?? null,
   });
 }
+
+export async function logActivity(
+  supabase: SupabaseClient,
+  action: string,
+  metadata?: Record<string, unknown>
+) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase.from("user_activity").insert({
+    user_id: user.id,
+    action,
+    metadata: metadata ?? null,
+  });
+}

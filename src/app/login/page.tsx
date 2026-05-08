@@ -10,6 +10,7 @@ import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageTransition } from "@/components/ui/page-transition";
+import { logActivity } from "@/lib/audit";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -46,6 +47,7 @@ function LoginForm() {
         .single();
 
       if (profile) setUser(profile);
+      logActivity(supabase, "sign_in", { method: "password" });
     }
 
     router.push(redirect);

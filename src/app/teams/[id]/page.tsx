@@ -28,6 +28,7 @@ import {
   StaggerItem,
 } from "@/components/ui/page-transition";
 import type { Team, TeamMember, User, Score, Event } from "@/lib/types";
+import { logActivity } from "@/lib/audit";
 import Link from "next/link";
 
 export default function TeamProfilePage() {
@@ -139,6 +140,7 @@ export default function TeamProfilePage() {
       user_id: user.id,
     });
 
+    logActivity(supabase, "join_team", { team_id: teamId });
     await loadTeam();
     setJoining(false);
   };
@@ -154,6 +156,7 @@ export default function TeamProfilePage() {
       .eq("team_id", teamId)
       .eq("user_id", currentUser.id);
 
+    logActivity(supabase, "leave_team", { team_id: teamId });
     setConfirmAction(null);
     setActionLoading(false);
     setIsMember(false);

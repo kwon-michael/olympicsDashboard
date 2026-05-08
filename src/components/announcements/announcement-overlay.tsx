@@ -3,35 +3,68 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Info, Trophy, AlertTriangle, Zap, PartyPopper } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/lib/store";
-import type { AnnouncementType } from "@/lib/types";
+import type { Announcement, AnnouncementType } from "@/lib/types";
 
 const typeConfig: Record<
   AnnouncementType,
-  { bg: string; icon: React.ElementType; autoDismiss: number | null }
+  { color: string; icon: React.ElementType; autoDismiss: number | null }
 > = {
-  general: { bg: "bg-info", icon: Info, autoDismiss: 15000 },
-  event_starting: { bg: "bg-gold", icon: Zap, autoDismiss: null },
-  score_update: { bg: "bg-coral", icon: Trophy, autoDismiss: 8000 },
-  urgent: { bg: "bg-danger", icon: AlertTriangle, autoDismiss: null },
-  celebration: { bg: "bg-celebration", icon: PartyPopper, autoDismiss: 10000 },
+  general: { color: "#3B82F6", icon: Info, autoDismiss: 12000 },
+  event_starting: { color: "#F5A623", icon: Zap, autoDismiss: null },
+  score_update: { color: "#E94560", icon: Trophy, autoDismiss: 8000 },
+  urgent: { color: "#EF4444", icon: AlertTriangle, autoDismiss: null },
+  celebration: { color: "#A855F7", icon: PartyPopper, autoDismiss: 10000 },
 };
 
 export function AnnouncementOverlay() {
   const {
     activeAnnouncements,
     announcementQueue,
+    pushAnnouncement,
     dismissAnnouncement,
-    pushAnnouncement: _,
   } = useAppStore();
   const [current, setCurrent] = useState(activeAnnouncements);
 
-  // Process queue: show one at a time with 1s gap
+  // On mount, fetch the latest announcement so users who arrive late still see it
+  useEffect(() => {
+    async function fetchLatest() {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("announcements")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data) {
+        const ann = data as Announcement;
+        const dismissed = sessionStorage.getItem("dismissed-announcements");
+        const dismissedIds = dismissed ? JSON.parse(dismissed) : [];
+        if (!dismissedIds.includes(ann.id)) {
+          pushAnnouncement(ann);
+        }
+      }
+    }
+
+    fetchLatest();
+  }, []);
+
+  // Process queue
   const processQueue = useCallback(() => {
     const queue = useAppStore.getState().announcementQueue;
     if (queue.length === 0) return;
 
     const next = queue[0];
+    const active = useAppStore.getState().activeAnnouncements;
+    if (active.some((a) => a.id === next.id)) {
+      useAppStore.setState((state) => ({
+        announcementQueue: state.announcementQueue.slice(1),
+      }));
+      return;
+    }
+
     useAppStore.setState((state) => ({
       activeAnnouncements: [...state.activeAnnouncements, next],
       announcementQueue: state.announcementQueue.slice(1),
@@ -49,19 +82,33 @@ export function AnnouncementOverlay() {
 
   // Auto-dismiss timers
   useEffect(() => {
+    const timers: NodeJS.Timeout[] = [];
     current.forEach((ann) => {
       const config = typeConfig[ann.type];
       if (config.autoDismiss) {
-        const timer = setTimeout(() => {
-          dismissAnnouncement(ann.id);
-        }, config.autoDismiss);
-        return () => clearTimeout(timer);
+        timers.push(
+          setTimeout(() => handleDismiss(ann.id), config.autoDismiss)
+        );
       }
     });
-  }, [current, dismissAnnouncement]);
+    return () => timers.forEach(clearTimeout);
+  }, [current]);
+
+  function handleDismiss(id: string) {
+    dismissAnnouncement(id);
+    try {
+      const stored = sessionStorage.getItem("dismissed-announcements");
+      const ids: string[] = stored ? JSON.parse(stored) : [];
+      if (!ids.includes(id)) {
+        ids.push(id);
+        if (ids.length > 20) ids.shift();
+        sessionStorage.setItem("dismissed-announcements", JSON.stringify(ids));
+      }
+    } catch {}
+  }
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-3 max-w-md w-full pointer-events-none">
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col-reverse gap-2 max-w-sm w-full pointer-events-none">
       <AnimatePresence mode="popLayout">
         {current.map((announcement) => {
           const config = typeConfig[announcement.type];
@@ -70,29 +117,43 @@ export function AnnouncementOverlay() {
           return (
             <motion.div
               key={announcement.id}
-              initial={{ opacity: 0, x: 300, scale: 0.8 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 300, scale: 0.8 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className={`${config.bg} text-white rounded-xl p-4 shadow-2xl pointer-events-auto`}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="bg-card/95 backdrop-blur-md rounded-xl border border-border shadow-lg pointer-events-auto"
             >
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <Icon className="w-5 h-5" />
+              {/* Color accent */}
+              <div
+                className="h-0.5 rounded-t-xl"
+                style={{ backgroundColor: config.color }}
+              />
+
+              <div className="px-4 py-3 flex items-start gap-3">
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                  style={{ backgroundColor: config.color + "12" }}
+                >
+                  <Icon
+                    className="w-3.5 h-3.5"
+                    style={{ color: config.color }}
+                  />
                 </div>
+
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-display text-sm font-bold uppercase tracking-wide">
+                  <p className="text-xs font-bold text-foreground leading-tight">
                     {announcement.title}
-                  </h4>
-                  <p className="text-sm mt-1 opacity-90 line-clamp-3">
+                  </p>
+                  <p className="text-[11px] text-muted mt-0.5 line-clamp-2 leading-snug">
                     {announcement.body}
                   </p>
                 </div>
+
                 <button
-                  onClick={() => dismissAnnouncement(announcement.id)}
-                  className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                  onClick={() => handleDismiss(announcement.id)}
+                  className="p-1 rounded-md text-muted hover:text-foreground hover:bg-background transition-colors shrink-0"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             </motion.div>

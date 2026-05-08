@@ -1,14 +1,26 @@
 -- ============================================
 -- Casualympics™ Database Schema
--- Run this in the Supabase SQL Editor
+-- ============================================
+-- This schema has been split into individual files under supabase/schemas/
+-- Run them in order, or use this combined file.
+--
+-- Individual files:
+--   01_extensions.sql  - UUID extension
+--   02_users.sql       - Users table & RLS
+--   03_teams.sql       - Teams + team members & RLS
+--   04_events.sql      - Events table & RLS
+--   05_scores.sql      - Scores, leaderboard view & trigger
+--   06_announcements.sql - Announcements + reads & RLS
+--   07_audit.sql       - Admin audit log + user activity log
+--   08_schedule.sql    - Schedule entries & RLS
+--   09_functions.sql   - Triggers (auto-create user profile)
+--   10_storage.sql     - Avatar storage bucket & policies
 -- ============================================
 
--- Enable UUID generation
+-- 01: Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ============================================
--- USERS TABLE (extends Supabase auth.users)
--- ============================================
+-- 02: Users
 CREATE TABLE public.users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
@@ -32,9 +44,7 @@ CREATE POLICY "Users can update own profile" ON public.users
 CREATE POLICY "Users can insert own profile" ON public.users
   FOR INSERT WITH CHECK (auth.uid() = id);
 
--- ============================================
--- TEAMS TABLE
--- ============================================
+-- 03: Teams
 CREATE TABLE public.teams (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT UNIQUE NOT NULL CHECK (char_length(name) BETWEEN 3 AND 30),
@@ -67,9 +77,6 @@ CREATE POLICY "Admins can delete teams" ON public.teams
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
   );
 
--- ============================================
--- TEAM MEMBERS (Junction Table)
--- ============================================
 CREATE TABLE public.team_members (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   team_id UUID NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
@@ -98,9 +105,7 @@ CREATE POLICY "Captains can manage memberships" ON public.team_members
     EXISTS (SELECT 1 FROM public.teams WHERE id = team_id AND captain_id = auth.uid())
   );
 
--- ============================================
--- EVENTS TABLE
--- ============================================
+-- 04: Events
 CREATE TABLE public.events (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
@@ -139,9 +144,7 @@ CREATE POLICY "Admins can delete events" ON public.events
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
   );
 
--- ============================================
--- SCORES TABLE
--- ============================================
+-- 05: Scores + Leaderboard
 CREATE TABLE public.scores (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
@@ -174,9 +177,36 @@ CREATE POLICY "Admins can delete scores" ON public.scores
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
   );
 
--- ============================================
--- ANNOUNCEMENTS TABLE
--- ============================================
+CREATE MATERIALIZED VIEW public.mv_leaderboard AS
+SELECT
+  t.id AS team_id,
+  t.name AS team_name,
+  t.color AS team_color,
+  t.avatar_url AS team_avatar_url,
+  COALESCE(SUM(s.value), 0)::INTEGER AS total_points,
+  COUNT(DISTINCT s.event_id)::INTEGER AS event_count,
+  RANK() OVER (ORDER BY COALESCE(SUM(s.value), 0) DESC)::INTEGER AS rank
+FROM public.teams t
+LEFT JOIN public.scores s ON s.team_id = t.id
+GROUP BY t.id, t.name, t.color, t.avatar_url
+ORDER BY total_points DESC;
+
+CREATE UNIQUE INDEX idx_mv_leaderboard_team ON public.mv_leaderboard(team_id);
+
+CREATE OR REPLACE FUNCTION refresh_leaderboard()
+RETURNS TRIGGER AS $$
+BEGIN
+  REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_leaderboard;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_refresh_leaderboard
+AFTER INSERT OR UPDATE OR DELETE ON public.scores
+FOR EACH STATEMENT
+EXECUTE FUNCTION refresh_leaderboard();
+
+-- 06: Announcements
 CREATE TABLE public.announcements (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title TEXT NOT NULL,
@@ -209,9 +239,6 @@ CREATE POLICY "Admins can delete announcements" ON public.announcements
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
   );
 
--- ============================================
--- ANNOUNCEMENT READS TABLE
--- ============================================
 CREATE TABLE public.announcement_reads (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   announcement_id UUID NOT NULL REFERENCES public.announcements(id) ON DELETE CASCADE,
@@ -228,9 +255,7 @@ CREATE POLICY "Users can view own reads" ON public.announcement_reads
 CREATE POLICY "Users can mark as read" ON public.announcement_reads
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- ============================================
--- AUDIT LOG TABLE
--- ============================================
+-- 07: Audit + User Activity
 CREATE TABLE public.audit_log (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   actor_id UUID NOT NULL REFERENCES public.users(id),
@@ -253,91 +278,25 @@ CREATE POLICY "Admins can insert audit log" ON public.audit_log
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
   );
 
--- ============================================
--- MATERIALIZED VIEW: LEADERBOARD
--- ============================================
-CREATE MATERIALIZED VIEW public.mv_leaderboard AS
-SELECT
-  t.id AS team_id,
-  t.name AS team_name,
-  t.color AS team_color,
-  t.avatar_url AS team_avatar_url,
-  COALESCE(SUM(s.value), 0)::INTEGER AS total_points,
-  COUNT(DISTINCT s.event_id)::INTEGER AS event_count,
-  RANK() OVER (ORDER BY COALESCE(SUM(s.value), 0) DESC)::INTEGER AS rank
-FROM public.teams t
-LEFT JOIN public.scores s ON s.team_id = t.id
-GROUP BY t.id, t.name, t.color, t.avatar_url
-ORDER BY total_points DESC;
-
--- Index for fast lookups
-CREATE UNIQUE INDEX idx_mv_leaderboard_team ON public.mv_leaderboard(team_id);
-
--- ============================================
--- FUNCTION: Refresh leaderboard on score change
--- ============================================
-CREATE OR REPLACE FUNCTION refresh_leaderboard()
-RETURNS TRIGGER AS $$
-BEGIN
-  REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_leaderboard;
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_refresh_leaderboard
-AFTER INSERT OR UPDATE OR DELETE ON public.scores
-FOR EACH STATEMENT
-EXECUTE FUNCTION refresh_leaderboard();
-
--- ============================================
--- FUNCTION: Auto-create user profile on signup
--- ============================================
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.users (id, email, display_name, profile_completed)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'display_name', split_part(NEW.email, '@', 1)),
-    false
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-AFTER INSERT ON auth.users
-FOR EACH ROW
-EXECUTE FUNCTION handle_new_user();
-
--- ============================================
--- STORAGE BUCKET: avatars
--- ============================================
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'avatars',
-  'avatars',
-  true,
-  2097152, -- 2MB
-  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+CREATE TABLE public.user_activity (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id),
+  action TEXT NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE POLICY "Avatar images are publicly accessible" ON storage.objects
-  FOR SELECT USING (bucket_id = 'avatars');
+ALTER TABLE public.user_activity ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Authenticated users can upload avatars" ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+CREATE POLICY "Admins can view user activity" ON public.user_activity
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+  );
 
-CREATE POLICY "Users can update own avatars" ON storage.objects
-  FOR UPDATE USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+CREATE POLICY "Any authenticated user can insert own activity" ON public.user_activity
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete own avatars" ON storage.objects
-  FOR DELETE USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
-
--- ============================================
--- SCHEDULE ENTRIES TABLE
--- ============================================
+-- 08: Schedule
 CREATE TABLE public.schedule_entries (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title TEXT NOT NULL,
@@ -375,3 +334,45 @@ CREATE POLICY "Admins can delete schedule entries" ON public.schedule_entries
   );
 
 ALTER PUBLICATION supabase_realtime ADD TABLE public.schedule_entries;
+
+-- 09: Functions
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (id, email, display_name, profile_completed)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'display_name', split_part(NEW.email, '@', 1)),
+    false
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW
+EXECUTE FUNCTION handle_new_user();
+
+-- 10: Storage
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'avatars',
+  'avatars',
+  true,
+  2097152,
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+);
+
+CREATE POLICY "Avatar images are publicly accessible" ON storage.objects
+  FOR SELECT USING (bucket_id = 'avatars');
+
+CREATE POLICY "Authenticated users can upload avatars" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+
+CREATE POLICY "Users can update own avatars" ON storage.objects
+  FOR UPDATE USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Users can delete own avatars" ON storage.objects
+  FOR DELETE USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);

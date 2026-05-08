@@ -68,6 +68,48 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 - Updated all 6 Supabase email templates (signup confirmation, invite, reset password, magic link, reauthentication, email change)
 - Updated database schema comment and seed script
 
+### Landing Page
+- Redesigned landing page with a minimal, clean layout
+  - Simplified hero: large two-tone title, event date badge, compact stat row, softer background blurs
+  - Quick-links strip below hero with icon + label for Leaderboard, Teams, Schedule, Rules
+  - Events section split into Solo and Team grids with compact event cards (icon, name, scoring type)
+  - Streamlined CTA section with medal icon and concise copy
+  - Removed features grid section in favor of direct navigation
+  - Narrower max-width (max-w-5xl) for a more focused reading experience
+- Added countdown timer targeting Aug 8, 2026 at 10 AM
+  - `useCountdown` hook with interval-based updates
+  - Shows days, hours, minutes, seconds with tabular-nums for stable widths
+  - Displays "Game Day is Here!" message when countdown reaches zero
+- Updated hero tagline to "Get your teams together. Let's have some fun."
+
+### Leaderboard
+- Converted from multi-page to single-page inline event view
+  - Event buttons toggle selection to show scores inline
+  - "Overall" link returns to main leaderboard view
+  - Handles both solo and team scoring display
+
+### Announcements
+- Replaced persistent banner with subtle toast notifications
+  - Bottom-right positioned, frosted glass styling
+  - Fetches latest announcement on mount (late arrivals see it)
+  - Real-time subscription for new announcements
+  - SessionStorage tracking for dismissed announcements
+  - Color accent line and type-colored icon
+
+### User Activity Tracking
+- Created `user_activity` database table with RLS policies
+- Added `logActivity()` helper function in `src/lib/audit.ts`
+- Tracks user actions: sign-in, team creation, team join, team leave
+- Activity logged from login, team create, and team detail pages
+
+### Admin Audit Log Page (`/admin/audit`)
+- Two-tab interface: "Admin Actions" and "User Activity"
+- Admin tab: filters by action type and actor, sort order toggle, paginated table (25/page)
+- User tab: filters by action type and user, sort order toggle, paginated table
+- Server-side filtering via Supabase `.eq()` queries with `.range()` pagination
+- Reusable `Pagination` component
+- Added "Activity Logs" link to admin dashboard with ScrollText icon
+
 ### Project
 - Created `CHANGELOG.md` to track features added per commit
 

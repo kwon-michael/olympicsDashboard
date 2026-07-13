@@ -12,11 +12,14 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { PageTransition } from "@/components/ui/page-transition";
+import { logAudit } from "@/lib/audit";
 
 interface AuditEntry {
   id: string;
@@ -65,6 +68,7 @@ const adminActionLabels: Record<string, string> = {
   create: "Created",
   update: "Updated",
   delete: "Deleted",
+  clear: "Cleared",
 };
 
 const userActionLabels: Record<string, string> = {
@@ -105,6 +109,10 @@ export default function AdminAuditPage() {
   const [adminActions, setAdminActions] = useState<string[]>([]);
   const [userList, setUserList] = useState<{ id: string; name: string }[]>([]);
   const [userActions, setUserActions] = useState<string[]>([]);
+
+  // Clear-log confirmation
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   // Fetch admin audit entries
   async function fetchAudit() {
@@ -148,44 +156,74 @@ export default function AdminAuditPage() {
     setActivityLoading(false);
   }
 
+  // Load filter dropdown options from the current log data
+  async function loadFilterData() {
+    const [auditRes, activityRes, usersRes] = await Promise.all([
+      supabase
+        .from("audit_log")
+        .select("action, actor_id, actor:users!audit_log_actor_id_fkey(display_name)"),
+      supabase.from("user_activity").select("action, user_id, user:users!user_activity_user_id_fkey(display_name)"),
+      supabase.from("users").select("id, display_name").order("display_name"),
+    ]);
+
+    // Extract unique admin actions and actors
+    const aActions = new Set<string>();
+    const aActors = new Map<string, string>();
+    for (const row of (auditRes.data ?? []) as any[]) {
+      aActions.add(row.action);
+      const name = getDisplayName(row.actor);
+      if (name !== "Unknown") {
+        aActors.set(row.actor_id, name);
+      }
+    }
+    setAdminActions([...aActions].sort());
+    setAdminActors(
+      [...aActors.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+    );
+
+    // Extract unique user actions
+    const uActions = new Set<string>();
+    for (const row of (activityRes.data ?? []) as any[]) {
+      uActions.add(row.action);
+    }
+    setUserActions([...uActions].sort());
+
+    setUserList(
+      (usersRes.data ?? []).map((u) => ({ id: u.id, name: u.display_name }))
+    );
+  }
+
+  // Delete every row from the active tab's log. The clear itself is recorded
+  // in the admin audit log for accountability.
+  async function clearLog() {
+    setClearing(true);
+    const table = tab === "admin" ? "audit_log" : "user_activity";
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+
+    if (!error) {
+      await logAudit(supabase, "clear", table, table, { scope: "all" });
+      if (tab === "admin") {
+        setAuditFilterAction("");
+        setAuditFilterActor("");
+        setAuditPage(1);
+        await fetchAudit();
+      } else {
+        setActivityFilterAction("");
+        setActivityFilterUser("");
+        setActivityPage(1);
+        await fetchActivity();
+      }
+      await loadFilterData();
+    }
+    setClearing(false);
+    setShowClearModal(false);
+  }
+
   // Bootstrap: load filter options
   useEffect(() => {
-    async function loadFilterData() {
-      const [auditRes, activityRes, usersRes] = await Promise.all([
-        supabase
-          .from("audit_log")
-          .select("action, actor_id, actor:users!audit_log_actor_id_fkey(display_name)"),
-        supabase.from("user_activity").select("action, user_id, user:users!user_activity_user_id_fkey(display_name)"),
-        supabase.from("users").select("id, display_name").order("display_name"),
-      ]);
-
-      // Extract unique admin actions and actors
-      const aActions = new Set<string>();
-      const aActors = new Map<string, string>();
-      for (const row of (auditRes.data ?? []) as any[]) {
-        aActions.add(row.action);
-        const name = getDisplayName(row.actor);
-        if (name !== "Unknown") {
-          aActors.set(row.actor_id, name);
-        }
-      }
-      setAdminActions([...aActions].sort());
-      setAdminActors(
-        [...aActors.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
-      );
-
-      // Extract unique user actions
-      const uActions = new Set<string>();
-      for (const row of (activityRes.data ?? []) as any[]) {
-        uActions.add(row.action);
-      }
-      setUserActions([...uActions].sort());
-
-      setUserList(
-        (usersRes.data ?? []).map((u) => ({ id: u.id, name: u.display_name }))
-      );
-    }
-
     loadFilterData();
   }, []);
 
@@ -211,18 +249,28 @@ export default function AdminAuditPage() {
           Back to Admin
         </Link>
 
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-xl bg-muted/10 flex items-center justify-center">
-            <ScrollText className="w-6 h-6 text-muted" />
+        <div className="flex items-start justify-between gap-3 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-muted/10 flex items-center justify-center">
+              <ScrollText className="w-6 h-6 text-muted" />
+            </div>
+            <div>
+              <h1 className="font-display text-2xl font-bold text-foreground">
+                ACTIVITY LOGS
+              </h1>
+              <p className="text-sm text-muted">
+                Track admin actions and user activity
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-display text-2xl font-bold text-foreground">
-              ACTIVITY LOGS
-            </h1>
-            <p className="text-sm text-muted">
-              Track admin actions and user activity
-            </p>
-          </div>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setShowClearModal(true)}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            {tab === "admin" ? "Clear admin log" : "Clear user activity"}
+          </Button>
         </div>
 
         {/* Tab toggle */}
@@ -369,6 +417,45 @@ export default function AdminAuditPage() {
                 </>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Clear confirmation modal */}
+        {showClearModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-card rounded-2xl border border-border shadow-2xl w-full max-w-md p-6"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-11 h-11 rounded-xl bg-danger/10 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-danger" />
+                </div>
+                <h2 className="font-display text-lg font-bold text-foreground">
+                  {tab === "admin" ? "Clear admin log?" : "Clear user activity?"}
+                </h2>
+              </div>
+              <p className="text-sm text-muted mb-6">
+                This permanently deletes{" "}
+                <span className="font-semibold text-foreground">all</span>{" "}
+                {tab === "admin" ? "admin action" : "user activity"} entries. This
+                cannot be undone.
+              </p>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setShowClearModal(false)}
+                  disabled={clearing}
+                  className="text-sm text-muted hover:text-foreground transition-colors px-4 py-2 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <Button variant="danger" size="sm" loading={clearing} onClick={clearLog}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Clear log
+                </Button>
+              </div>
+            </motion.div>
           </div>
         )}
 

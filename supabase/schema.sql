@@ -278,6 +278,11 @@ CREATE POLICY "Admins can insert audit log" ON public.audit_log
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
   );
 
+CREATE POLICY "Admins can delete audit log" ON public.audit_log
+  FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+  );
+
 CREATE TABLE public.user_activity (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES public.users(id),
@@ -296,6 +301,11 @@ CREATE POLICY "Admins can view user activity" ON public.user_activity
 CREATE POLICY "Any authenticated user can insert own activity" ON public.user_activity
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Admins can delete user activity" ON public.user_activity
+  FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+  );
+
 -- 08: Schedule
 CREATE TABLE public.schedule_entries (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -307,6 +317,9 @@ CREATE TABLE public.schedule_entries (
   category TEXT NOT NULL DEFAULT 'general'
     CHECK (category IN ('ceremony', 'solo_event', 'team_event', 'break', 'general')),
   event_slug TEXT,
+  section TEXT,
+  section_note TEXT,
+  lead TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_by UUID NOT NULL REFERENCES public.users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -354,6 +367,32 @@ CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW
 EXECUTE FUNCTION handle_new_user();
+
+-- Prevent privilege escalation: a signed-in user cannot change their own role
+-- (the "Users can update own profile" policy otherwise allows it). Role changes
+-- are only permitted for the service role (used by the admin sign-up API)
+-- or for admins.
+CREATE OR REPLACE FUNCTION public.enforce_role_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.role IS DISTINCT FROM OLD.role THEN
+    IF COALESCE(current_setting('request.jwt.claims', true)::jsonb ->> 'role', '') = 'service_role' THEN
+      RETURN NEW;
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'
+    ) THEN
+      RAISE EXCEPTION 'Only admins can change user roles';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trigger_enforce_role_change
+BEFORE UPDATE ON public.users
+FOR EACH ROW
+EXECUTE FUNCTION public.enforce_role_change();
 
 -- 10: Storage
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

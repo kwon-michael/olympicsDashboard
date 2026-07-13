@@ -23,6 +23,11 @@ CREATE POLICY "Admins can insert audit log" ON public.audit_log
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
   );
 
+CREATE POLICY "Admins can delete audit log" ON public.audit_log
+  FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+  );
+
 -- ============================================
 -- USER ACTIVITY LOG TABLE
 -- ============================================
@@ -43,3 +48,8 @@ CREATE POLICY "Admins can view user activity" ON public.user_activity
 
 CREATE POLICY "Any authenticated user can insert own activity" ON public.user_activity
   FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins can delete user activity" ON public.user_activity
+  FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+  );

@@ -25,6 +25,9 @@ export interface EntryFormData {
   location: string;
   category: ScheduleCategory;
   event_slug: string;
+  section: string;
+  section_note: string;
+  lead: string;
 }
 
 interface ScheduleEntryFormProps {
@@ -74,6 +77,20 @@ export function ScheduleEntryForm({
       </div>
 
       <Input
+        label="Section"
+        value={form.section}
+        onChange={(e) => onChange({ ...form, section: e.target.value })}
+        placeholder="e.g., Solo Events"
+      />
+
+      <Input
+        label="Section Note"
+        value={form.section_note}
+        onChange={(e) => onChange({ ...form, section_note: e.target.value })}
+        placeholder="Optional note shown under the section header"
+      />
+
+      <Input
         label="Title"
         value={form.title}
         onChange={(e) => onChange({ ...form, title: e.target.value })}
@@ -100,6 +117,13 @@ export function ScheduleEntryForm({
         value={form.location}
         onChange={(e) => onChange({ ...form, location: e.target.value })}
         placeholder="e.g., Main Field"
+      />
+
+      <Input
+        label="Lead"
+        value={form.lead}
+        onChange={(e) => onChange({ ...form, lead: e.target.value })}
+        placeholder="e.g., 2 officials per event"
       />
 
       <Select

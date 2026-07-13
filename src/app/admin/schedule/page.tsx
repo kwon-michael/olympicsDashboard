@@ -29,6 +29,9 @@ const emptyForm: EntryFormData = {
   location: "",
   category: "general" as ScheduleCategory,
   event_slug: "",
+  section: "",
+  section_note: "",
+  lead: "",
 };
 
 export default function AdminSchedulePage() {
@@ -73,6 +76,9 @@ export default function AdminSchedulePage() {
       location: entry.location ?? "",
       category: entry.category,
       event_slug: entry.event_slug ?? "",
+      section: entry.section ?? "",
+      section_note: entry.section_note ?? "",
+      lead: entry.lead ?? "",
     });
     setShowForm(true);
   }
@@ -113,6 +119,9 @@ export default function AdminSchedulePage() {
       location: form.location.trim() || null,
       category: form.category,
       event_slug: form.event_slug || null,
+      section: form.section.trim() || null,
+      section_note: form.section_note.trim() || null,
+      lead: form.lead.trim() || null,
     };
 
     if (editingId) {

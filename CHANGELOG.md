@@ -115,6 +115,30 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.08 — Admin-only access, schedule sections & audit log clearing
+
+### Authentication & Access
+- Restricted sign-in to admin accounts only — non-admins can hold an account but cannot sign in
+- New code-gated sign-up: `/signup` now takes a shared access code (`ADMIN_SIGNUP_CODE`) + email + password and creates an admin account directly via a server-side route using the Supabase service-role key — no schema edits needed to onboard an admin
+- Replaced the email-OTP and Google OAuth sign-up/sign-in flows with email + password
+- Enforced the admin gate in middleware, the login page, and the OAuth callback (account setup/recovery links stay reachable)
+- Added a role-escalation guard trigger so a user cannot change their own role (only admins / the service role can)
+
+### Schedule
+- Added `section`, `section_note`, and `lead` columns to schedule entries
+- Public schedule timeline now groups entries into phase sections (Pre-Event, Solo Events, Lunch, Team Events, Wrap-Up) with an auto-computed time range, optional section note, and a Lead per entry; default view switched to the grouped timeline
+- Admin schedule form gained Section, Section Note, and Lead fields
+- Seeded the full event-day schedule (`supabase/seed_schedule.sql`)
+
+### Audit Log
+- Added a "Clear log" action with confirmation modal on the activity logs page — clears the admin audit log or user activity log for the active tab, and records the clear itself for accountability
+- Added admin DELETE RLS policies for `audit_log` and `user_activity`
+
+### Database
+- New one-time migration scripts: `migrate_remove_organizer.sql`, `migrate_clear_logs.sql`, `seed_schedule.sql`
+
+---
+
 ## v1.07 — Scoring system & event updates
 
 ### Event Rules

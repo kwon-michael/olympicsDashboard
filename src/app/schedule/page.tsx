@@ -68,7 +68,7 @@ export default function SchedulePage() {
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentMinutes, setCurrentMinutes] = useState(getCurrentTimeMinutes());
-  const [view, setView] = useState<ViewMode>("calendar");
+  const [view, setView] = useState<ViewMode>("timeline");
 
   async function fetchEntries() {
     const { data } = await supabase
@@ -175,6 +175,29 @@ export default function SchedulePage() {
   );
 }
 
+interface ScheduleSection {
+  section: string | null;
+  note: string | null;
+  items: ScheduleEntry[];
+}
+
+function groupBySection(entries: ScheduleEntry[]): ScheduleSection[] {
+  const groups: ScheduleSection[] = [];
+  for (const entry of entries) {
+    const key = entry.section?.trim() || null;
+    let group = groups.find((g) => g.section === key);
+    if (!group) {
+      group = { section: key, note: null, items: [] };
+      groups.push(group);
+    }
+    if (!group.note && entry.section_note?.trim()) {
+      group.note = entry.section_note.trim();
+    }
+    group.items.push(entry);
+  }
+  return groups;
+}
+
 function TimelineView({
   entries,
   currentMinutes,
@@ -182,105 +205,139 @@ function TimelineView({
   entries: ScheduleEntry[];
   currentMinutes: number;
 }) {
+  const sections = groupBySection(entries);
+
   return (
-    <StaggerContainer className="relative">
-      {/* Vertical timeline line */}
-      <div className="absolute left-[23px] top-0 bottom-0 w-0.5 bg-border" />
-
-      {entries.map((entry) => {
-        const event = entry.event_slug
-          ? getEventBySlug(entry.event_slug)
-          : null;
-        const config =
-          categoryConfig[entry.category] ?? categoryConfig.general;
-        const color = event?.color ?? config.color;
-        const Icon = event?.icon ?? config.icon;
-
-        const entryStart = timeToMinutes(entry.start_time);
-        const entryEnd = timeToMinutes(entry.end_time);
-        const today = isEventDay();
-        const isActive =
-          today && currentMinutes >= entryStart && currentMinutes < entryEnd;
-        const isPast = today && currentMinutes >= entryEnd;
+    <StaggerContainer className="space-y-10">
+      {sections.map((section, i) => {
+        const first = section.items[0];
+        const last = section.items.reduce((a, b) =>
+          timeToMinutes(b.end_time) > timeToMinutes(a.end_time) ? b : a
+        );
+        const rangeLabel = `${formatTime(first.start_time)} – ${formatTime(
+          last.end_time
+        )}`;
 
         return (
-          <StaggerItem key={entry.id}>
-            <div
-              className={`relative flex gap-4 pb-8 ${
-                isPast ? "opacity-50" : ""
-              }`}
-            >
-              {/* Timeline dot */}
-              <div className="relative z-10 shrink-0">
-                <div
-                  className={`w-[48px] h-[48px] rounded-xl flex items-center justify-center ${
-                    isActive
-                      ? "ring-2 ring-offset-2 ring-offset-background"
-                      : ""
-                  }`}
-                  style={{
-                    backgroundColor: color + "15",
-                    ...(isActive ? { ringColor: color } : {}),
-                  }}
-                >
-                  <Icon className="w-5 h-5" style={{ color }} />
-                </div>
-                {isActive && (
-                  <span
-                    className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse"
-                    style={{ backgroundColor: color }}
-                  />
-                )}
-              </div>
-
-              {/* Content */}
-              <div
-                className={`flex-1 bg-card rounded-xl border p-5 ${
-                  isActive ? "border-current shadow-lg" : "border-border"
-                }`}
-                style={isActive ? { borderColor: color } : undefined}
-              >
-                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                  <span
-                    className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                    style={{
-                      backgroundColor: color + "15",
-                      color,
-                    }}
-                  >
-                    {event ? event.name : config.label}
-                  </span>
-                  {isActive && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-white px-2 py-0.5 rounded-full bg-coral animate-pulse">
-                      Now
-                    </span>
-                  )}
-                </div>
-
-                <h3 className="font-display text-lg font-bold text-foreground">
-                  {entry.title}
-                </h3>
-
-                <div className="flex items-center gap-4 mt-2 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 text-xs text-muted">
-                    <Clock className="w-3.5 h-3.5" />
-                    {formatTime(entry.start_time)} –{" "}
-                    {formatTime(entry.end_time)}
-                  </span>
-                  {entry.location && (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-muted">
-                      <MapPin className="w-3.5 h-3.5" />
-                      {entry.location}
-                    </span>
-                  )}
-                </div>
-
-                {entry.description && (
-                  <p className="text-sm text-muted mt-3 leading-relaxed">
-                    {entry.description}
+          <StaggerItem key={section.section ?? `section-${i}`}>
+            {section.section && (
+              <div className="mb-5 border-l-4 border-coral pl-4">
+                <h2 className="font-display text-xl sm:text-2xl font-bold text-foreground">
+                  {section.section}
+                </h2>
+                <span className="inline-flex items-center gap-1.5 text-sm text-muted mt-1">
+                  <Clock className="w-4 h-4" />
+                  {rangeLabel}
+                </span>
+                {section.note && (
+                  <p className="text-sm text-muted italic mt-1.5 max-w-2xl">
+                    {section.note}
                   </p>
                 )}
               </div>
+            )}
+
+            <div className="space-y-4">
+              {section.items.map((entry) => {
+                const event = entry.event_slug
+                  ? getEventBySlug(entry.event_slug)
+                  : null;
+                const config =
+                  categoryConfig[entry.category] ?? categoryConfig.general;
+                const color = event?.color ?? config.color;
+                const Icon = event?.icon ?? config.icon;
+
+                const entryStart = timeToMinutes(entry.start_time);
+                const entryEnd = timeToMinutes(entry.end_time);
+                const today = isEventDay();
+                const isActive =
+                  today &&
+                  currentMinutes >= entryStart &&
+                  currentMinutes < entryEnd;
+                const isPast = today && currentMinutes >= entryEnd;
+
+                return (
+                  <div
+                    key={entry.id}
+                    className={`flex gap-4 ${isPast ? "opacity-50" : ""}`}
+                  >
+                    {/* Icon */}
+                    <div className="relative z-10 shrink-0">
+                      <div
+                        className={`w-[48px] h-[48px] rounded-xl flex items-center justify-center ${
+                          isActive
+                            ? "ring-2 ring-offset-2 ring-offset-background"
+                            : ""
+                        }`}
+                        style={{
+                          backgroundColor: color + "15",
+                          ...(isActive ? { ringColor: color } : {}),
+                        }}
+                      >
+                        <Icon className="w-5 h-5" style={{ color }} />
+                      </div>
+                      {isActive && (
+                        <span
+                          className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse"
+                          style={{ backgroundColor: color }}
+                        />
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div
+                      className={`flex-1 bg-card rounded-xl border p-5 ${
+                        isActive ? "border-current shadow-lg" : "border-border"
+                      }`}
+                      style={isActive ? { borderColor: color } : undefined}
+                    >
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span
+                          className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: color + "15", color }}
+                        >
+                          {event ? event.name : config.label}
+                        </span>
+                        {isActive && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-white px-2 py-0.5 rounded-full bg-coral animate-pulse">
+                            Now
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="font-display text-lg font-bold text-foreground">
+                        {entry.title}
+                      </h3>
+
+                      <div className="flex items-center gap-4 mt-2 flex-wrap">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+                          <Clock className="w-3.5 h-3.5" />
+                          {formatTime(entry.start_time)} –{" "}
+                          {formatTime(entry.end_time)}
+                        </span>
+                        {entry.location && (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+                            <MapPin className="w-3.5 h-3.5" />
+                            {entry.location}
+                          </span>
+                        )}
+                        {entry.lead && (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+                            <Users className="w-3.5 h-3.5" />
+                            Lead: {entry.lead}
+                          </span>
+                        )}
+                      </div>
+
+                      {entry.description && (
+                        <p className="text-sm text-muted mt-3 leading-relaxed">
+                          {entry.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </StaggerItem>
         );

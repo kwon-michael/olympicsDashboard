@@ -11,6 +11,9 @@ CREATE TABLE public.schedule_entries (
   category TEXT NOT NULL DEFAULT 'general'
     CHECK (category IN ('ceremony', 'solo_event', 'team_event', 'break', 'general')),
   event_slug TEXT,
+  section TEXT,
+  section_note TEXT,
+  lead TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_by UUID NOT NULL REFERENCES public.users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

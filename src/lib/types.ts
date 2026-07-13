@@ -114,6 +114,9 @@ export interface ScheduleEntry {
   location: string | null;
   category: ScheduleCategory;
   event_slug: string | null;
+  section: string | null;
+  section_note: string | null;
+  lead: string | null;
   sort_order: number;
   created_by: string;
   created_at: string;

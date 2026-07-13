@@ -1,5 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { canSignIn } from "@/lib/auth";
+import type { UserRole } from "@/lib/types";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -70,10 +72,16 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Admin routes require admin role
-    if (request.nextUrl.pathname.startsWith("/admin") && profile?.role !== "admin") {
+    // Authenticated app areas require an admin account. Everyone else can hold
+    // an account but can't sign in and use the app.
+    const adminPaths = ["/dashboard", "/teams/create", "/admin"];
+    if (
+      adminPaths.some((path) => request.nextUrl.pathname.startsWith(path)) &&
+      !canSignIn(profile?.role as UserRole | undefined)
+    ) {
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      url.pathname = "/login";
+      url.searchParams.set("error", "not_admin");
       return NextResponse.redirect(url);
     }
   }

@@ -8,7 +8,11 @@
       "Bash(Get-ChildItem -Path \"C:\\\\michael\\\\olympicsDashboard\" -Directory)",
       "Bash(Select-Object Name)",
       "Bash(xargs grep *)",
-      "PowerShell(mkdir C:\\\\michael\\\\olympicsDashboard\\\\src\\\\app\\\\admin\\\\audit)"
+      "PowerShell(mkdir C:\\\\michael\\\\olympicsDashboard\\\\src\\\\app\\\\admin\\\\audit)",
+      "PowerShell(npx tsc --noEmit -p tsconfig.json)",
+      "PowerShell(npx tsc --noEmit -p tsconfig.json; if \\($?\\) { $errs = npm run lint 2>&1 | Select-String -Pattern \": error\" | Measure-Object | Select-Object -ExpandProperty Count; Write-Output \"Total lint errors: $errs\" })",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

@@ -17,6 +17,35 @@ import type { LucideIcon } from "lucide-react";
 
 export type ScoringInput = "time" | "distance" | "points";
 
+/**
+ * A single scored input the admin enters for a team-event result.
+ *  - "placement": a finishing position (1st, 2nd, …) mapped to points via `placementPoints`
+ *  - "tally":     a counted quantity (round wins, eliminations, tails …) worth `pointsEach`
+ */
+export interface TeamScoreComponent {
+  key: string;
+  label: string;
+  kind: "placement" | "tally";
+  /** kind === "placement" — points for each place, index 0 = 1st */
+  placementPoints?: number[];
+  /** kind === "tally" — points awarded per counted unit */
+  pointsEach?: number;
+}
+
+/**
+ * How a team event's points are derived on the dashboard.
+ *  - "rank-by-time":  admin records a time per team; the dashboard ranks teams
+ *                     (fastest first) and awards points from `placementScale`.
+ *  - "components":    admin enters each component per team; value = sum of components.
+ */
+export interface TeamScoringConfig {
+  method: "rank-by-time" | "components";
+  /** method === "rank-by-time" — points by finishing rank, index 0 = 1st */
+  placementScale?: number[];
+  /** method === "components" */
+  components?: TeamScoreComponent[];
+}
+
 export interface EventRule {
   slug: string;
   name: string;
@@ -34,6 +63,7 @@ export interface EventRule {
   setup: string[];
   tips?: string[];
   conditions?: string[];
+  teamScoring?: TeamScoringConfig;
 }
 
 /* ------------------------------------------------------------------ */
@@ -104,6 +134,64 @@ export function getUnitLabel(mode: ScoringInput): string {
   return "Points";
 }
 
+/**
+ * Placement points awarded for a finishing rank in a synchronous solo event.
+ *   1st = 7, 2nd = 5, 3rd = 3, 4th = 2, 5th = 1, below = 0.
+ * (9 participants per solo event.)
+ */
+export function getSoloPlacementPoints(rank: number): number {
+  switch (rank) {
+    case 1:
+      return 7;
+    case 2:
+      return 5;
+    case 3:
+      return 3;
+    case 4:
+      return 2;
+    case 5:
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Placement points for the timed team relay, awarded by finishing rank.
+ *   1st = 15, 2nd = 12, 3rd = 10, 4th = 8, 5th = 6,
+ *   6th = 5, 7th = 3, 8th = 2, 9th = 1, 10th+ = 0.
+ */
+const RELAY_PLACEMENT_POINTS = [15, 12, 10, 8, 6, 5, 3, 2, 1];
+
+export function getRelayPlacementPoints(rank: number): number {
+  return RELAY_PLACEMENT_POINTS[rank - 1] ?? 0;
+}
+
+/**
+ * Compute a team-event result value from component inputs (placements + tallies).
+ * `inputs` is keyed by component `key`; blank/invalid entries contribute 0.
+ */
+export function computeTeamComponentValue(
+  components: TeamScoreComponent[],
+  inputs: Record<string, string>
+): number {
+  let total = 0;
+  for (const c of components) {
+    const raw = (inputs[c.key] ?? "").trim();
+    if (raw === "") continue;
+    const n = parseInt(raw, 10);
+    if (isNaN(n)) continue;
+    if (c.kind === "placement") {
+      if (n >= 1 && c.placementPoints) {
+        total += c.placementPoints[n - 1] ?? 0;
+      }
+    } else if (n > 0) {
+      total += n * (c.pointsEach ?? 0);
+    }
+  }
+  return total;
+}
+
 /** Look up the scoring input mode for a given event slug */
 export function getScoringInputBySlug(slug: string): ScoringInput {
   const ev = allEvents.find((e) => e.slug === slug);
@@ -129,7 +217,7 @@ export const soloEvents: EventRule[] = [
     attempts: "2 attempts per participant",
     equipment: ["Measuring tape", "Rake", "Start line marker"],
     rules: [
-      "Participants must start their jump from behind the line (on the line counts as a fault)",
+      "Participants must start their jump from behind the line (starting on the line counts as a fault, and this counts as an attempt)",
       "Distance is measured from the start line to the most proximal body part upon landing (hands included)",
       "Both attempts are recorded; the best distance counts",
       "No running start permitted — both feet must remain stationary before the jump",
@@ -279,35 +367,6 @@ export const soloEvents: EventRule[] = [
 
 export const teamEvents: EventRule[] = [
   {
-    slug: "7-legged-race",
-    name: "7-Legged Race",
-    category: "Coordination",
-    type: "team",
-    scoringInput: "time",
-    description:
-      "Teams are tied together at the ankles and must move as one connected unit to cross the finish line first. Move together with good communication and rhythm or else you won't move at all.",
-    icon: Footprints,
-    color: "#3B82F6",
-    participants: "Full team (tied together)",
-    equipment: [
-      "Rope or straps for ankle ties",
-      "Stopwatch (one per team)",
-      "Whistle",
-    ],
-    rules: [
-      "2–3 teams race simultaneously in parallel lines",
-      "All team members stand in a line and are tied at the ankles with rope",
-      "Teams are given 2 minutes to discuss strategy before the race begins",
-      "A whistle blast signals the start of the race",
-      "The team's time is recorded when the last tied member crosses the finish line",
-    ],
-    setup: [
-      "Mark parallel lines with clear start and finish lines",
-      "Assign one time-keeper per team, stationed at the finish line",
-      "Ensure ropes/straps are secure but not painfully tight",
-    ],
-  },
-  {
     slug: "tail-grab",
     name: "Tail Grab",
     category: "Strategy",
@@ -336,6 +395,27 @@ export const teamEvents: EventRule[] = [
       "Clip towels securely so that they can be pulled off with a firm tug",
       "Assign a referee to watch for chain breaks and boundary violations",
     ],
+    scoring:
+      "Two rounds of competition with independent placements (scored each round). Each tail grabbed = 1 point (2 points per tail in round 2). Placement each round: 1st = 5, 2nd = 3, 3rd = 2, 4th = 1.",
+    teamScoring: {
+      method: "components",
+      components: [
+        {
+          key: "r1Placement",
+          label: "Round 1 Placement",
+          kind: "placement",
+          placementPoints: [5, 3, 2, 1],
+        },
+        { key: "r1Tails", label: "Round 1 Tails", kind: "tally", pointsEach: 1 },
+        {
+          key: "r2Placement",
+          label: "Round 2 Placement",
+          kind: "placement",
+          placementPoints: [5, 3, 2, 1],
+        },
+        { key: "r2Tails", label: "Round 2 Tails (×2)", kind: "tally", pointsEach: 2 },
+      ],
+    },
   },
   {
     slug: "dodgeball",
@@ -366,6 +446,21 @@ export const teamEvents: EventRule[] = [
       "Place balls along the centerline for a rush at the start",
       "Assign referees to monitor eliminations and boundary violations",
     ],
+    scoring:
+      "Recalculated pools of 3 (based on Tug of War), each match is 3 rounds; after pool play, matches are 1-round sudden death. Opponent elimination = 1 point. Round win = 1 point. Final placement: 1st = 5, 2nd = 3, 3rd = 2, 4th = 1.",
+    teamScoring: {
+      method: "components",
+      components: [
+        {
+          key: "placement",
+          label: "Final Placement",
+          kind: "placement",
+          placementPoints: [5, 3, 2, 1],
+        },
+        { key: "roundWins", label: "Round Wins", kind: "tally", pointsEach: 1 },
+        { key: "eliminations", label: "Eliminations", kind: "tally", pointsEach: 1 },
+      ],
+    },
   },
   {
     slug: "tug-of-war",
@@ -396,6 +491,20 @@ export const teamEvents: EventRule[] = [
       "Tie a visible marker at the rope's midpoint",
       "Ensure the ground is even and safe for footing on both sides",
     ],
+    scoring:
+      "Three pools of 3 teams, each match is 3 rounds; after pool play, matches are 1-round sudden death. Round win = 1 point. Final placement: 1st = 5, 2nd = 3, 3rd = 2, 4th = 1.",
+    teamScoring: {
+      method: "components",
+      components: [
+        {
+          key: "placement",
+          label: "Final Placement",
+          kind: "placement",
+          placementPoints: [5, 3, 2, 1],
+        },
+        { key: "roundWins", label: "Round Wins", kind: "tally", pointsEach: 1 },
+      ],
+    },
   },
   {
     slug: "conditioned-relay",
@@ -413,11 +522,15 @@ export const teamEvents: EventRule[] = [
       "Whistle",
       "Stopwatch",
       "Leg markers",
-      "Balloons",
-      "Rubber bands",
+      "Rope (for ankle ties)",
+      "Blindfold",
+      "Fruit roll-up snacks",
+      "Cardboard pieces",
+      "Ball and target",
+      "Camping chair",
     ],
     rules: [
-      "Each leg of the race is 75m with a specific condition that must be followed",
+      "Each leg of the race is 35m with a specific condition that must be followed",
       "Players will line up at opposite ends of the boundary lines — complete your leg and hand the baton to your teammate waiting at the other side",
       "The baton can only be handed off once the player passes the boundary line",
       "A whistle will signal the start of the race",
@@ -425,17 +538,23 @@ export const teamEvents: EventRule[] = [
       "The team's time is recorded when the final runner crosses the finish line with the baton",
     ],
     setup: [
-      "Mark each 75m leg with clear start/end lines",
+      "Mark each 35m leg with clear start/end lines and 3 lanes",
       "Explain and demonstrate each condition before starting",
       "Assign one time-keeper/referee per team at the finish line",
     ],
     conditions: [
-      "Leg 1 — Leap Frog: Two players work together — one crouches while the other leapfrogs over them, alternating all the way to the boundary line before the baton is handed off.",
-      "Leg 2 — Balloon Between Legs: Players carry a balloon between their knees from one end to the other. If the balloon drops, the player has to count 5 seconds before they can continue again. If the balloon pops, they have to stop, replace it, and start again from the beginning of the leg.",
-      "Leg 3 — Elephant Trunk Spins: The player must cross their arms, look down, and spin three times before they can take off and run their leg.",
-      "Leg 4 — Balloon Keep-Ups",
-      "Leg 5 — Rubber Band Shooting Gallery",
+      "Leg 1 — Three-Legged Race: Two players work together — tie your ankles together with a rope and walk to the boundary line.",
+      "Leg 2 — Blindfold Feed: The runner heads to the other side towards their blindfolded partner, who must feed them a fruit roll-up snack as fast as possible; then run to the next station alongside the eater.",
+      "Leg 3 — Cardboard Walking: Two people try to reach the other end using only the cardboard pieces given. No other body part may touch the grass.",
+      "Leg 4 — Target Toss: One person has a target and the other has a ball; the person with the ball must hit the target. The target holder chooses how far they stand. If the ball hits the target, they advance to the target holder; if it misses, the thrower retrieves the ball and the target holder may reposition at any time.",
+      "Leg 5 — Camping Chair Carry: Carry the camping chair to complete the final leg.",
     ],
+    scoring:
+      "Timed event — the dashboard ranks teams from fastest to slowest and awards points by placement: 1st = 15, 2nd = 12, 3rd = 10, 4th = 8, 5th = 6, 6th = 5, 7th = 3, 8th = 2, 9th = 1.",
+    teamScoring: {
+      method: "rank-by-time",
+      placementScale: [15, 12, 10, 8, 6, 5, 3, 2, 1],
+    },
   },
 ];
 

@@ -115,6 +115,29 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.07 — Scoring system & event updates
+
+### Event Rules
+- Updated Standing Long Jump fault note (starting on the line counts as an attempt)
+- Rewrote Conditional Relay: 35m legs with 3 lanes and new leg conditions (three-legged, blindfold feed, cardboard walking, target toss, camping chair carry); refreshed equipment
+- Removed the 7-Legged Race event entirely
+- Added `scoring` summaries to team events, now surfaced on the rules detail page
+
+### Solo Event Scoring
+- Solo events now award per-individual placement points (1st=7, 2nd=5, 3rd=3, 4th=2, 5th=1, else 0); each participant's points contribute to their team total
+- Individual results table shows each participant's own point contribution
+
+### Team Event Scoring
+- Added configurable team scoring in `events.ts` (`TeamScoringConfig`): `rank-by-time` and component-based (`placement` + `tally`) methods
+- Conditional Relay is now timed — the dashboard ranks teams by time and awards placement points (15/12/10/8/6/5/3/2/1); added a team standings table ranked by time on the leaderboard
+- Tug of War, Dodgeball, and Tail Grab use placement + tally entry (round wins, eliminations, tails); admin score form computes the total live from entered components
+- Overall standings aggregate solo, relay, and tournament points correctly
+
+### Cleanup
+- Resolved pre-existing lint debt in touched files: hoisted `SortIcon` out of render, typed several `any` casts, removed an unused import
+
+---
+
 ## v1.04 — `6a207da`
 - Updated admin score recording privileges
 - Admin score input work-in-progress

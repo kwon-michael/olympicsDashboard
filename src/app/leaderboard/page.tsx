@@ -6,7 +6,6 @@ import {
   Trophy,
   Filter,
   ArrowLeft,
-  Calendar,
   Users,
   Clock,
   Ruler,
@@ -24,6 +23,8 @@ import {
   formatDbValue,
   getUnitLabel,
   getEventBySlug,
+  getSoloPlacementPoints,
+  getRelayPlacementPoints,
   type ScoringInput,
 } from "@/lib/events";
 import type { LeaderboardEntry, Event, Score, Team, User } from "@/lib/types";
@@ -54,7 +55,7 @@ export default function LeaderboardPage() {
     if (teams && scores) {
       const scoresByEvent: Record<string, typeof scores> = {};
       for (const s of scores) {
-        const eid = (s.event as any)?.id;
+        const eid = (s.event as { id?: string; slug?: string } | null)?.id;
         if (!eid) continue;
         if (!scoresByEvent[eid]) scoresByEvent[eid] = [];
         scoresByEvent[eid].push(s);
@@ -64,35 +65,36 @@ export default function LeaderboardPage() {
       const teamEventsMap: Record<string, Set<string>> = {};
 
       for (const [eventId, eventScores] of Object.entries(scoresByEvent)) {
-        const slug = (eventScores[0]?.event as any)?.slug;
+        const slug = (eventScores[0]?.event as { slug?: string } | null)?.slug;
         if (!slug) continue;
 
         const eventRule = getEventBySlug(slug);
         const mode = getScoringInputBySlug(slug);
 
         if (eventRule?.type === "solo") {
-          const bestByTeam = new Map<string, number>();
-          for (const s of eventScores) {
-            const current = bestByTeam.get(s.team_id);
-            if (current === undefined) {
-              bestByTeam.set(s.team_id, s.value);
-            } else {
-              bestByTeam.set(
-                s.team_id,
-                mode === "time"
-                  ? Math.min(current, s.value)
-                  : Math.max(current, s.value)
-              );
-            }
-          }
-
-          const sorted = [...bestByTeam.entries()].sort(([, a], [, b]) =>
-            mode === "time" ? a - b : b - a
+          // Each individual earns placement points for their team based on rank
+          const sorted = [...eventScores].sort((a, b) =>
+            mode === "time" ? a.value - b.value : b.value - a.value
           );
 
-          const N = sorted.length;
+          sorted.forEach((s, i) => {
+            const pts = getSoloPlacementPoints(i + 1);
+            teamPointsMap[s.team_id] = (teamPointsMap[s.team_id] ?? 0) + pts;
+            if (!teamEventsMap[s.team_id]) teamEventsMap[s.team_id] = new Set();
+            teamEventsMap[s.team_id].add(eventId);
+          });
+        } else if (eventRule?.teamScoring?.method === "rank-by-time") {
+          // Timed team relay: rank teams by their (best) time, award placement points
+          const bestByTeam = new Map<string, number>();
+          for (const s of eventScores) {
+            const cur = bestByTeam.get(s.team_id);
+            if (cur === undefined || s.value < cur) {
+              bestByTeam.set(s.team_id, s.value);
+            }
+          }
+          const sorted = [...bestByTeam.entries()].sort(([, a], [, b]) => a - b);
           sorted.forEach(([teamId], i) => {
-            const pts = N - 1 - i;
+            const pts = getRelayPlacementPoints(i + 1);
             teamPointsMap[teamId] = (teamPointsMap[teamId] ?? 0) + pts;
             if (!teamEventsMap[teamId]) teamEventsMap[teamId] = new Set();
             teamEventsMap[teamId].add(eventId);
@@ -143,7 +145,7 @@ export default function LeaderboardPage() {
         .from("scores")
         .select("*, team:teams(*), user:users(*)")
         .eq("event_id", eventId);
-      setEventScores((data as any) ?? []);
+      setEventScores((data as unknown as EventScore[]) ?? []);
       setEventLoading(false);
     },
     []
@@ -324,55 +326,83 @@ function EventView({
   const isMeasurement = mode === "time" || mode === "distance";
   const eventRule = getEventBySlug(event.slug);
   const isSoloEvent = eventRule?.type === "solo";
-  const showIndividualRanking = isSoloEvent || isMeasurement;
+  const isRelayTimed = eventRule?.teamScoring?.method === "rank-by-time";
+  const showIndividualRanking = (isSoloEvent || isMeasurement) && !isRelayTimed;
 
+  // Rank individuals. For solo events, each individual earns placement points
+  // (1st = 7, 2nd = 5, 3rd = 3, 4th = 2, 5th = 1, below = 0) for their team.
   const rankedIndividuals = showIndividualRanking
     ? [...scores]
         .sort((a, b) =>
           mode === "time" ? a.value - b.value : b.value - a.value
         )
-        .map((score, index) => ({ ...score, rank: index + 1 }))
+        .map((score, index) => {
+          const rank = index + 1;
+          return {
+            ...score,
+            rank,
+            placementPoints: isSoloEvent ? getSoloPlacementPoints(rank) : 0,
+          };
+        })
     : [];
 
+  // Solo events: team total = sum of each member's individual placement points
   const teamPlacements = new Map<
     string,
     { rank: number; points: number; team: Team }
   >();
 
-  if (isSoloEvent && scores.length > 0) {
-    const bestByTeam = new Map<string, { value: number; team: Team }>();
-    for (const score of scores) {
-      const current = bestByTeam.get(score.team_id);
+  if (isSoloEvent && rankedIndividuals.length > 0) {
+    const totalsByTeam = new Map<string, { points: number; team: Team }>();
+    for (const score of rankedIndividuals) {
+      const current = totalsByTeam.get(score.team_id);
       if (!current) {
-        bestByTeam.set(score.team_id, {
-          value: score.value,
+        totalsByTeam.set(score.team_id, {
+          points: score.placementPoints,
           team: score.team,
         });
       } else {
-        const isBetter =
-          mode === "time"
-            ? score.value < current.value
-            : score.value > current.value;
-        if (isBetter) {
-          bestByTeam.set(score.team_id, {
-            value: score.value,
-            team: score.team,
-          });
-        }
+        current.points += score.placementPoints;
       }
     }
 
-    const sorted = [...bestByTeam.entries()].sort(([, a], [, b]) =>
-      mode === "time" ? a.value - b.value : b.value - a.value
+    const sorted = [...totalsByTeam.entries()].sort(
+      ([, a], [, b]) => b.points - a.points
     );
 
-    const N = sorted.length;
-    sorted.forEach(([teamId, { team }], i) => {
-      teamPlacements.set(teamId, { rank: i + 1, points: N - 1 - i, team });
+    sorted.forEach(([teamId, { points, team }], i) => {
+      teamPlacements.set(teamId, { rank: i + 1, points, team });
     });
   }
 
-  const teamScores = !showIndividualRanking
+  // Timed team relay: rank teams by their best time, award relay placement points
+  const relayStandings: {
+    rank: number;
+    points: number;
+    time: number;
+    team: Team;
+  }[] = [];
+  if (isRelayTimed && scores.length > 0) {
+    const bestByTeam = new Map<string, { value: number; team: Team }>();
+    for (const score of scores) {
+      const current = bestByTeam.get(score.team_id);
+      if (!current || score.value < current.value) {
+        bestByTeam.set(score.team_id, { value: score.value, team: score.team });
+      }
+    }
+    [...bestByTeam.values()]
+      .sort((a, b) => a.value - b.value)
+      .forEach((e, i) =>
+        relayStandings.push({
+          rank: i + 1,
+          points: getRelayPlacementPoints(i + 1),
+          time: e.value,
+          team: e.team,
+        })
+      );
+  }
+
+  const teamScores = !showIndividualRanking && !isRelayTimed
     ? scores.reduce<
         Record<
           string,
@@ -449,7 +479,79 @@ function EventView({
         </div>
       </div>
 
-      {showIndividualRanking && rankedIndividuals.length > 0 ? (
+      {isRelayTimed && relayStandings.length > 0 ? (
+        /* ---- Timed team relay: team standings ranked by time ---- */
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="px-4 py-3 bg-background border-b border-border">
+            <h3 className="font-display text-xs font-bold text-muted uppercase tracking-wider">
+              Team Standings — Placement Points
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-background border-b border-border">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase w-16">
+                    Rank
+                  </th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
+                    Team
+                  </th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
+                    Time
+                  </th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
+                    Points
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {relayStandings.map(({ rank, points, time, team }) => {
+                  const medal =
+                    rank === 1
+                      ? "🥇"
+                      : rank === 2
+                      ? "🥈"
+                      : rank === 3
+                      ? "🥉"
+                      : null;
+                  return (
+                    <tr
+                      key={team.id}
+                      className={rank <= 3 ? "bg-gold/5" : ""}
+                    >
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-lg font-bold text-muted">
+                          {medal ?? `#${rank}`}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: team.color }}
+                          />
+                          <span className="font-medium text-foreground">
+                            {team.name}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono">
+                        {formatDbValue(time, "time")}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-mono text-lg font-bold text-gold">
+                          {points}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : showIndividualRanking && rankedIndividuals.length > 0 ? (
         <>
           {/* Solo: team placement points */}
           {isSoloEvent && teamPlacements.size > 0 && (
@@ -538,7 +640,6 @@ function EventView({
                         : score.rank === 3
                         ? "🥉"
                         : null;
-                    const placement = teamPlacements.get(score.team_id);
 
                     return (
                       <tr
@@ -584,10 +685,10 @@ function EventView({
                               : score.value}
                           </span>
                         </td>
-                        {isSoloEvent && placement && (
+                        {isSoloEvent && (
                           <td className="px-4 py-3 text-right">
                             <span className="font-mono text-sm font-bold text-gold">
-                              {placement.points}
+                              +{score.placementPoints}
                             </span>
                           </td>
                         )}

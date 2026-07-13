@@ -32,7 +32,9 @@ import {
   allEvents as rulesEvents,
   parseInputToDbValue,
   formatDbValue,
+  computeTeamComponentValue,
   type ScoringInput,
+  type TeamScoreComponent,
 } from "@/lib/events";
 import { logAudit } from "@/lib/audit";
 
@@ -64,6 +66,32 @@ interface ScoreEntry {
   user_id: string;
   raw_input: string;
   notes: string;
+  /** Component inputs (keyed by TeamScoreComponent.key) for tournament team events */
+  components: Record<string, string>;
+}
+
+const EMPTY_ENTRY: ScoreEntry = {
+  event_slug: "",
+  team_id: "",
+  user_id: "",
+  raw_input: "",
+  notes: "",
+  components: {},
+};
+
+/** The component-scoring config for an event slug, or null if not component-scored */
+function componentsForSlug(slug: string): TeamScoreComponent[] | null {
+  const rule = rulesEvents.find((e) => e.slug === slug);
+  if (rule?.teamScoring?.method === "components" && rule.teamScoring.components) {
+    return rule.teamScoring.components;
+  }
+  return null;
+}
+
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
 }
 
 interface ExistingScore {
@@ -106,7 +134,7 @@ export default function AdminScoresPage() {
 
   // Batch entry
   const [batchEntries, setBatchEntries] = useState<ScoreEntry[]>([
-    { event_slug: "", team_id: "", user_id: "", raw_input: "", notes: "" },
+    { ...EMPTY_ENTRY },
   ]);
 
   // Filter, search, sort, pagination
@@ -223,10 +251,16 @@ export default function AdminScoresPage() {
   /* ---- batch entry helpers ---- */
 
   function addEntry() {
-    setBatchEntries([
-      ...batchEntries,
-      { event_slug: "", team_id: "", user_id: "", raw_input: "", notes: "" },
-    ]);
+    setBatchEntries([...batchEntries, { ...EMPTY_ENTRY, components: {} }]);
+  }
+
+  function updateComponent(index: number, key: string, value: string) {
+    const updated = [...batchEntries];
+    updated[index] = {
+      ...updated[index],
+      components: { ...updated[index].components, [key]: value },
+    };
+    setBatchEntries(updated);
   }
 
   function removeEntry(index: number) {
@@ -277,21 +311,38 @@ export default function AdminScoresPage() {
     for (const entry of batchEntries) {
       if (!entry.event_slug || !entry.team_id || !entry.user_id) continue;
 
-      const mode = modeForSlug(entry.event_slug);
-      const dbValue = parseInputToDbValue(entry.raw_input, mode);
-      if (dbValue === null) continue;
-
       const dbEvent = dbEvents.find((e) => e.slug === entry.event_slug);
       if (!dbEvent) continue;
 
-      rows.push({
-        event_id: dbEvent.id,
-        team_id: entry.team_id,
-        user_id: entry.user_id,
-        value: dbValue,
-        notes: entry.notes || null,
-        metadata: { input_type: mode },
-      });
+      const components = componentsForSlug(entry.event_slug);
+
+      if (components) {
+        // Tournament team event: value = placement points + tally points
+        const dbValue = computeTeamComponentValue(components, entry.components);
+        if (dbValue <= 0) continue;
+
+        rows.push({
+          event_id: dbEvent.id,
+          team_id: entry.team_id,
+          user_id: entry.user_id,
+          value: dbValue,
+          notes: entry.notes || null,
+          metadata: { input_type: "points", components: entry.components },
+        });
+      } else {
+        const mode = modeForSlug(entry.event_slug);
+        const dbValue = parseInputToDbValue(entry.raw_input, mode);
+        if (dbValue === null) continue;
+
+        rows.push({
+          event_id: dbEvent.id,
+          team_id: entry.team_id,
+          user_id: entry.user_id,
+          value: dbValue,
+          notes: entry.notes || null,
+          metadata: { input_type: mode },
+        });
+      }
     }
 
     if (rows.length === 0) {
@@ -321,9 +372,7 @@ export default function AdminScoresPage() {
         type: "success",
         message: `${rows.length} score(s) saved successfully!`,
       });
-      setBatchEntries([
-        { event_slug: "", team_id: "", user_id: "", raw_input: "", notes: "" },
-      ]);
+      setBatchEntries([{ ...EMPTY_ENTRY, components: {} }]);
       await refreshScores();
       window.dispatchEvent(new CustomEvent("scores-updated"));
     }
@@ -668,8 +717,9 @@ export default function AdminScoresPage() {
     setPage(1);
   }
 
-  function SortIcon({ col }: { col: typeof sortCol }) {
-    if (sortCol !== col) return <ChevronsUpDown className="w-3 h-3 text-muted/50" />;
+  function renderSortIcon(col: typeof sortCol) {
+    if (sortCol !== col)
+      return <ChevronsUpDown className="w-3 h-3 text-muted/50" />;
     return sortDir === "asc" ? (
       <ChevronUp className="w-3 h-3 text-coral" />
     ) : (
@@ -835,6 +885,12 @@ export default function AdminScoresPage() {
                       ? modeForSlug(entry.event_slug)
                       : "points";
                     const memberOptions = membersForEntry(entry);
+                    const components = entry.event_slug
+                      ? componentsForSlug(entry.event_slug)
+                      : null;
+                    const liveTotal = components
+                      ? computeTeamComponentValue(components, entry.components)
+                      : null;
 
                     return (
                       <motion.div
@@ -892,48 +948,111 @@ export default function AdminScoresPage() {
                           />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                          <Input
-                            label={
-                              mode === "time"
-                                ? "Time (e.g. 12.34 or 1:12.34)"
-                                : mode === "distance"
-                                ? "Distance in meters (e.g. 3.45)"
-                                : "Points"
-                            }
-                            type={mode === "distance" ? "number" : "text"}
-                            step={mode === "distance" ? "0.01" : undefined}
-                            min={mode !== "time" ? 0 : undefined}
-                            placeholder={
-                              mode === "time"
-                                ? "e.g. 12.34 or 1:12.34"
-                                : mode === "distance"
-                                ? "e.g. 3.45"
-                                : "e.g. 5"
-                            }
-                            value={entry.raw_input}
-                            onChange={(e) =>
-                              updateEntry(i, "raw_input", e.target.value)
-                            }
-                          />
+                        {components ? (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              {components.map((c) =>
+                                c.kind === "placement" ? (
+                                  <Select
+                                    key={c.key}
+                                    label={c.label}
+                                    value={entry.components[c.key] ?? ""}
+                                    onChange={(e) =>
+                                      updateComponent(i, c.key, e.target.value)
+                                    }
+                                    options={[
+                                      { value: "", label: "—" },
+                                      ...(c.placementPoints ?? []).map(
+                                        (pts, idx) => ({
+                                          value: String(idx + 1),
+                                          label: `${ordinal(idx + 1)} (+${pts})`,
+                                        })
+                                      ),
+                                    ]}
+                                  />
+                                ) : (
+                                  <Input
+                                    key={c.key}
+                                    label={`${c.label} (+${c.pointsEach} ea)`}
+                                    type="number"
+                                    min={0}
+                                    placeholder="0"
+                                    value={entry.components[c.key] ?? ""}
+                                    onChange={(e) =>
+                                      updateComponent(i, c.key, e.target.value)
+                                    }
+                                  />
+                                )
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                              <div className="text-sm self-center">
+                                <span className="text-muted">Total: </span>
+                                <span className="font-mono font-bold text-gold">
+                                  {liveTotal ?? 0} pts
+                                </span>
+                              </div>
+                              <Input
+                                label="Notes"
+                                value={entry.notes}
+                                onChange={(e) =>
+                                  updateEntry(i, "notes", e.target.value)
+                                }
+                                placeholder="Optional"
+                              />
+                              <button
+                                onClick={() => removeEntry(i)}
+                                className="text-muted hover:text-danger transition-colors p-2 self-end"
+                                disabled={batchEntries.length === 1}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                            <Input
+                              label={
+                                mode === "time"
+                                  ? "Time (e.g. 12.34 or 1:12.34)"
+                                  : mode === "distance"
+                                  ? "Distance in meters (e.g. 3.45)"
+                                  : "Points"
+                              }
+                              type={mode === "distance" ? "number" : "text"}
+                              step={mode === "distance" ? "0.01" : undefined}
+                              min={mode !== "time" ? 0 : undefined}
+                              placeholder={
+                                mode === "time"
+                                  ? "e.g. 12.34 or 1:12.34"
+                                  : mode === "distance"
+                                  ? "e.g. 3.45"
+                                  : "e.g. 5"
+                              }
+                              value={entry.raw_input}
+                              onChange={(e) =>
+                                updateEntry(i, "raw_input", e.target.value)
+                              }
+                            />
 
-                          <Input
-                            label="Notes"
-                            value={entry.notes}
-                            onChange={(e) =>
-                              updateEntry(i, "notes", e.target.value)
-                            }
-                            placeholder="Optional"
-                          />
+                            <Input
+                              label="Notes"
+                              value={entry.notes}
+                              onChange={(e) =>
+                                updateEntry(i, "notes", e.target.value)
+                              }
+                              placeholder="Optional"
+                            />
 
-                          <button
-                            onClick={() => removeEntry(i)}
-                            className="text-muted hover:text-danger transition-colors p-2 self-end"
-                            disabled={batchEntries.length === 1}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                            <button
+                              onClick={() => removeEntry(i)}
+                              className="text-muted hover:text-danger transition-colors p-2 self-end"
+                              disabled={batchEntries.length === 1}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                       </motion.div>
                     );
                   })}
@@ -1040,7 +1159,7 @@ export default function AdminScoresPage() {
                           onClick={() => toggleSort("event")}
                         >
                           <span className="inline-flex items-center gap-1">
-                            Event <SortIcon col="event" />
+                            Event {renderSortIcon("event")}
                           </span>
                         </th>
                         <th
@@ -1048,7 +1167,7 @@ export default function AdminScoresPage() {
                           onClick={() => toggleSort("team")}
                         >
                           <span className="inline-flex items-center gap-1">
-                            Team <SortIcon col="team" />
+                            Team {renderSortIcon("team")}
                           </span>
                         </th>
                         <th
@@ -1056,7 +1175,7 @@ export default function AdminScoresPage() {
                           onClick={() => toggleSort("participant")}
                         >
                           <span className="inline-flex items-center gap-1">
-                            Participant <SortIcon col="participant" />
+                            Participant {renderSortIcon("participant")}
                           </span>
                         </th>
                         <th
@@ -1064,7 +1183,7 @@ export default function AdminScoresPage() {
                           onClick={() => toggleSort("result")}
                         >
                           <span className="inline-flex items-center gap-1 justify-end">
-                            Result <SortIcon col="result" />
+                            Result {renderSortIcon("result")}
                           </span>
                         </th>
                         <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
@@ -1075,7 +1194,7 @@ export default function AdminScoresPage() {
                           onClick={() => toggleSort("date")}
                         >
                           <span className="inline-flex items-center gap-1 justify-end">
-                            Date <SortIcon col="date" />
+                            Date {renderSortIcon("date")}
                           </span>
                         </th>
                         <th className="px-4 py-3 w-20"></th>

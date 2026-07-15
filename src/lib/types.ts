@@ -137,33 +137,6 @@ export interface LeaderboardEntry {
   event_count: number;
 }
 
-export type AnnouncementType =
-  | "general"
-  | "event_starting"
-  | "score_update"
-  | "urgent"
-  | "celebration";
-
-export interface Announcement {
-  id: string;
-  title: string;
-  body: string;
-  type: AnnouncementType;
-  image_url: string | null;
-  author_id: string;
-  published_at: string;
-  scheduled_for: string | null;
-  created_at: string;
-  author?: User;
-}
-
-export interface AnnouncementRead {
-  id: string;
-  announcement_id: string;
-  user_id: string;
-  read_at: string;
-}
-
 export type ScheduleCategory = "ceremony" | "solo_event" | "team_event" | "break" | "general";
 
 export interface ScheduleEntry {
@@ -231,16 +204,6 @@ export interface Database {
         Row: Score;
         Insert: Omit<Score, "id" | "created_at">;
         Update: Partial<Omit<Score, "id" | "created_at">>;
-      };
-      announcements: {
-        Row: Announcement;
-        Insert: Omit<Announcement, "id" | "created_at">;
-        Update: Partial<Omit<Announcement, "id" | "created_at">>;
-      };
-      announcement_reads: {
-        Row: AnnouncementRead;
-        Insert: Omit<AnnouncementRead, "id" | "read_at">;
-        Update: Partial<Omit<AnnouncementRead, "id" | "read_at">>;
       };
       audit_log: {
         Row: AuditLogEntry;

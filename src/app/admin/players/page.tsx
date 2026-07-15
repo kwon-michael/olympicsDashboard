@@ -11,20 +11,10 @@ import {
   CheckCircle,
   AlertCircle,
   Shield,
-  Users,
-  UserPlus,
-  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
 import { PageTransition } from "@/components/ui/page-transition";
-
-interface TeamOption {
-  id: string;
-  name: string;
-  color: string;
-}
 
 interface PlayerRow {
   id: string;
@@ -33,15 +23,11 @@ interface PlayerRow {
   role: string;
   profile_completed: boolean;
   created_at: string;
-  team_id: string | null;
-  team_name: string | null;
-  team_color: string | null;
 }
 
 export default function AdminPlayersPage() {
   const supabase = createClient();
   const [players, setPlayers] = useState<PlayerRow[]>([]);
-  const [teams, setTeams] = useState<TeamOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [feedback, setFeedback] = useState<{
@@ -51,141 +37,18 @@ export default function AdminPlayersPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Team assignment state: which player is being assigned, and to which team
-  const [assigningPlayer, setAssigningPlayer] = useState<string | null>(null);
-  const [selectedTeamId, setSelectedTeamId] = useState("");
-  const [assigning, setAssigning] = useState(false);
-
   useEffect(() => {
     fetchData();
   }, []);
 
   async function fetchData() {
-    const [usersRes, membershipsRes, teamsRes] = await Promise.all([
-      supabase
-        .from("users")
-        .select("id, email, display_name, role, profile_completed, created_at")
-        .order("display_name"),
-      supabase
-        .from("team_members")
-        .select("user_id, team_id, team:teams(name, color)"),
-      supabase.from("teams").select("id, name, color").order("name"),
-    ]);
+    const { data } = await supabase
+      .from("users")
+      .select("id, email, display_name, role, profile_completed, created_at")
+      .order("display_name");
 
-    const users = usersRes.data ?? [];
-    const memberships = membershipsRes.data ?? [];
-    setTeams(teamsRes.data ?? []);
-
-    const membershipMap: Record<
-      string,
-      { team_id: string; name: string; color: string }
-    > = {};
-    for (const m of memberships) {
-      const team = m.team as unknown as { name: string; color: string } | null;
-      if (team) {
-        membershipMap[m.user_id] = {
-          team_id: m.team_id,
-          name: team.name,
-          color: team.color,
-        };
-      }
-    }
-
-    setPlayers(
-      users.map((u) => ({
-        ...u,
-        team_id: membershipMap[u.id]?.team_id ?? null,
-        team_name: membershipMap[u.id]?.name ?? null,
-        team_color: membershipMap[u.id]?.color ?? null,
-      }))
-    );
+    setPlayers(data ?? []);
     setLoading(false);
-  }
-
-  async function assignToTeam(userId: string, teamId: string) {
-    setAssigning(true);
-    setFeedback(null);
-
-    const player = players.find((p) => p.id === userId);
-
-    // If the player is already on a team, remove them first
-    if (player?.team_id) {
-      const { error } = await supabase
-        .from("team_members")
-        .delete()
-        .eq("user_id", userId)
-        .eq("team_id", player.team_id);
-
-      if (error) {
-        setFeedback({
-          type: "error",
-          message: `Failed to remove from current team: ${error.message}`,
-        });
-        setAssigning(false);
-        return;
-      }
-    }
-
-    // Add to new team
-    const { error } = await supabase.from("team_members").insert({
-      user_id: userId,
-      team_id: teamId,
-    });
-
-    if (error) {
-      setFeedback({ type: "error", message: `Failed to assign team: ${error.message}` });
-    } else {
-      const team = teams.find((t) => t.id === teamId);
-      setFeedback({
-        type: "success",
-        message: `${player?.display_name} assigned to ${team?.name ?? "team"}.`,
-      });
-      // Update local state
-      setPlayers(
-        players.map((p) =>
-          p.id === userId
-            ? {
-                ...p,
-                team_id: teamId,
-                team_name: team?.name ?? null,
-                team_color: team?.color ?? null,
-              }
-            : p
-        )
-      );
-    }
-
-    setAssigningPlayer(null);
-    setSelectedTeamId("");
-    setAssigning(false);
-  }
-
-  async function removeFromTeam(userId: string) {
-    setFeedback(null);
-    const player = players.find((p) => p.id === userId);
-    if (!player?.team_id) return;
-
-    const { error } = await supabase
-      .from("team_members")
-      .delete()
-      .eq("user_id", userId)
-      .eq("team_id", player.team_id);
-
-    if (error) {
-      setFeedback({ type: "error", message: `Failed to remove from team: ${error.message}` });
-    } else {
-      setFeedback({
-        type: "success",
-        message: `${player.display_name} removed from ${player.team_name}.`,
-      });
-      setPlayers(
-        players.map((p) =>
-          p.id === userId
-            ? { ...p, team_id: null, team_name: null, team_color: null }
-            : p
-        )
-      );
-    }
   }
 
   async function deletePlayer(userId: string) {
@@ -213,11 +76,6 @@ export default function AdminPlayersPage() {
       setDeleting(false);
       return;
     }
-
-    await supabase
-      .from("announcement_reads")
-      .delete()
-      .eq("user_id", userId);
 
     await supabase
       .from("teams")
@@ -270,7 +128,7 @@ export default function AdminPlayersPage() {
                 PLAYER MANAGEMENT
               </h1>
               <p className="text-sm text-muted">
-                Manage players, assign teams, and remove accounts
+                View registered players and remove accounts
               </p>
             </div>
           </div>
@@ -338,9 +196,6 @@ export default function AdminPlayersPage() {
                       Email
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                      Team
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
                       Role
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
@@ -365,83 +220,6 @@ export default function AdminPlayersPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-muted">{player.email}</td>
-                      <td className="px-4 py-3">
-                        {/* Team assignment inline UI */}
-                        {assigningPlayer === player.id ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-40">
-                              <Select
-                                value={selectedTeamId}
-                                onChange={(e) => setSelectedTeamId(e.target.value)}
-                                options={[
-                                  { value: "", label: "Select team..." },
-                                  ...teams.map((t) => ({
-                                    value: t.id,
-                                    label: t.name,
-                                  })),
-                                ]}
-                              />
-                            </div>
-                            <Button
-                              size="sm"
-                              loading={assigning}
-                              disabled={!selectedTeamId}
-                              onClick={() => assignToTeam(player.id, selectedTeamId)}
-                            >
-                              Save
-                            </Button>
-                            <button
-                              onClick={() => {
-                                setAssigningPlayer(null);
-                                setSelectedTeamId("");
-                              }}
-                              className="text-muted hover:text-foreground transition-colors"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ) : player.team_name ? (
-                          <div className="flex items-center gap-2">
-                            <span className="flex items-center gap-1.5">
-                              <span
-                                className="w-2.5 h-2.5 rounded-full"
-                                style={{
-                                  backgroundColor: player.team_color ?? "#ccc",
-                                }}
-                              />
-                              {player.team_name}
-                            </span>
-                            <button
-                              onClick={() => {
-                                setAssigningPlayer(player.id);
-                                setSelectedTeamId(player.team_id ?? "");
-                              }}
-                              className="text-[10px] text-muted hover:text-coral transition-colors underline"
-                              title="Change team"
-                            >
-                              change
-                            </button>
-                            <button
-                              onClick={() => removeFromTeam(player.id)}
-                              className="text-[10px] text-muted hover:text-danger transition-colors underline"
-                              title="Remove from team"
-                            >
-                              remove
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setAssigningPlayer(player.id);
-                              setSelectedTeamId("");
-                            }}
-                            className="inline-flex items-center gap-1 text-xs text-coral hover:text-coral-light transition-colors"
-                          >
-                            <UserPlus className="w-3.5 h-3.5" />
-                            Assign team
-                          </button>
-                        )}
-                      </td>
                       <td className="px-4 py-3">
                         {player.role === "admin" ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-danger bg-danger/10 rounded-full px-2 py-0.5">

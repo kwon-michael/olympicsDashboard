@@ -105,8 +105,8 @@ function SignupForm() {
               OLYMPICS
             </h2>
             <p className="text-white/80 text-sm lg:text-base mb-8 max-w-sm">
-              Admin accounts run the show — set up events, record scores, and
-              post announcements. You&apos;ll need an access code to sign up.
+              Admin accounts run the show — set up events and record scores.
+              You&apos;ll need an access code to sign up.
             </p>
             <ul className="space-y-3">
               {perks.map(({ icon: Icon, text }) => (

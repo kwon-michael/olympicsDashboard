@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { canSignIn } from "@/lib/auth";
+import { canSignIn, canViewAuditLog } from "@/lib/auth";
 import type { UserRole } from "@/lib/types";
 
 export async function updateSession(request: NextRequest) {
@@ -82,6 +82,16 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("error", "not_admin");
+      return NextResponse.redirect(url);
+    }
+
+    // Activity/audit logs are restricted to a single owner account.
+    if (
+      request.nextUrl.pathname.startsWith("/admin/audit") &&
+      !canViewAuditLog(user?.email)
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin";
       return NextResponse.redirect(url);
     }
   }

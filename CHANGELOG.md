@@ -115,6 +115,28 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.11 — Owner-only activity logs & announcements removal
+
+### Activity Logs (owner-only)
+- Restricted the activity/audit logs to a single owner account (`kwon.mike90@gmail.com`); other admins can no longer see them
+- Enforced at every layer: middleware redirect for `/admin/audit`, a client-side guard on the page, the hidden "Activity Logs" link and "Recent Activity" feed on the admin dashboard, and tightened RLS so only the owner can `SELECT`/`DELETE` from `audit_log` and `user_activity` (any admin may still generate entries)
+- Added `AUDIT_LOG_EMAIL` / `canViewAuditLog()` helper in `src/lib/auth.ts`
+
+### Announcements (removed)
+- Removed announcement creation and all related UI: deleted the `/admin/announcements` composer and the toast overlay
+- Unwired the announcements realtime subscription, the Zustand store state, and the announcement sections on the admin and user dashboards
+- Removed the `Announcement`/`AnnouncementType`/`AnnouncementRead` types and the dead `announcement_reads` cleanup on player deletion
+- The `announcements`/`announcement_reads` tables are left intact (no data dropped)
+
+### Player Management
+- Removed the "assign team" feature from `/admin/players` (assign/change/remove plus the Team column) — a vestige of the pre-roster auth-team model; the page now lists players and handles account removal only
+
+### Database
+- Updated audit-log RLS policies in `supabase/schema.sql` and `supabase/schemas/07_audit.sql`
+- New migration: `supabase/migrate_restrict_audit_to_owner.sql` (run once in Supabase)
+
+---
+
 ## v1.10 — Tug of War tournament
 
 ### Tug of War (new feature)

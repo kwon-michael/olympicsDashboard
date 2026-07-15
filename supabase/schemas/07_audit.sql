@@ -13,9 +13,11 @@ CREATE TABLE public.audit_log (
 
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Admins can view audit log" ON public.audit_log
+-- Viewing/clearing the logs is restricted to the single owner account, even
+-- though any admin may generate log entries (see INSERT policy).
+CREATE POLICY "Owner can view audit log" ON public.audit_log
   FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND lower(email) = 'kwon.mike90@gmail.com')
   );
 
 CREATE POLICY "Admins can insert audit log" ON public.audit_log
@@ -23,9 +25,9 @@ CREATE POLICY "Admins can insert audit log" ON public.audit_log
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
   );
 
-CREATE POLICY "Admins can delete audit log" ON public.audit_log
+CREATE POLICY "Owner can delete audit log" ON public.audit_log
   FOR DELETE USING (
-    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND lower(email) = 'kwon.mike90@gmail.com')
   );
 
 -- ============================================
@@ -41,15 +43,15 @@ CREATE TABLE public.user_activity (
 
 ALTER TABLE public.user_activity ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Admins can view user activity" ON public.user_activity
+CREATE POLICY "Owner can view user activity" ON public.user_activity
   FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND lower(email) = 'kwon.mike90@gmail.com')
   );
 
 CREATE POLICY "Any authenticated user can insert own activity" ON public.user_activity
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Admins can delete user activity" ON public.user_activity
+CREATE POLICY "Owner can delete user activity" ON public.user_activity
   FOR DELETE USING (
-    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND lower(email) = 'kwon.mike90@gmail.com')
   );

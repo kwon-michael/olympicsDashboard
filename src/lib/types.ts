@@ -33,6 +33,34 @@ export interface TeamMember {
   team?: Team;
 }
 
+// ---- Roster (auth-free teams / players / manual scoring) ----
+export interface RosterTeam {
+  id: string;
+  name: string;
+  color: string;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface RosterPlayer {
+  id: string;
+  team_id: string;
+  name: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface RosterScore {
+  id: string;
+  team_id: string;
+  player_id: string | null;
+  label: string;
+  points: number;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -190,6 +218,21 @@ export interface Database {
         Row: ScheduleEntry;
         Insert: Omit<ScheduleEntry, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<ScheduleEntry, "id" | "created_at">>;
+      };
+      roster_teams: {
+        Row: RosterTeam;
+        Insert: Omit<RosterTeam, "id" | "created_at">;
+        Update: Partial<Omit<RosterTeam, "id" | "created_at">>;
+      };
+      roster_players: {
+        Row: RosterPlayer;
+        Insert: Omit<RosterPlayer, "id" | "created_at">;
+        Update: Partial<Omit<RosterPlayer, "id" | "created_at">>;
+      };
+      roster_scores: {
+        Row: RosterScore;
+        Insert: Omit<RosterScore, "id" | "created_at">;
+        Update: Partial<Omit<RosterScore, "id" | "created_at">>;
       };
     };
     Views: {

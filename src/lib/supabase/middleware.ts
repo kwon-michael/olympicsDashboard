@@ -40,7 +40,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protected routes that require authentication
-  const protectedPaths = ["/dashboard", "/teams/create", "/admin", "/setup-profile", "/set-password", "/reset-password"];
+  const protectedPaths = ["/dashboard", "/admin", "/setup-profile", "/set-password", "/reset-password"];
   const isProtected = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
@@ -74,7 +74,7 @@ export async function updateSession(request: NextRequest) {
 
     // Authenticated app areas require an admin account. Everyone else can hold
     // an account but can't sign in and use the app.
-    const adminPaths = ["/dashboard", "/teams/create", "/admin"];
+    const adminPaths = ["/dashboard", "/admin"];
     if (
       adminPaths.some((path) => request.nextUrl.pathname.startsWith(path)) &&
       !canSignIn(profile?.role as UserRole | undefined)

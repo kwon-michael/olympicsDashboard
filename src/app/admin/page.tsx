@@ -21,8 +21,7 @@ import { PageTransition, StaggerContainer, StaggerItem } from "@/components/ui/p
 
 interface AdminStats {
   totalTeams: number;
-  totalUsers: number;
-  totalEvents: number;
+  totalPlayers: number;
   totalScores: number;
   totalAnnouncements: number;
   recentActivity: { action: string; entity_type: string; entity_id: string; details: Record<string, unknown> | null; created_at: string; actor_id: string; actor: { display_name: string } | { display_name: string }[] }[];
@@ -32,9 +31,16 @@ const adminLinks = [
   {
     href: "/admin/scores",
     label: "Score Management",
-    description: "Enter, edit, and verify event scores",
+    description: "Award points to teams and players",
     icon: Trophy,
     color: "#F5A623",
+  },
+  {
+    href: "/admin/roster",
+    label: "Team Management",
+    description: "Move players between teams, cross out, or replace",
+    icon: Users,
+    color: "#22C55E",
   },
   {
     href: "/admin/announcements",
@@ -49,13 +55,6 @@ const adminLinks = [
     description: "Build the event-day calendar and manage time blocks",
     icon: Calendar,
     color: "#8B5CF6",
-  },
-  {
-    href: "/admin/teams",
-    label: "Team Oversight",
-    description: "Manage teams and roster changes",
-    icon: Users,
-    color: "#22C55E",
   },
   {
     href: "/admin/players",
@@ -77,8 +76,7 @@ export default function AdminDashboardPage() {
   const supabase = createClient();
   const [stats, setStats] = useState<AdminStats>({
     totalTeams: 0,
-    totalUsers: 0,
-    totalEvents: 0,
+    totalPlayers: 0,
     totalScores: 0,
     totalAnnouncements: 0,
     recentActivity: [],
@@ -87,12 +85,11 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     async function fetchStats() {
-      const [teams, users, events, scores, announcements, audit] =
+      const [teams, players, scores, announcements, audit] =
         await Promise.all([
-          supabase.from("teams").select("id", { count: "exact", head: true }),
-          supabase.from("users").select("id", { count: "exact", head: true }),
-          supabase.from("events").select("id", { count: "exact", head: true }),
-          supabase.from("scores").select("id", { count: "exact", head: true }),
+          supabase.from("roster_teams").select("id", { count: "exact", head: true }),
+          supabase.from("roster_players").select("id", { count: "exact", head: true }),
+          supabase.from("roster_scores").select("id", { count: "exact", head: true }),
           supabase
             .from("announcements")
             .select("id", { count: "exact", head: true }),
@@ -105,8 +102,7 @@ export default function AdminDashboardPage() {
 
       setStats({
         totalTeams: teams.count ?? 0,
-        totalUsers: users.count ?? 0,
-        totalEvents: events.count ?? 0,
+        totalPlayers: players.count ?? 0,
         totalScores: scores.count ?? 0,
         totalAnnouncements: announcements.count ?? 0,
         recentActivity: audit.data ?? [],
@@ -120,22 +116,22 @@ export default function AdminDashboardPage() {
   const statCards = [
     { label: "Teams", value: stats.totalTeams, icon: Users, color: "#22C55E" },
     {
-      label: "Participants",
-      value: stats.totalUsers,
+      label: "Players",
+      value: stats.totalPlayers,
       icon: Activity,
       color: "#3B82F6",
-    },
-    {
-      label: "Events",
-      value: stats.totalEvents,
-      icon: Calendar,
-      color: "#F5A623",
     },
     {
       label: "Scores Recorded",
       value: stats.totalScores,
       icon: TrendingUp,
       color: "#E94560",
+    },
+    {
+      label: "Announcements",
+      value: stats.totalAnnouncements,
+      icon: Megaphone,
+      color: "#F5A623",
     },
   ];
 

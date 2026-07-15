@@ -218,7 +218,9 @@ export const soloEvents: EventRule[] = [
     equipment: ["Measuring tape", "Rake", "Start line marker"],
     rules: [
       "Participants must start their jump from behind the line (starting on the line counts as a fault, and this counts as an attempt)",
-      "Distance is measured from the start line to the most proximal body part upon landing (hands included)",
+      "Take-off must be from both feet at once — no step or hop into the jump",
+      "Distance is measured perpendicular from the start line to the most proximal body part upon landing (hands included)",
+      "If the participant falls or steps backward after landing, distance is measured to the nearest mark left by any body part",
       "Both attempts are recorded; the best distance counts",
       "No running start permitted — both feet must remain stationary before the jump",
     ],
@@ -245,9 +247,11 @@ export const soloEvents: EventRule[] = [
       "Start & finish line markers",
     ],
     rules: [
-      "Participants must stay in their designated line for the entire race",
+      "Runners race one at a time and are timed individually",
+      "The timekeeper starts the watch on the starter's visual arm-drop signal (not the whistle sound) so every runner is timed the same way",
+      "Participants must stay in their designated lane for the entire race",
       "A whistle will signal the start of the race — any movement past the start line before the whistle will count as a false start (false starts will be penalized by being put 5m behind after 2nd false start)",
-      "Time is recorded when the participant's torso crosses the finish line",
+      "Time is recorded when the participant's torso (chest/shoulders, not the head, arms, or legs) crosses the finish line",
     ],
     setup: [
       "Clearly indicate start and finish lines",
@@ -270,7 +274,9 @@ export const soloEvents: EventRule[] = [
     rules: [
       "2 attempts per participant",
       "Initial hop must be behind the start line (on the line counts as a fault)",
-      "Distance of jump is measured from take-off point to most proximal body part upon landing (hands included)",
+      "The sequence must be hop, step, jump — the hop lands on the same foot used to take off, the step lands on the opposite foot, and the jump lands on both feet; an incorrect foot sequence is a fault",
+      "Distance is measured perpendicular from the start line to the most proximal body part upon landing (hands included)",
+      "If the participant falls or steps backward after landing, distance is measured to the nearest mark left by any body part",
       "Assign supporters for measuring distances and raking the landing area before each attempt",
     ],
     setup: [
@@ -294,9 +300,11 @@ export const soloEvents: EventRule[] = [
       "Start & finish line markers",
     ],
     rules: [
-      "Runners must stay in their designated line for the entire race",
-      "A whistle will signal the start of the race — any movement past the start line before the whistle will count as a false start",
-      "Time is recorded when the participant's torso crosses the finish line",
+      "Runners race one at a time and are timed individually",
+      "The timekeeper starts the watch on the starter's visual arm-drop signal (not the whistle sound) so every runner is timed the same way",
+      "Runners must stay in their designated lane for the entire race",
+      "A whistle will signal the start of the race — any movement past the start line before the whistle will count as a false start (false starts will be penalized by being put 5m behind after 2nd false start)",
+      "Time is recorded when the participant's torso (chest/shoulders, not the head, arms, or legs) crosses the finish line",
     ],
     setup: [
       "Clearly indicate start and finish lines",
@@ -320,6 +328,7 @@ export const soloEvents: EventRule[] = [
       "Throw line marker",
     ],
     rules: [
+      "The shot must be put with one hand only — no two-handed throws",
       "The throw must be made with an open palm — no gripping or throwing overhand",
       "The participant must release the shot from behind the throw line",
       "Distance of the throw is measured from the start line to where the shot first lands and rolls to a stop",
@@ -346,10 +355,12 @@ export const soloEvents: EventRule[] = [
     ],
     rules: [
       "Each participant receives 5 balls of different sizes and weights",
-      "Bins are placed at 5m, 10m, and 15m — the further the bin, the more points",
+      "Bins are placed at 5m, 10m, and 15m and score 1, 3, and 5 points respectively — the further the bin, the more points",
+      "A ball only counts if it comes to rest inside a bin; if it bounces out it does not count",
       "Participants can choose where to aim each ball in whichever order they want",
-      "Hands and feet cannot cross over the throw line",
-      "All throws must be completed in X time",
+      "Each of the 5 balls may be thrown once — retrieved or missed balls may not be re-thrown",
+      "Hands and feet cannot cross over the throw line (a throw made while touching or crossing the line scores zero)",
+      "All throws must be completed within 60 seconds",
       "Missed throws score zero",
     ],
     setup: [
@@ -359,6 +370,18 @@ export const soloEvents: EventRule[] = [
       "Assign someone to collect missed balls and return them to the throw line",
     ],
   },
+];
+
+/**
+ * Rules that apply to every solo event. Rendered as a shared "General Solo
+ * Rules" section on each solo event page so they don't have to be repeated in
+ * each event's own rule list.
+ */
+export const soloGeneralRules: string[] = [
+  "Each team enters exactly one participant per solo event, and no participant may compete in more than one solo event — so every team member takes part",
+  "Tie-breaker: if two or more participants record an identical result, they share the higher placement and its points, and the placement(s) directly below are skipped (e.g., two tied for 1st each earn 1st-place points and the next competitor places 3rd)",
+  "The assigned event judge's decision is final; all measurements and times are confirmed by two officials before being recorded",
+  "Results are recorded to a fixed precision — distances to the nearest centimeter and times to the nearest hundredth of a second",
 ];
 
 /* ------------------------------------------------------------------ */
@@ -386,12 +409,15 @@ export const teamEvents: EventRule[] = [
       "All players will line up single file with hands on the shoulders of the teammate in front",
       "The 2nd, 3rd, and 4th player in line each have a towel clipped onto the back of their shirt so it visibly sticks out",
       "The 1st player (line leader) has their hands free — their job is to grab the opposing team's towels",
-      "When a player loses their tail (towel), the entire team will leave the play area for 5 seconds, and will then re-enter the game without the last player in line",
-      "If the chain breaks (e.g., a hand comes off a teammate's shoulder), the team loses their backmost player and their tail",
+      "The play area is enclosed by a border that shrinks at set intervals as the game goes on, squeezing the teams closer together and forcing the action",
+      "The moment a player's tail (towel) is pulled off, that player is out — they must leave the play area immediately and cannot rejoin for the rest of the game",
+      "Any player who steps or is pushed outside the shrinking border is out and must leave the play area",
+      "If the chain breaks (e.g., a hand comes off a teammate's shoulder), the backmost player is out and must leave the play area",
       "The game ends when one team has no tails remaining — the other team wins",
     ],
     setup: [
-      "Mark clear borders for the play area",
+      "Mark clear borders for the play area using movable markers (e.g., cones) so the border can be drawn inward as the game goes on",
+      "Decide the shrink interval ahead of time (e.g., move the border in every 60 seconds) and assign someone to move the markers",
       "Clip towels securely so that they can be pulled off with a firm tug",
       "Assign a referee to watch for chain breaks and boundary violations",
     ],

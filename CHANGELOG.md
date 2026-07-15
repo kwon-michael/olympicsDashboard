@@ -115,6 +115,28 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.09 — Roster teams & manual scoring overhaul
+
+### Roster system (auth-free teams)
+- Replaced the account-based team system with a plain-data roster model: teams and players are managed by admins as simple rows, no longer tied to participant auth accounts
+- New tables with public-read/admin-write RLS (`supabase/roster.sql`): `roster_teams`, `roster_players`, and `roster_scores` (team- or player-level manual point entries), seeded with the nine teams and their players
+- New shared data/aggregation helpers (`src/lib/roster.ts`): `fetchRosterData`, `computeTeamStandings` (team totals + ranking), `computePlayerStandings` (MVP leaderboard), and `playerPointsMap`
+- Removed the old auth-based team flows: deleted `/teams/create`, `/admin/teams`, and the per-event `/leaderboard/[eventId]` page
+- Rebuilt the public Teams page and team profile page around the roster model (members, per-player points, team scores)
+- Rebuilt the Leaderboard around roster team standings plus an individual/MVP view
+- Rebuilt Score Management (`/admin/scores`) to award team- and player-level points on the roster model
+- New Team Management page (`/admin/roster`): move players between teams, cross out / restore, rename, add, and remove players — all with audit logging
+- Removed "Create a Team" links from the footer and dashboard; dropped `/teams/create` from middleware protected/admin paths
+
+### Event Rules
+- Tightened solo event rules (Standing Long Jump, 100m/200m Sprint, Triple Jump, Shot Put): two-footed take-off, perpendicular measurement, individually timed runs started on the starter's visual arm-drop, torso-crossing finish definition, and one-handed shot put
+- Added a Tail Grab animation component (`src/components/rules/tail-grab-animation.tsx`) used on the event rules page
+
+### Database
+- New schema file: `supabase/roster.sql` (run once in Supabase)
+
+---
+
 ## v1.08 — Admin-only access, schedule sections & audit log clearing
 
 ### Authentication & Access

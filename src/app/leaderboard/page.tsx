@@ -1,177 +1,51 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Trophy,
-  Filter,
-  ArrowLeft,
-  Users,
-  Clock,
-  Ruler,
-} from "lucide-react";
+import { Trophy, Users, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { LeaderboardRow } from "@/components/ui/leaderboard-row";
-import { Button } from "@/components/ui/button";
+import { PageTransition } from "@/components/ui/page-transition";
+import { getMedalEmoji } from "@/lib/utils";
 import {
-  PageTransition,
-  StaggerContainer,
-  StaggerItem,
-} from "@/components/ui/page-transition";
-import {
-  getScoringInputBySlug,
-  formatDbValue,
-  getUnitLabel,
-  getEventBySlug,
-  getSoloPlacementPoints,
-  getRelayPlacementPoints,
-  type ScoringInput,
-} from "@/lib/events";
-import type { LeaderboardEntry, Event, Score, Team, User } from "@/lib/types";
+  fetchRosterData,
+  computeTeamStandings,
+  computePlayerStandings,
+  type RosterData,
+} from "@/lib/roster";
 
-interface EventScore extends Score {
-  team: Team;
-  user: User;
-}
+type Tab = "teams" | "players";
 
 export default function LeaderboardPage() {
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
+  const [data, setData] = useState<RosterData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<Tab>("teams");
 
-  // Per-event drill-down
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [eventScores, setEventScores] = useState<EventScore[]>([]);
-  const [eventLoading, setEventLoading] = useState(false);
-
-  const loadLeaderboard = useCallback(async () => {
+  const load = useCallback(async () => {
     const supabase = createClient();
-
-    const { data: teams } = await supabase.from("teams").select("*");
-    const { data: scores } = await supabase
-      .from("scores")
-      .select("*, event:events(id, slug)");
-
-    if (teams && scores) {
-      const scoresByEvent: Record<string, typeof scores> = {};
-      for (const s of scores) {
-        const eid = (s.event as { id?: string; slug?: string } | null)?.id;
-        if (!eid) continue;
-        if (!scoresByEvent[eid]) scoresByEvent[eid] = [];
-        scoresByEvent[eid].push(s);
-      }
-
-      const teamPointsMap: Record<string, number> = {};
-      const teamEventsMap: Record<string, Set<string>> = {};
-
-      for (const [eventId, eventScores] of Object.entries(scoresByEvent)) {
-        const slug = (eventScores[0]?.event as { slug?: string } | null)?.slug;
-        if (!slug) continue;
-
-        const eventRule = getEventBySlug(slug);
-        const mode = getScoringInputBySlug(slug);
-
-        if (eventRule?.type === "solo") {
-          // Each individual earns placement points for their team based on rank
-          const sorted = [...eventScores].sort((a, b) =>
-            mode === "time" ? a.value - b.value : b.value - a.value
-          );
-
-          sorted.forEach((s, i) => {
-            const pts = getSoloPlacementPoints(i + 1);
-            teamPointsMap[s.team_id] = (teamPointsMap[s.team_id] ?? 0) + pts;
-            if (!teamEventsMap[s.team_id]) teamEventsMap[s.team_id] = new Set();
-            teamEventsMap[s.team_id].add(eventId);
-          });
-        } else if (eventRule?.teamScoring?.method === "rank-by-time") {
-          // Timed team relay: rank teams by their (best) time, award placement points
-          const bestByTeam = new Map<string, number>();
-          for (const s of eventScores) {
-            const cur = bestByTeam.get(s.team_id);
-            if (cur === undefined || s.value < cur) {
-              bestByTeam.set(s.team_id, s.value);
-            }
-          }
-          const sorted = [...bestByTeam.entries()].sort(([, a], [, b]) => a - b);
-          sorted.forEach(([teamId], i) => {
-            const pts = getRelayPlacementPoints(i + 1);
-            teamPointsMap[teamId] = (teamPointsMap[teamId] ?? 0) + pts;
-            if (!teamEventsMap[teamId]) teamEventsMap[teamId] = new Set();
-            teamEventsMap[teamId].add(eventId);
-          });
-        } else {
-          for (const s of eventScores) {
-            teamPointsMap[s.team_id] =
-              (teamPointsMap[s.team_id] ?? 0) + s.value;
-            if (!teamEventsMap[s.team_id])
-              teamEventsMap[s.team_id] = new Set();
-            teamEventsMap[s.team_id].add(eventId);
-          }
-        }
-      }
-
-      const teamScores = teams.map((team) => ({
-        team_id: team.id,
-        team_name: team.name,
-        team_color: team.color,
-        team_avatar_url: team.avatar_url,
-        total_points: teamPointsMap[team.id] ?? 0,
-        event_count: teamEventsMap[team.id]?.size ?? 0,
-        rank: 0,
-      }));
-
-      teamScores.sort((a, b) => b.total_points - a.total_points);
-      teamScores.forEach((entry, index) => {
-        entry.rank = index + 1;
-      });
-
-      setLeaderboard(teamScores);
-    }
-
-    const { data: eventsData } = await supabase
-      .from("events")
-      .select("*")
-      .order("name");
-    if (eventsData) setEvents(eventsData);
-
+    setData(await fetchRosterData(supabase));
     setLoading(false);
   }, []);
 
-  const loadEventScores = useCallback(
-    async (eventId: string) => {
-      setEventLoading(true);
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("scores")
-        .select("*, team:teams(*), user:users(*)")
-        .eq("event_id", eventId);
-      setEventScores((data as unknown as EventScore[]) ?? []);
-      setEventLoading(false);
-    },
-    []
-  );
-
-  function selectEvent(eventId: string) {
-    setSelectedEventId(eventId);
-    loadEventScores(eventId);
-  }
-
-  function clearEvent() {
-    setSelectedEventId(null);
-    setEventScores([]);
-  }
-
   useEffect(() => {
-    loadLeaderboard();
-    const handler = () => {
-      loadLeaderboard();
-      if (selectedEventId) loadEventScores(selectedEventId);
-    };
+    load();
+    const handler = () => load();
     window.addEventListener("scores-updated", handler);
     return () => window.removeEventListener("scores-updated", handler);
-  }, [loadLeaderboard, loadEventScores, selectedEventId]);
+  }, [load]);
 
-  const selectedEvent = events.find((e) => e.id === selectedEventId) ?? null;
+  const teamStandings = useMemo(
+    () => (data ? computeTeamStandings(data.teams, data.scores) : []),
+    [data]
+  );
+  const playerStandings = useMemo(
+    () =>
+      data
+        ? computePlayerStandings(data.teams, data.players, data.scores)
+        : [],
+    [data]
+  );
+
+  const totalPoints = teamStandings.reduce((sum, s) => sum + s.totalPoints, 0);
 
   return (
     <PageTransition>
@@ -194,11 +68,11 @@ export default function LeaderboardPage() {
             </p>
           </div>
 
-          {leaderboard.length > 0 && !selectedEventId && (
+          {!loading && teamStandings.length > 0 && (
             <div className="flex items-center justify-center gap-8 mt-8">
               <div className="text-center">
                 <p className="font-mono text-3xl font-bold text-gold">
-                  {leaderboard.length}
+                  {teamStandings.length}
                 </p>
                 <p className="text-xs text-white/50 uppercase tracking-wider">
                   Teams
@@ -207,9 +81,7 @@ export default function LeaderboardPage() {
               <div className="w-px h-10 bg-white/20" />
               <div className="text-center">
                 <p className="font-mono text-3xl font-bold text-coral">
-                  {leaderboard
-                    .reduce((sum, e) => sum + e.total_points, 0)
-                    .toLocaleString()}
+                  {totalPoints.toLocaleString()}
                 </p>
                 <p className="text-xs text-white/50 uppercase tracking-wider">
                   Total Points
@@ -218,10 +90,10 @@ export default function LeaderboardPage() {
               <div className="w-px h-10 bg-white/20" />
               <div className="text-center">
                 <p className="font-mono text-3xl font-bold text-white">
-                  {events.length}
+                  {data?.scores.length ?? 0}
                 </p>
                 <p className="text-xs text-white/50 uppercase tracking-wider">
-                  Events
+                  Scores
                 </p>
               </div>
             </div>
@@ -231,381 +103,86 @@ export default function LeaderboardPage() {
 
       {/* Content */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Event filter buttons */}
-        {events.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 mb-6">
-            {selectedEventId ? (
-              <button
-                onClick={clearEvent}
-                className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors mr-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Overall
-              </button>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-muted mr-2">
-                <Filter className="w-4 h-4" />
-                Per-event:
-              </div>
-            )}
-            {events.map((event) => (
-              <Button
-                key={event.id}
-                variant={selectedEventId === event.id ? "primary" : "outline"}
-                size="sm"
-                onClick={() =>
-                  selectedEventId === event.id
-                    ? clearEvent()
-                    : selectEvent(event.id)
-                }
-              >
-                {event.name}
-              </Button>
-            ))}
-          </div>
-        )}
+        {/* Tabs */}
+        <div className="flex items-center gap-2 mb-6">
+          <TabButton
+            active={tab === "teams"}
+            onClick={() => setTab("teams")}
+            icon={<Users className="w-4 h-4" />}
+            label="Teams"
+          />
+          <TabButton
+            active={tab === "players"}
+            onClick={() => setTab("players")}
+            icon={<Star className="w-4 h-4" />}
+            label="Top Players"
+          />
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-4 border-coral border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : selectedEventId && selectedEvent ? (
-          /* ---- Per-event view ---- */
-          <EventView
-            event={selectedEvent}
-            scores={eventScores}
-            loading={eventLoading}
-          />
-        ) : leaderboard.length > 0 ? (
-          /* ---- Overall leaderboard ---- */
-          <div className="space-y-3">
-            <AnimatePresence mode="popLayout">
-              {leaderboard.map((entry) => (
-                <LeaderboardRow
-                  key={entry.team_id}
-                  rank={entry.rank}
-                  teamName={entry.team_name}
-                  teamColor={entry.team_color}
-                  teamAvatarUrl={entry.team_avatar_url}
-                  totalPoints={entry.total_points}
-                  eventCount={entry.event_count}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
-        ) : (
-          <div className="text-center py-20">
-            <Trophy className="w-16 h-16 text-muted mx-auto mb-4" />
-            <h3 className="font-display text-xl font-bold text-foreground mb-2">
-              NO SCORES YET
-            </h3>
-            <p className="text-muted">
-              The leaderboard will light up once the games begin!
-            </p>
-          </div>
-        )}
-      </div>
-    </PageTransition>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Per-event inline view                                              */
-/* ------------------------------------------------------------------ */
-
-function EventView({
-  event,
-  scores,
-  loading,
-}: {
-  event: Event;
-  scores: EventScore[];
-  loading: boolean;
-}) {
-  const mode: ScoringInput = getScoringInputBySlug(event.slug);
-  const isMeasurement = mode === "time" || mode === "distance";
-  const eventRule = getEventBySlug(event.slug);
-  const isSoloEvent = eventRule?.type === "solo";
-  const isRelayTimed = eventRule?.teamScoring?.method === "rank-by-time";
-  const showIndividualRanking = (isSoloEvent || isMeasurement) && !isRelayTimed;
-
-  // Rank individuals. For solo events, each individual earns placement points
-  // (1st = 7, 2nd = 5, 3rd = 3, 4th = 2, 5th = 1, below = 0) for their team.
-  const rankedIndividuals = showIndividualRanking
-    ? [...scores]
-        .sort((a, b) =>
-          mode === "time" ? a.value - b.value : b.value - a.value
-        )
-        .map((score, index) => {
-          const rank = index + 1;
-          return {
-            ...score,
-            rank,
-            placementPoints: isSoloEvent ? getSoloPlacementPoints(rank) : 0,
-          };
-        })
-    : [];
-
-  // Solo events: team total = sum of each member's individual placement points
-  const teamPlacements = new Map<
-    string,
-    { rank: number; points: number; team: Team }
-  >();
-
-  if (isSoloEvent && rankedIndividuals.length > 0) {
-    const totalsByTeam = new Map<string, { points: number; team: Team }>();
-    for (const score of rankedIndividuals) {
-      const current = totalsByTeam.get(score.team_id);
-      if (!current) {
-        totalsByTeam.set(score.team_id, {
-          points: score.placementPoints,
-          team: score.team,
-        });
-      } else {
-        current.points += score.placementPoints;
-      }
-    }
-
-    const sorted = [...totalsByTeam.entries()].sort(
-      ([, a], [, b]) => b.points - a.points
-    );
-
-    sorted.forEach(([teamId, { points, team }], i) => {
-      teamPlacements.set(teamId, { rank: i + 1, points, team });
-    });
-  }
-
-  // Timed team relay: rank teams by their best time, award relay placement points
-  const relayStandings: {
-    rank: number;
-    points: number;
-    time: number;
-    team: Team;
-  }[] = [];
-  if (isRelayTimed && scores.length > 0) {
-    const bestByTeam = new Map<string, { value: number; team: Team }>();
-    for (const score of scores) {
-      const current = bestByTeam.get(score.team_id);
-      if (!current || score.value < current.value) {
-        bestByTeam.set(score.team_id, { value: score.value, team: score.team });
-      }
-    }
-    [...bestByTeam.values()]
-      .sort((a, b) => a.value - b.value)
-      .forEach((e, i) =>
-        relayStandings.push({
-          rank: i + 1,
-          points: getRelayPlacementPoints(i + 1),
-          time: e.value,
-          team: e.team,
-        })
-      );
-  }
-
-  const teamScores = !showIndividualRanking && !isRelayTimed
-    ? scores.reduce<
-        Record<
-          string,
-          {
-            team: Team;
-            totalPoints: number;
-            playerCount: number;
-            scores: EventScore[];
-          }
-        >
-      >((acc, score) => {
-        const teamId = score.team_id;
-        if (!acc[teamId]) {
-          acc[teamId] = {
-            team: score.team,
-            totalPoints: 0,
-            playerCount: 0,
-            scores: [],
-          };
-        }
-        acc[teamId].totalPoints += score.value;
-        acc[teamId].playerCount++;
-        acc[teamId].scores.push(score);
-        return acc;
-      }, {})
-    : {};
-
-  const rankedTeams = Object.values(teamScores)
-    .sort((a, b) => b.totalPoints - a.totalPoints)
-    .map((entry, index) => ({ ...entry, rank: index + 1 }));
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-coral border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      {/* Event info bar */}
-      <div className="bg-card rounded-xl border border-border p-5">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="font-display text-xl font-bold text-foreground">
-              {event.name}
-            </h2>
-            {event.description && (
-              <p className="text-sm text-muted mt-1">{event.description}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-4 text-xs text-muted">
-            {isMeasurement && (
-              <span className="inline-flex items-center gap-1 bg-background rounded-full px-3 py-1.5 font-medium">
-                {mode === "time" ? (
-                  <Clock className="w-3 h-3" />
-                ) : (
-                  <Ruler className="w-3 h-3" />
-                )}
-                Ranked by{" "}
-                {mode === "time" ? "fastest time" : "longest distance"}
-              </span>
-            )}
-            <span className="inline-flex items-center gap-1">
-              <Users className="w-3.5 h-3.5" />
-              {scores.length} scores
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {isRelayTimed && relayStandings.length > 0 ? (
-        /* ---- Timed team relay: team standings ranked by time ---- */
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="px-4 py-3 bg-background border-b border-border">
-            <h3 className="font-display text-xs font-bold text-muted uppercase tracking-wider">
-              Team Standings — Placement Points
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-background border-b border-border">
-                <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase w-16">
-                    Rank
-                  </th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                    Team
-                  </th>
-                  <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
-                    Time
-                  </th>
-                  <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
-                    Points
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {relayStandings.map(({ rank, points, time, team }) => {
-                  const medal =
-                    rank === 1
-                      ? "🥇"
-                      : rank === 2
-                      ? "🥈"
-                      : rank === 3
-                      ? "🥉"
-                      : null;
-                  return (
-                    <tr
-                      key={team.id}
-                      className={rank <= 3 ? "bg-gold/5" : ""}
-                    >
-                      <td className="px-4 py-3">
+        ) : tab === "teams" ? (
+          teamStandings.some((s) => s.scoreCount > 0) ? (
+            <div className="space-y-3">
+              <AnimatePresence mode="popLayout">
+                {teamStandings.map((s) => (
+                  <motion.div
+                    key={s.team.id}
+                    layout
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 25 }}
+                    className={`relative flex items-center gap-4 p-4 rounded-xl border transition-all ${
+                      s.rank <= 3
+                        ? "bg-card border-2 shadow-md"
+                        : "bg-card/50 border-border hover:bg-card"
+                    }`}
+                    style={{ borderColor: s.rank <= 3 ? s.team.color : undefined }}
+                  >
+                    <div className="flex items-center justify-center w-12">
+                      {getMedalEmoji(s.rank) ? (
+                        <span className="text-2xl">{getMedalEmoji(s.rank)}</span>
+                      ) : (
                         <span className="font-mono text-lg font-bold text-muted">
-                          {medal ?? `#${rank}`}
+                          {s.rank}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: team.color }}
-                          />
-                          <span className="font-medium text-foreground">
-                            {team.name}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono">
-                        {formatDbValue(time, "time")}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="font-mono text-lg font-bold text-gold">
-                          {points}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : showIndividualRanking && rankedIndividuals.length > 0 ? (
-        <>
-          {/* Solo: team placement points */}
-          {isSoloEvent && teamPlacements.size > 0 && (
-            <div className="bg-card rounded-xl border border-border overflow-hidden">
-              <div className="px-4 py-3 bg-background border-b border-border">
-                <h3 className="font-display text-xs font-bold text-muted uppercase tracking-wider">
-                  Team Standings — Placement Points
-                </h3>
-              </div>
-              <div className="divide-y divide-border">
-                {[...teamPlacements.entries()]
-                  .sort(([, a], [, b]) => a.rank - b.rank)
-                  .map(([teamId, { rank, points, team }]) => {
-                    const medal =
-                      rank === 1
-                        ? "🥇"
-                        : rank === 2
-                        ? "🥈"
-                        : rank === 3
-                        ? "🥉"
-                        : null;
-                    return (
-                      <div
-                        key={teamId}
-                        className={`flex items-center justify-between px-4 py-3 ${
-                          rank <= 3 ? "bg-gold/5" : ""
-                        }`}
+                      )}
+                    </div>
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+                      style={{ backgroundColor: s.team.color }}
+                    >
+                      {s.team.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-display text-sm font-bold uppercase tracking-wide truncate">
+                        {s.team.name}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {s.scoreCount} score{s.scoreCount !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p
+                        className="font-mono text-xl font-bold"
+                        style={{ color: s.team.color }}
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-lg font-bold text-muted w-10">
-                            {medal ?? `#${rank}`}
-                          </span>
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: team.color }}
-                          />
-                          <span className="font-medium text-foreground">
-                            {team.name}
-                          </span>
-                        </div>
-                        <span
-                          className="font-mono text-lg font-bold"
-                          style={{ color: team.color }}
-                        >
-                          {points} pt{points !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    );
-                  })}
-              </div>
+                        {s.totalPoints.toLocaleString()}
+                      </p>
+                      <p className="text-[10px] text-muted uppercase tracking-wider">
+                        points
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
-          )}
-
-          {/* Individual results table */}
+          ) : (
+            <EmptyState />
+          )
+        ) : playerStandings.length > 0 ? (
           <div className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -615,168 +192,113 @@ function EventView({
                       Rank
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                      Participant
+                      Player
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
                       Team
                     </th>
                     <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
-                      {isMeasurement ? getUnitLabel(mode) : "Score"}
+                      Points
                     </th>
-                    {isSoloEvent && (
-                      <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
-                        Team Pts
-                      </th>
-                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {rankedIndividuals.map((score) => {
-                    const medal =
-                      score.rank === 1
-                        ? "🥇"
-                        : score.rank === 2
-                        ? "🥈"
-                        : score.rank === 3
-                        ? "🥉"
-                        : null;
-
-                    return (
-                      <tr
-                        key={score.id}
-                        className={`hover:bg-background/50 ${
-                          score.rank <= 3 ? "bg-gold/5" : ""
-                        }`}
-                      >
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-lg font-bold text-muted">
-                            {medal ?? `#${score.rank}`}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                              style={{ backgroundColor: score.team.color }}
-                            >
-                              {(score.user?.display_name ?? "?").charAt(0)}
-                            </div>
-                            <span className="font-medium text-foreground">
-                              {score.user?.display_name ?? "Unknown"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="flex items-center gap-1.5">
-                            <span
-                              className="w-2.5 h-2.5 rounded-full"
-                              style={{ backgroundColor: score.team.color }}
-                            />
-                            {score.team.name}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span
-                            className="font-mono text-lg font-bold"
-                            style={{ color: score.team.color }}
+                  {playerStandings.map((p) => (
+                    <tr
+                      key={p.player.id}
+                      className={p.rank <= 3 ? "bg-gold/5" : ""}
+                    >
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-lg font-bold text-muted">
+                          {getMedalEmoji(p.rank) || `#${p.rank}`}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                            style={{ backgroundColor: p.teamColor }}
                           >
-                            {isMeasurement
-                              ? formatDbValue(score.value, mode)
-                              : score.value}
+                            {p.player.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span
+                            className={`font-medium ${
+                              p.player.is_active
+                                ? "text-foreground"
+                                : "line-through text-muted"
+                            }`}
+                          >
+                            {p.player.name}
                           </span>
-                        </td>
-                        {isSoloEvent && (
-                          <td className="px-4 py-3 text-right">
-                            <span className="font-mono text-sm font-bold text-gold">
-                              +{score.placementPoints}
-                            </span>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{ backgroundColor: p.teamColor }}
+                          />
+                          {p.teamName}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span
+                          className="font-mono text-lg font-bold"
+                          style={{ color: p.teamColor }}
+                        >
+                          {p.totalPoints.toLocaleString()}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
-        </>
-      ) : !showIndividualRanking && rankedTeams.length > 0 ? (
-        <StaggerContainer className="space-y-6">
-          {rankedTeams.map((entry) => (
-            <StaggerItem key={entry.team.id}>
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <div
-                  className="h-1"
-                  style={{ backgroundColor: entry.team.color }}
-                />
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-2xl font-bold text-muted">
-                        #{entry.rank}
-                      </span>
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-                        style={{ backgroundColor: entry.team.color }}
-                      >
-                        {entry.team.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-display text-lg font-bold">
-                          {entry.team.name}
-                        </p>
-                        <p className="text-xs text-muted">
-                          {entry.playerCount} player scores
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p
-                        className="font-mono text-2xl font-bold"
-                        style={{ color: entry.team.color }}
-                      >
-                        {entry.totalPoints.toLocaleString()}
-                      </p>
-                      <p className="text-[10px] text-muted uppercase tracking-wider">
-                        Total Points
-                      </p>
-                    </div>
-                  </div>
+        ) : (
+          <EmptyState />
+        )}
+      </div>
+    </PageTransition>
+  );
+}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {entry.scores.map((score) => (
-                      <div
-                        key={score.id}
-                        className="flex items-center justify-between bg-background rounded-lg px-3 py-2"
-                      >
-                        <span className="text-sm">
-                          {score.user?.display_name || "Unknown"}
-                        </span>
-                        <span
-                          className="font-mono text-sm font-bold"
-                          style={{ color: entry.team.color }}
-                        >
-                          {score.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </StaggerItem>
-          ))}
-        </StaggerContainer>
-      ) : (
-        <div className="text-center py-20">
-          <Trophy className="w-16 h-16 text-muted mx-auto mb-4" />
-          <h3 className="font-display text-xl font-bold text-foreground mb-2">
-            NO SCORES YET
-          </h3>
-          <p className="text-muted">
-            Scores will appear here once the event begins
-          </p>
-        </div>
-      )}
-    </motion.div>
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+        active
+          ? "bg-coral text-white"
+          : "bg-card border border-border text-muted hover:text-foreground"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="text-center py-20">
+      <Trophy className="w-16 h-16 text-muted mx-auto mb-4" />
+      <h3 className="font-display text-xl font-bold text-foreground mb-2">
+        NO SCORES YET
+      </h3>
+      <p className="text-muted">
+        The leaderboard will light up once the games begin!
+      </p>
+    </div>
   );
 }

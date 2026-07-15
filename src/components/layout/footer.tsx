@@ -53,9 +53,6 @@ export function Footer() {
               <Link href="/signup" className="hover:text-white transition-colors">
                 Sign Up
               </Link>
-              <Link href="/teams/create" className="hover:text-white transition-colors">
-                Create a Team
-              </Link>
               <Link href="/dashboard" className="hover:text-white transition-colors">
                 My Dashboard
               </Link>

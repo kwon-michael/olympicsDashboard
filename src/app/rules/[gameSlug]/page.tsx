@@ -14,7 +14,8 @@ import {
   Zap,
 } from "lucide-react";
 import { PageTransition } from "@/components/ui/page-transition";
-import { getEventBySlug } from "@/lib/events";
+import { getEventBySlug, soloGeneralRules } from "@/lib/events";
+import { TailGrabAnimation } from "@/components/rules/tail-grab-animation";
 
 export default function RuleDetailPage() {
   const params = useParams();
@@ -117,6 +118,17 @@ export default function RuleDetailPage() {
 
       {/* Content */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* How it works (animated explainer) */}
+        {event.slug === "tail-grab" && (
+          <section>
+            <h2 className="font-display text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-coral" />
+              HOW IT WORKS
+            </h2>
+            <TailGrabAnimation />
+          </section>
+        )}
+
         {/* Rules */}
         <section>
           <h2 className="font-display text-xl font-bold text-foreground mb-4 flex items-center gap-2">
@@ -139,6 +151,29 @@ export default function RuleDetailPage() {
             </ol>
           </div>
         </section>
+
+        {/* General solo rules */}
+        {!isTeam && (
+          <section>
+            <h2 className="font-display text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-muted" />
+              GENERAL SOLO RULES
+            </h2>
+            <div className="bg-card rounded-xl border border-border p-5">
+              <ul className="space-y-2.5">
+                {soloGeneralRules.map((rule, i) => (
+                  <li
+                    key={i}
+                    className="text-sm text-muted flex items-start gap-2.5"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted shrink-0 mt-1.5" />
+                    {rule}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
 
         {/* Setup */}
         {event.setup.length > 0 && (

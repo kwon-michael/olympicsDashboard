@@ -1,54 +1,61 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Users, Plus, Search } from "lucide-react";
+import { Users, Search, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { TeamBadge } from "@/components/ui/team-badge";
 import {
   PageTransition,
   StaggerContainer,
   StaggerItem,
 } from "@/components/ui/page-transition";
-import type { Team, TeamMember } from "@/lib/types";
+import {
+  fetchRosterData,
+  computeTeamStandings,
+  type RosterData,
+} from "@/lib/roster";
+import type { RosterPlayer } from "@/lib/types";
 
 export default function TeamsPage() {
-  const [teams, setTeams] = useState<(Team & { memberCount: number })[]>([]);
-  const [search, setSearch] = useState("");
+  const [data, setData] = useState<RosterData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    const loadTeams = async () => {
+    const load = async () => {
       const supabase = createClient();
-
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
-
-      const { data } = await supabase
-        .from("teams")
-        .select("*, team_members(count)")
-        .order("created_at", { ascending: false });
-
-      if (data) {
-        setTeams(
-          data.map((team: any) => ({
-            ...team,
-            memberCount: team.team_members?.[0]?.count || 0,
-          }))
-        );
-      }
+      setData(await fetchRosterData(supabase));
       setLoading(false);
     };
-
-    loadTeams();
+    load();
   }, []);
 
-  const filteredTeams = teams.filter((team) =>
-    team.name.toLowerCase().includes(search.toLowerCase())
+  const standings = useMemo(
+    () =>
+      data ? computeTeamStandings(data.teams, data.scores) : [],
+    [data]
+  );
+
+  const playersByTeam = useMemo(() => {
+    const map = new Map<string, RosterPlayer[]>();
+    for (const p of data?.players ?? []) {
+      const arr = map.get(p.team_id) ?? [];
+      arr.push(p);
+      map.set(p.team_id, arr);
+    }
+    return map;
+  }, [data]);
+
+  const playerCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of data?.players ?? []) {
+      map.set(p.team_id, (map.get(p.team_id) ?? 0) + 1);
+    }
+    return map;
+  }, [data]);
+
+  const filtered = standings.filter((s) =>
+    s.team.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -60,17 +67,9 @@ export default function TeamsPage() {
             ALL TEAMS
           </h1>
           <p className="text-muted mt-1">
-            {teams.length} team{teams.length !== 1 ? "s" : ""} competing
+            {standings.length} team{standings.length !== 1 ? "s" : ""} competing
           </p>
         </div>
-        {isAuthenticated && (
-          <Link href="/teams/create">
-            <Button>
-              <Plus className="w-4 h-4" />
-              Create Team
-            </Button>
-          </Link>
-        )}
       </div>
 
       {/* Search */}
@@ -91,57 +90,61 @@ export default function TeamsPage() {
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-4 border-coral border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : filteredTeams.length > 0 ? (
+      ) : filtered.length > 0 ? (
         <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTeams.map((team) => (
-            <StaggerItem key={team.id}>
-              <Link href={`/teams/${team.id}`}>
+          {filtered.map((s) => (
+            <StaggerItem key={s.team.id}>
+              <Link href={`/teams/${s.team.id}`}>
                 <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer">
                   <div
                     className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl"
-                    style={{ backgroundColor: team.color }}
+                    style={{ backgroundColor: s.team.color }}
                   />
 
                   <div className="flex items-center gap-4 mb-4">
                     <div
                       className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl"
-                      style={{ backgroundColor: team.color }}
+                      style={{ backgroundColor: s.team.color }}
                     >
-                      {team.avatar_url ? (
-                        <img
-                          src={team.avatar_url}
-                          alt={team.name}
-                          className="w-full h-full rounded-xl object-cover"
-                        />
-                      ) : (
-                        team.name.charAt(0).toUpperCase()
-                      )}
+                      {s.team.name.charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <h3 className="font-display text-lg font-bold group-hover:text-coral transition-colors">
-                        {team.name}
+                        {s.team.name}
                       </h3>
-                      {team.motto && (
-                        <p className="text-xs text-muted italic truncate max-w-[180px]">
-                          &ldquo;{team.motto}&rdquo;
-                        </p>
-                      )}
                     </div>
+                  </div>
+
+                  {/* Members — fixed-height 2-col grid keeps every card the same size */}
+                  <div className="grid grid-cols-2 gap-1.5 mb-4 h-24 overflow-y-auto content-start">
+                    {(playersByTeam.get(s.team.id) ?? []).map((p) => (
+                      <span
+                        key={p.id}
+                        className={`text-xs px-2 py-1 rounded-full bg-background border border-border truncate ${
+                          p.is_active ? "text-foreground" : "text-muted line-through"
+                        }`}
+                        title={p.name}
+                      >
+                        {p.name}
+                      </span>
+                    ))}
                   </div>
 
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-1.5 text-muted">
                       <Users className="w-4 h-4" />
                       <span>
-                        {team.memberCount} member
-                        {team.memberCount !== 1 ? "s" : ""}
+                        {playerCounts.get(s.team.id) ?? 0} member
+                        {(playerCounts.get(s.team.id) ?? 0) !== 1 ? "s" : ""}
                       </span>
                     </div>
-                    {team.is_locked && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full bg-danger/10 text-danger">
-                        Locked
-                      </span>
-                    )}
+                    <div
+                      className="flex items-center gap-1.5 font-mono font-bold"
+                      style={{ color: s.team.color }}
+                    >
+                      <Trophy className="w-4 h-4" />
+                      {s.totalPoints} pts
+                    </div>
                   </div>
                 </div>
               </Link>
@@ -154,21 +157,7 @@ export default function TeamsPage() {
           <h3 className="font-display text-xl font-bold text-foreground mb-2">
             NO TEAMS FOUND
           </h3>
-          <p className="text-muted mb-6">
-            {search
-              ? "No teams match your search"
-              : isAuthenticated
-              ? "Be the first to create a team!"
-              : "Sign in to create a team."}
-          </p>
-          {isAuthenticated && (
-            <Link href="/teams/create">
-              <Button>
-                <Plus className="w-4 h-4" />
-                Create Team
-              </Button>
-            </Link>
-          )}
+          <p className="text-muted mb-6">No teams match your search</p>
         </div>
       )}
     </PageTransition>

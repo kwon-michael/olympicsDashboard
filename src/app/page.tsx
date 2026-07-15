@@ -27,8 +27,11 @@ const teamEvents = allEvents.filter((e) => e.type === "team");
 const EVENT_TIME = new Date("2026-08-08T10:00:00").getTime();
 
 function useCountdown() {
-  const [now, setNow] = useState(Date.now());
+  // Start from a deterministic value so the server render and the first client
+  // render match (avoids hydration mismatch). Begin ticking only after mount.
+  const [now, setNow] = useState(EVENT_TIME);
   useEffect(() => {
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);

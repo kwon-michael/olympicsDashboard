@@ -189,12 +189,6 @@ export default function DashboardPage() {
                       You haven&apos;t joined a team yet
                     </p>
                     <div className="flex items-center justify-center gap-3">
-                      <Link href="/teams/create">
-                        <Button size="sm">
-                          <Plus className="w-4 h-4" />
-                          Create Team
-                        </Button>
-                      </Link>
                       <Link href="/teams">
                         <Button variant="outline" size="sm">
                           Browse Teams

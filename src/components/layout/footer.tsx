@@ -63,7 +63,7 @@ export function Footer() {
         <div className="border-t border-white/10 mt-8 pt-8 text-center text-xs">
           <p>
             &copy; {new Date().getFullYear()} Casualympics&trade;. Built with
-            &hearts; by mk for the community.
+            &hearts; by mk.
           </p>
         </div>
       </div>

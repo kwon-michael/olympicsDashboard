@@ -115,6 +115,28 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.12 — Dodgeball tournament
+
+### Dodgeball (new feature)
+- New standalone tournament layered on the roster teams, run after Tug of War, mirroring its group-stage → randomized playoff-bracket format (display/tracking only; placement points still awarded through the normal score tools)
+- Groups snapshot the current overall team standings at lock time (which already include Tug of War points) and split them with a **snake seeding**: rank {1,6,7} → A, {2,5,8} → B, {3,4,9} → C
+- Group stage is a round robin (best-of-3, round wins tracked); the three group winners plus the best 2nd-place team (with manual tiebreaker) advance to a randomized 4-team bracket (semifinals → final + 3rd-place match)
+
+### Shared tournament engine
+- Extracted the group-stage/bracket logic shared by Tug of War and Dodgeball into `src/lib/tournament.ts` (parameterized by table names + a group-seeding function; provides `assignGroupsInterleaved` and `assignGroupsSnake`)
+- `src/lib/tug.ts` is now a thin config wrapper over the engine; `src/lib/dodgeball.ts` added alongside it
+- Shared read-only display components `src/components/tournament/tournament-groups.tsx` and `tournament-bracket.tsx`; the existing `tug-groups`/`tug-bracket` are now thin wrappers over them
+
+### Admin & Public
+- New admin page `/admin/dodgeball` with the same 3-step flow as Tug of War (lock groups → record round wins → resolve wildcard & seed/record the bracket), plus "Reset tournament" and audit logging
+- Added a "Dodgeball" card to the admin dashboard
+- New public page `/dodgeball` (with a pre-lock "not started yet" state) and a "Dodgeball" link with a ball icon in the public navbar
+
+### Database
+- New schema file: `supabase/dodgeball.sql` — `dodgeball_state`, `dodgeball_group_members`, `dodgeball_matches` with public-read/admin-write RLS (run once in Supabase)
+
+---
+
 ## v1.11 — Owner-only activity logs & announcements removal
 
 ### Activity Logs (owner-only)

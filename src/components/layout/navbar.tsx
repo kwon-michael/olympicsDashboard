@@ -18,6 +18,7 @@ import {
   Flame,
   ChevronDown,
   Swords,
+  CircleDot,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -28,6 +29,7 @@ const publicLinks = [
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/teams", label: "Teams", icon: Users },
   { href: "/tug-of-war", label: "Tug of War", icon: Swords },
+  { href: "/dodgeball", label: "Dodgeball", icon: CircleDot },
   { href: "/rules", label: "Rules", icon: BookOpen },
   { href: "/schedule", label: "Schedule", icon: Clock },
 ];

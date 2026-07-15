@@ -14,6 +14,7 @@ import {
   UserX,
   ScrollText,
   Swords,
+  CircleDot,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { canViewAuditLog } from "@/lib/auth";
@@ -48,6 +49,13 @@ const adminLinks = [
     description: "Lock groups from standings, record matches, seed the bracket",
     icon: Swords,
     color: "#6366F1",
+  },
+  {
+    href: "/admin/dodgeball",
+    label: "Dodgeball",
+    description: "Snake-seed groups from standings, record matches, seed the bracket",
+    icon: CircleDot,
+    color: "#F97316",
   },
   {
     href: "/admin/schedule",

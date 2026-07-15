@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -20,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { PageTransition } from "@/components/ui/page-transition";
 import { logAudit } from "@/lib/audit";
+import { canViewAuditLog } from "@/lib/auth";
 
 interface AuditEntry {
   id: string;
@@ -84,6 +86,11 @@ function formatAction(action: string, labels: Record<string, string>): string {
 
 export default function AdminAuditPage() {
   const supabase = createClient();
+  const router = useRouter();
+
+  // Access is restricted to the audit-log owner. null = still checking.
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
+
   const [tab, setTab] = useState<Tab>("admin");
 
   // Admin audit state
@@ -222,21 +229,50 @@ export default function AdminAuditPage() {
     setShowClearModal(false);
   }
 
-  // Bootstrap: load filter options
+  // Gate access to the audit-log owner; everyone else is bounced to /admin.
   useEffect(() => {
-    loadFilterData();
+    async function checkAccess() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (canViewAuditLog(user?.email)) {
+        setAuthorized(true);
+      } else {
+        setAuthorized(false);
+        router.replace("/admin");
+      }
+    }
+    checkAccess();
   }, []);
 
+  // Bootstrap: load filter options
   useEffect(() => {
-    if (tab === "admin") fetchAudit();
-  }, [tab, auditPage, auditFilterAction, auditFilterActor, auditSortAsc]);
+    if (authorized) loadFilterData();
+  }, [authorized]);
 
   useEffect(() => {
-    if (tab === "user") fetchActivity();
-  }, [tab, activityPage, activityFilterAction, activityFilterUser, activitySortAsc]);
+    if (authorized && tab === "admin") fetchAudit();
+  }, [authorized, tab, auditPage, auditFilterAction, auditFilterActor, auditSortAsc]);
+
+  useEffect(() => {
+    if (authorized && tab === "user") fetchActivity();
+  }, [authorized, tab, activityPage, activityFilterAction, activityFilterUser, activitySortAsc]);
 
   const auditTotalPages = Math.max(1, Math.ceil(auditTotal / PAGE_SIZE));
   const activityTotalPages = Math.max(1, Math.ceil(activityTotal / PAGE_SIZE));
+
+  // Don't render log data until access is confirmed (redirect handles the rest).
+  if (!authorized) {
+    return (
+      <PageTransition>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="p-8 text-center text-muted text-sm">
+            {authorized === null ? "Checking access…" : "Redirecting…"}
+          </div>
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition>

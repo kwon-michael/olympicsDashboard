@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { User, Team, TeamMember, Announcement } from "@/lib/types";
+import type { User, Team, TeamMember } from "@/lib/types";
 
 interface AppState {
   // User
@@ -9,13 +9,6 @@ interface AppState {
   // Team
   currentTeam: (Team & { members: TeamMember[] }) | null;
   setCurrentTeam: (team: (Team & { members: TeamMember[] }) | null) => void;
-
-  // Announcements
-  activeAnnouncements: Announcement[];
-  announcementQueue: Announcement[];
-  pushAnnouncement: (announcement: Announcement) => void;
-  dismissAnnouncement: (id: string) => void;
-  clearAnnouncements: () => void;
 
   // UI
   sidebarOpen: boolean;
@@ -31,20 +24,6 @@ export const useAppStore = create<AppState>((set) => ({
   // Team
   currentTeam: null,
   setCurrentTeam: (currentTeam) => set({ currentTeam }),
-
-  // Announcements
-  activeAnnouncements: [],
-  announcementQueue: [],
-  pushAnnouncement: (announcement) =>
-    set((state) => ({
-      announcementQueue: [...state.announcementQueue, announcement],
-    })),
-  dismissAnnouncement: (id) =>
-    set((state) => ({
-      activeAnnouncements: state.activeAnnouncements.filter((a) => a.id !== id),
-    })),
-  clearAnnouncements: () =>
-    set({ activeAnnouncements: [], announcementQueue: [] }),
 
   // UI
   sidebarOpen: false,

@@ -2,27 +2,10 @@
 
 import { useEffect, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useAppStore } from "@/lib/store";
-import type { Announcement } from "@/lib/types";
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
-  const pushAnnouncement = useAppStore((s) => s.pushAnnouncement);
-
   useEffect(() => {
     const supabase = createClient();
-
-    // Subscribe to announcements
-    const announcementChannel = supabase
-      .channel("announcements")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "announcements" },
-        (payload) => {
-          const announcement = payload.new as Announcement;
-          pushAnnouncement(announcement);
-        }
-      )
-      .subscribe();
 
     // Subscribe to score changes (for leaderboard refresh)
     const scoresChannel = supabase
@@ -61,12 +44,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(announcementChannel);
       supabase.removeChannel(scoresChannel);
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(scheduleChannel);
     };
-  }, [pushAnnouncement]);
+  }, []);
 
   return <>{children}</>;
 }

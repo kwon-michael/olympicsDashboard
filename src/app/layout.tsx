@@ -3,7 +3,6 @@ import { Oswald, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { RealtimeProvider } from "@/components/providers/realtime-provider";
-import { AnnouncementOverlay } from "@/components/announcements/announcement-overlay";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 
@@ -50,7 +49,6 @@ export default function RootLayout({
               <main className="flex-1">{children}</main>
               <Footer />
             </div>
-            <AnnouncementOverlay />
           </RealtimeProvider>
         </QueryProvider>
       </body>

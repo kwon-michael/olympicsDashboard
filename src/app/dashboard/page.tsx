@@ -7,10 +7,8 @@ import {
   Trophy,
   Users,
   Calendar,
-  Bell,
   ArrowRight,
   Plus,
-  Megaphone,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/lib/store";
@@ -22,14 +20,13 @@ import {
   StaggerContainer,
   StaggerItem,
 } from "@/components/ui/page-transition";
-import type { Team, TeamMember, Event, Score, Announcement } from "@/lib/types";
+import type { Team, TeamMember, Event, Score } from "@/lib/types";
 
 export default function DashboardPage() {
   const { user, setUser } = useAppStore();
   const [myTeam, setMyTeam] = useState<(Team & { members: TeamMember[] }) | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [recentScores, setRecentScores] = useState<Score[]>([]);
-  const [recentAnnouncements, setRecentAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -88,15 +85,6 @@ export default function DashboardPage() {
 
         if (scores) setRecentScores(scores);
       }
-
-      // Load recent announcements
-      const { data: announcements } = await supabase
-        .from("announcements")
-        .select("*")
-        .order("published_at", { ascending: false })
-        .limit(5);
-
-      if (announcements) setRecentAnnouncements(announcements);
 
       setLoading(false);
     };
@@ -295,42 +283,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Recent Announcements */}
-          <div className="bg-card rounded-2xl border border-border p-6">
-            <h2 className="font-display text-lg font-bold flex items-center gap-2 mb-4">
-              <Megaphone className="w-5 h-5 text-celebration" />
-              ANNOUNCEMENTS
-            </h2>
-
-            {recentAnnouncements.length > 0 ? (
-              <div className="space-y-3">
-                {recentAnnouncements.map((ann) => (
-                  <div
-                    key={ann.id}
-                    className="p-3 bg-background rounded-xl"
-                  >
-                    <div className="flex items-start gap-2">
-                      <Bell className="w-4 h-4 text-coral mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-sm font-semibold">{ann.title}</p>
-                        <p className="text-xs text-muted line-clamp-2 mt-1">
-                          {ann.body}
-                        </p>
-                        <p className="text-[10px] text-muted mt-1">
-                          {new Date(ann.published_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <Megaphone className="w-10 h-10 text-muted mx-auto mb-2" />
-                <p className="text-sm text-muted">No announcements yet</p>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </PageTransition>

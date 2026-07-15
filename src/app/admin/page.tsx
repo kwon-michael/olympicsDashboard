@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard,
   Trophy,
-  Megaphone,
   Users,
   Calendar,
   Shield,
@@ -18,16 +16,17 @@ import {
   Swords,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { canViewAuditLog } from "@/lib/auth";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
 
 interface AdminStats {
   totalTeams: number;
   totalPlayers: number;
   totalScores: number;
-  totalAnnouncements: number;
   recentActivity: { action: string; entity_type: string; entity_id: string; details: Record<string, unknown> | null; created_at: string; actor_id: string; actor: { display_name: string } | { display_name: string }[] }[];
 }
 
+// Links shown to every admin.
 const adminLinks = [
   {
     href: "/admin/scores",
@@ -51,13 +50,6 @@ const adminLinks = [
     color: "#6366F1",
   },
   {
-    href: "/admin/announcements",
-    label: "Announcements",
-    description: "Compose and publish announcements",
-    icon: Megaphone,
-    color: "#E94560",
-  },
-  {
     href: "/admin/schedule",
     label: "Schedule & Events",
     description: "Build the event-day calendar and manage time blocks",
@@ -71,14 +63,16 @@ const adminLinks = [
     icon: UserX,
     color: "#EF4444",
   },
-  {
-    href: "/admin/audit",
-    label: "Activity Logs",
-    description: "Admin actions and user activity with filters",
-    icon: ScrollText,
-    color: "#64748B",
-  },
 ];
+
+// Restricted to the audit-log owner (see canViewAuditLog).
+const auditLink = {
+  href: "/admin/audit",
+  label: "Activity Logs",
+  description: "Admin actions and user activity with filters",
+  icon: ScrollText,
+  color: "#64748B",
+};
 
 export default function AdminDashboardPage() {
   const supabase = createClient();
@@ -86,33 +80,37 @@ export default function AdminDashboardPage() {
     totalTeams: 0,
     totalPlayers: 0,
     totalScores: 0,
-    totalAnnouncements: 0,
     recentActivity: [],
   });
   const [loading, setLoading] = useState(true);
+  const [canViewAudit, setCanViewAudit] = useState(false);
 
   useEffect(() => {
     async function fetchStats() {
-      const [teams, players, scores, announcements, audit] =
-        await Promise.all([
-          supabase.from("roster_teams").select("id", { count: "exact", head: true }),
-          supabase.from("roster_players").select("id", { count: "exact", head: true }),
-          supabase.from("roster_scores").select("id", { count: "exact", head: true }),
-          supabase
-            .from("announcements")
-            .select("id", { count: "exact", head: true }),
-          supabase
-            .from("audit_log")
-            .select("action, entity_type, entity_id, details, created_at, actor_id, actor:users!audit_log_actor_id_fkey(display_name)")
-            .order("created_at", { ascending: false })
-            .limit(10),
-        ]);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const auditAllowed = canViewAuditLog(user?.email);
+      setCanViewAudit(auditAllowed);
+
+      const [teams, players, scores, audit] = await Promise.all([
+        supabase.from("roster_teams").select("id", { count: "exact", head: true }),
+        supabase.from("roster_players").select("id", { count: "exact", head: true }),
+        supabase.from("roster_scores").select("id", { count: "exact", head: true }),
+        // The activity feed is only fetched for the audit-log owner.
+        auditAllowed
+          ? supabase
+              .from("audit_log")
+              .select("action, entity_type, entity_id, details, created_at, actor_id, actor:users!audit_log_actor_id_fkey(display_name)")
+              .order("created_at", { ascending: false })
+              .limit(10)
+          : Promise.resolve({ data: [] }),
+      ]);
 
       setStats({
         totalTeams: teams.count ?? 0,
         totalPlayers: players.count ?? 0,
         totalScores: scores.count ?? 0,
-        totalAnnouncements: announcements.count ?? 0,
         recentActivity: audit.data ?? [],
       });
       setLoading(false);
@@ -120,6 +118,8 @@ export default function AdminDashboardPage() {
 
     fetchStats();
   }, []);
+
+  const links = canViewAudit ? [...adminLinks, auditLink] : adminLinks;
 
   const statCards = [
     { label: "Teams", value: stats.totalTeams, icon: Users, color: "#22C55E" },
@@ -134,12 +134,6 @@ export default function AdminDashboardPage() {
       value: stats.totalScores,
       icon: TrendingUp,
       color: "#E94560",
-    },
-    {
-      label: "Announcements",
-      value: stats.totalAnnouncements,
-      icon: Megaphone,
-      color: "#F5A623",
     },
   ];
 
@@ -162,7 +156,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Stats Grid */}
-        <StaggerContainer className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StaggerContainer className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {statCards.map((stat) => {
             const Icon = stat.icon;
             return (
@@ -186,7 +180,7 @@ export default function AdminDashboardPage() {
           MANAGE
         </h2>
         <StaggerContainer className="grid sm:grid-cols-2 gap-4 mb-8">
-          {adminLinks.map((link) => {
+          {links.map((link) => {
             const Icon = link.icon;
             return (
               <StaggerItem key={link.href}>
@@ -221,7 +215,9 @@ export default function AdminDashboardPage() {
           })}
         </StaggerContainer>
 
-        {/* Recent Activity */}
+        {/* Recent Activity — restricted to the audit-log owner */}
+        {canViewAudit && (
+          <>
         <h2 className="font-display text-lg font-bold text-foreground mb-4">
           RECENT ACTIVITY
         </h2>
@@ -285,6 +281,8 @@ export default function AdminDashboardPage() {
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
     </PageTransition>
   );

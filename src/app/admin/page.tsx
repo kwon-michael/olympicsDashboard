@@ -15,6 +15,7 @@ import {
   ChevronRight,
   UserX,
   ScrollText,
+  Swords,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
@@ -41,6 +42,13 @@ const adminLinks = [
     description: "Move players between teams, cross out, or replace",
     icon: Users,
     color: "#22C55E",
+  },
+  {
+    href: "/admin/tug-of-war",
+    label: "Tug of War",
+    description: "Lock groups from standings, record matches, seed the bracket",
+    icon: Swords,
+    color: "#6366F1",
   },
   {
     href: "/admin/announcements",

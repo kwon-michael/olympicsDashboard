@@ -115,6 +115,35 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.10 — Tug of War tournament
+
+### Tug of War (new feature)
+- New standalone tournament layered on the roster teams: group stage → randomized playoff bracket, tracked and displayed in-app (final placement points 5/3/2/1 are still awarded through the normal score tools)
+- New database tables with public-read/admin-write RLS (`supabase/tug_of_war.sql`):
+  - `tug_state` — single-row tournament state (`groups_locked`, `bracket_seeded`, admin-set `wildcard_team_id`)
+  - `tug_group_members` — team → group (A/B/C) + snapshotted solo-standings seed
+  - `tug_matches` — group round-robin and bracket matches with round-win scores and winner
+- Group assignment snapshots the solo standings at lock time and splits teams by rank: {1,4,7} → A, {2,5,8} → B, {3,6,9} → C
+- Group stage is a round robin (best-of-3 matches); standings rank by total round wins, then seed
+- Qualifiers: each group winner plus the best of the three 2nd-place teams (by round wins); a 2nd-place tie is flagged for a manual tiebreaker
+- Bracket: "Randomize seeding" shuffles the four qualifiers into two semifinals; the final and 3rd-place match auto-populate from the semifinal winners/losers
+
+### Admin
+- New admin page `/admin/tug-of-war` with a 3-step flow: lock standings & generate groups → record group round wins → resolve wildcard ties and seed/record the bracket
+- "Reset tournament" clears all groups, matches, and bracket results to regenerate
+- Added a "Tug of War" card to the admin dashboard and audit logging for lock/reset/seed/match/wildcard actions
+
+### Public
+- New public page `/tug-of-war` showing the group standings and playoff bracket (with a pre-lock "not started yet" state)
+- Added a "Tug of War" link with Swords icon to the public navbar
+- Teams page: per-team "Group A/B/C" badges plus a collapsible embedded Tug of War section (groups + bracket) once groups are locked
+- New shared display components `src/components/tug/tug-groups.tsx` and `tug-bracket.tsx`
+
+### Database
+- New schema file: `supabase/tug_of_war.sql` (run once in Supabase)
+
+---
+
 ## v1.09 — Roster teams & manual scoring overhaul
 
 ### Roster system (auth-free teams)

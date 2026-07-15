@@ -61,6 +61,39 @@ export interface RosterScore {
   created_at: string;
 }
 
+// ---- Tug of War tournament (groups + playoff bracket) ----
+export type TugStage = "group" | "semi" | "final" | "third";
+
+export interface TugState {
+  id: number;
+  groups_locked: boolean;
+  bracket_seeded: boolean;
+  wildcard_team_id: string | null;
+  updated_at: string;
+}
+
+export interface TugGroupMember {
+  team_id: string;
+  group_label: string; // 'A' | 'B' | 'C'
+  seed: number; // solo-standings position 1-9
+  created_at: string;
+}
+
+export interface TugMatch {
+  id: string;
+  stage: TugStage;
+  group_label: string | null;
+  slot: number;
+  team_a: string | null;
+  team_b: string | null;
+  score_a: number | null;
+  score_b: number | null;
+  winner_id: string | null;
+  is_tiebreaker: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -233,6 +266,22 @@ export interface Database {
         Row: RosterScore;
         Insert: Omit<RosterScore, "id" | "created_at">;
         Update: Partial<Omit<RosterScore, "id" | "created_at">>;
+      };
+      tug_state: {
+        Row: TugState;
+        Insert: Partial<TugState> & { id: number };
+        Update: Partial<Omit<TugState, "id">>;
+      };
+      tug_group_members: {
+        Row: TugGroupMember;
+        Insert: Omit<TugGroupMember, "created_at">;
+        Update: Partial<Omit<TugGroupMember, "created_at">>;
+      };
+      tug_matches: {
+        Row: TugMatch;
+        Insert: Omit<TugMatch, "id" | "created_at" | "updated_at"> &
+          Partial<Pick<TugMatch, "id">>;
+        Update: Partial<Omit<TugMatch, "id" | "created_at">>;
       };
     };
     Views: {

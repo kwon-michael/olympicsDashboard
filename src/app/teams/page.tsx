@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Users, Search, Trophy } from "lucide-react";
+import { Users, Search, Trophy, Swords, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   PageTransition,
@@ -14,21 +14,38 @@ import {
   computeTeamStandings,
   type RosterData,
 } from "@/lib/roster";
+import { fetchTugData, type TugData } from "@/lib/tug";
+import { TugGroups } from "@/components/tug/tug-groups";
+import { TugBracket } from "@/components/tug/tug-bracket";
 import type { RosterPlayer } from "@/lib/types";
 
 export default function TeamsPage() {
   const [data, setData] = useState<RosterData | null>(null);
+  const [tug, setTug] = useState<TugData | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [tugOpen, setTugOpen] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
-      setData(await fetchRosterData(supabase));
+      const [roster, t] = await Promise.all([
+        fetchRosterData(supabase),
+        fetchTugData(supabase),
+      ]);
+      setData(roster);
+      setTug(t);
       setLoading(false);
     };
     load();
   }, []);
+
+  const tugLocked = tug?.state?.groups_locked ?? false;
+  const groupByTeam = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const gm of tug?.groupMembers ?? []) map.set(gm.team_id, gm.group_label);
+    return map;
+  }, [tug]);
 
   const standings = useMemo(
     () =>
@@ -86,6 +103,39 @@ export default function TeamsPage() {
         </div>
       </div>
 
+      {/* Tug of War groups + bracket */}
+      {!loading && tugLocked && tug && (
+        <div className="mb-8 bg-card/50 rounded-2xl border border-border overflow-hidden">
+          <button
+            onClick={() => setTugOpen((v) => !v)}
+            className="w-full flex items-center gap-2.5 px-5 py-3.5 hover:bg-card transition-colors"
+          >
+            <Swords className="w-5 h-5 text-indigo-500" />
+            <span className="font-display font-bold text-foreground">
+              TUG OF WAR
+            </span>
+            <Link
+              href="/tug-of-war"
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs text-coral hover:underline ml-2"
+            >
+              full view →
+            </Link>
+            <ChevronDown
+              className={`w-4 h-4 text-muted ml-auto transition-transform ${
+                tugOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {tugOpen && (
+            <div className="px-4 pb-5 pt-1 space-y-6">
+              <TugGroups teams={data?.teams ?? []} tug={tug} />
+              <TugBracket teams={data?.teams ?? []} tug={tug} />
+            </div>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-4 border-coral border-t-transparent rounded-full animate-spin" />
@@ -112,6 +162,12 @@ export default function TeamsPage() {
                       <h3 className="font-display text-lg font-bold group-hover:text-coral transition-colors">
                         {s.team.name}
                       </h3>
+                      {tugLocked && groupByTeam.has(s.team.id) && (
+                        <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-500">
+                          <Swords className="w-3 h-3" />
+                          Group {groupByTeam.get(s.team.id)}
+                        </span>
+                      )}
                     </div>
                   </div>
 

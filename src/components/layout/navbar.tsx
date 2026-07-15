@@ -17,6 +17,7 @@ import {
   LogOut,
   Flame,
   ChevronDown,
+  Swords,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -26,6 +27,7 @@ import type { User } from "@/lib/types";
 const publicLinks = [
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/teams", label: "Teams", icon: Users },
+  { href: "/tug-of-war", label: "Tug of War", icon: Swords },
   { href: "/rules", label: "Rules", icon: BookOpen },
   { href: "/schedule", label: "Schedule", icon: Clock },
 ];

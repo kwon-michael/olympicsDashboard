@@ -94,6 +94,12 @@ export interface TugMatch {
   updated_at: string;
 }
 
+// ---- Dodgeball tournament (identical shape to Tug of War, separate tables) ----
+export type DodgeballStage = TugStage;
+export type DodgeballState = TugState;
+export type DodgeballGroupMember = TugGroupMember;
+export type DodgeballMatch = TugMatch;
+
 export interface Event {
   id: string;
   name: string;
@@ -245,6 +251,22 @@ export interface Database {
         Insert: Omit<TugMatch, "id" | "created_at" | "updated_at"> &
           Partial<Pick<TugMatch, "id">>;
         Update: Partial<Omit<TugMatch, "id" | "created_at">>;
+      };
+      dodgeball_state: {
+        Row: DodgeballState;
+        Insert: Partial<DodgeballState> & { id: number };
+        Update: Partial<Omit<DodgeballState, "id">>;
+      };
+      dodgeball_group_members: {
+        Row: DodgeballGroupMember;
+        Insert: Omit<DodgeballGroupMember, "created_at">;
+        Update: Partial<Omit<DodgeballGroupMember, "created_at">>;
+      };
+      dodgeball_matches: {
+        Row: DodgeballMatch;
+        Insert: Omit<DodgeballMatch, "id" | "created_at" | "updated_at"> &
+          Partial<Pick<DodgeballMatch, "id">>;
+        Update: Partial<Omit<DodgeballMatch, "id" | "created_at">>;
       };
     };
     Views: {

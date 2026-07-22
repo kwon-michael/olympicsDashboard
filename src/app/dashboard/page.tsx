@@ -13,6 +13,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
+import { FullPageLoader } from "@/components/ui/spinner";
 import { TeamBadge } from "@/components/ui/team-badge";
 import { ScoreCard } from "@/components/ui/score-card";
 import {
@@ -33,8 +34,11 @@ export default function DashboardPage() {
     const loadDashboard = async () => {
       const supabase = createClient();
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      
-      if (!authUser) return;
+
+      if (!authUser) {
+        setLoading(false);
+        return;
+      }
 
       // Load user profile
       const { data: profile } = await supabase
@@ -93,11 +97,7 @@ export default function DashboardPage() {
   }, [setUser]);
 
   if (loading) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-coral border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <FullPageLoader label="Loading your dashboard…" />;
   }
 
   return (

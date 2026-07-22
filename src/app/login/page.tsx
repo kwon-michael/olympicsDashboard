@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Flame, ArrowRight, LogIn } from "lucide-react";
@@ -24,7 +24,6 @@ function LoginForm() {
       ? "This account isn't authorized. Only admins can sign in."
       : ""
   );
-  const router = useRouter();
   const { setUser } = useAppStore();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -63,8 +62,12 @@ function LoginForm() {
       logActivity(supabase, "sign_in", { method: "password" });
     }
 
-    router.push(redirect);
-    router.refresh();
+    // Use a full navigation rather than router.push so the browser re-requests
+    // the destination with the freshly-set Supabase auth cookies. A soft
+    // navigation can race the cookie write, leaving middleware to see no
+    // session and bounce the user back to /login. The button stays in its
+    // loading state until the page unloads.
+    window.location.assign(redirect);
   };
 
   return (

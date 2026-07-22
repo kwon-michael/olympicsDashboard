@@ -61,6 +61,20 @@ export interface RosterScore {
   created_at: string;
 }
 
+// ---- Solo event results (one raw measurement per team per solo event) ----
+export interface SoloResult {
+  id: string;
+  event_slug: string;
+  team_id: string;
+  player_id: string | null;
+  // Raw result in the event's unit: time → centiseconds, distance → cm,
+  // points → raw integer. Ranked + converted to placement points client-side.
+  value: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ---- Tug of War tournament (groups + playoff bracket) ----
 export type TugStage = "group" | "semi" | "final" | "third";
 
@@ -235,6 +249,12 @@ export interface Database {
         Row: RosterScore;
         Insert: Omit<RosterScore, "id" | "created_at">;
         Update: Partial<Omit<RosterScore, "id" | "created_at">>;
+      };
+      solo_results: {
+        Row: SoloResult;
+        Insert: Omit<SoloResult, "id" | "created_at" | "updated_at"> &
+          Partial<Pick<SoloResult, "id" | "updated_at">>;
+        Update: Partial<Omit<SoloResult, "id" | "created_at">>;
       };
       tug_state: {
         Row: TugState;

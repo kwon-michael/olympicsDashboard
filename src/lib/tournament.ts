@@ -213,14 +213,22 @@ export interface Qualifiers {
   secondPlace: GroupTeamStanding[]; // the three 2nd-place teams, best first
   wildcard: GroupTeamStanding | null; // best 2nd place, or null if tied
   wildcardTie: GroupTeamStanding[]; // tied 2nd-place teams needing a tiebreaker
+  /** True when the wildcard was decided by the solo top-3 priority marker. */
+  wildcardByPriority: boolean;
 }
 
 /**
  * Determine the four qualifiers: each group winner plus the best of the three
  * 2nd-place teams (by round wins). If the top two 2nd-place teams are tied, the
- * wildcard is undecided (wildcardTie lists them) and must be broken manually.
+ * wildcard is undecided (wildcardTie lists them) and must be broken manually —
+ * UNLESS exactly one tied team carries the solo top-3 priority marker
+ * (`priorityTeamIds`), in which case it automatically moves forward. If several
+ * tied teams share priority, the tie narrows to just those and is still manual.
  */
-export function computeQualifiers(groupStandings: GroupStanding[]): Qualifiers {
+export function computeQualifiers(
+  groupStandings: GroupStanding[],
+  priorityTeamIds: Set<string> = new Set()
+): Qualifiers {
   const groupWinners = groupStandings
     .map((g) => g.teams.find((t) => t.rank === 1))
     .filter((t): t is GroupTeamStanding => Boolean(t));
@@ -232,17 +240,27 @@ export function computeQualifiers(groupStandings: GroupStanding[]): Qualifiers {
 
   let wildcard: GroupTeamStanding | null = null;
   let wildcardTie: GroupTeamStanding[] = [];
+  let wildcardByPriority = false;
   if (secondPlace.length > 0) {
     const best = secondPlace[0].roundWins;
     const tied = secondPlace.filter((t) => t.roundWins === best);
     if (tied.length > 1) {
-      wildcardTie = tied;
+      // A tie for the wildcard: teams with the solo top-3 priority marker jump
+      // ahead of unmarked teams automatically.
+      const prioritized = tied.filter((t) => priorityTeamIds.has(t.team.id));
+      const candidates = prioritized.length > 0 ? prioritized : tied;
+      if (candidates.length === 1) {
+        wildcard = candidates[0];
+        wildcardByPriority = prioritized.length === 1;
+      } else {
+        wildcardTie = candidates;
+      }
     } else {
       wildcard = secondPlace[0];
     }
   }
 
-  return { groupWinners, secondPlace, wildcard, wildcardTie };
+  return { groupWinners, secondPlace, wildcard, wildcardTie, wildcardByPriority };
 }
 
 export interface BracketView {

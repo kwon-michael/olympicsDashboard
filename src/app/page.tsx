@@ -48,10 +48,10 @@ function useCountdown() {
 function CountdownUnit({ value, label }: { value: number; label: string }) {
   return (
     <div className="text-center">
-      <p className="font-mono text-3xl sm:text-4xl font-bold text-white tabular-nums">
+      <p className="font-mono text-2xl sm:text-4xl font-bold text-white tabular-nums">
         {String(value).padStart(2, "0")}
       </p>
-      <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">
+      <p className="text-[9px] sm:text-[10px] text-white/40 uppercase tracking-widest mt-1">
         {label}
       </p>
     </div>
@@ -71,7 +71,7 @@ export default function HomePage() {
           <div className="absolute bottom-0 left-0 w-80 h-80 bg-gold/8 rounded-full blur-3xl" />
         </div>
 
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-28 sm:py-36 lg:py-44 text-center">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32 lg:py-44 text-center">
           <StaggerContainer>
             <StaggerItem>
               <div className="inline-flex items-center gap-2 bg-white/10 rounded-full px-4 py-1.5 mb-8">
@@ -83,10 +83,10 @@ export default function HomePage() {
             </StaggerItem>
 
             <StaggerItem>
-              <h1 className="font-display text-6xl sm:text-7xl lg:text-9xl font-bold tracking-tight leading-none">
+              <h1 className="font-display text-[clamp(2.75rem,13vw,8rem)] font-bold tracking-tight leading-none break-words">
                 <span className="text-white">CASUAL</span>
                 <span className="text-coral">YMPICS</span>
-                <span className="text-gold text-xl sm:text-2xl lg:text-3xl align-super">™</span>
+                <span className="text-gold text-[0.35em] align-super">™</span>
               </h1>
             </StaggerItem>
 
@@ -132,20 +132,20 @@ export default function HomePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="mt-16"
+            className="mt-12 sm:mt-16"
           >
             {countdown.isOver ? (
               <p className="text-sm font-semibold text-gold uppercase tracking-widest">
                 Game Day is Here!
               </p>
             ) : (
-              <div className="inline-flex items-center gap-5 sm:gap-8 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 px-8 py-5">
+              <div className="inline-flex max-w-full items-center gap-2.5 sm:gap-8 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 px-4 sm:px-8 py-4 sm:py-5">
                 <CountdownUnit value={countdown.days} label="Days" />
-                <span className="text-white/20 text-2xl font-light">:</span>
+                <span className="text-white/20 text-lg sm:text-2xl font-light">:</span>
                 <CountdownUnit value={countdown.hours} label="Hours" />
-                <span className="text-white/20 text-2xl font-light">:</span>
+                <span className="text-white/20 text-lg sm:text-2xl font-light">:</span>
                 <CountdownUnit value={countdown.minutes} label="Min" />
-                <span className="text-white/20 text-2xl font-light">:</span>
+                <span className="text-white/20 text-lg sm:text-2xl font-light">:</span>
                 <CountdownUnit value={countdown.seconds} label="Sec" />
               </div>
             )}
@@ -156,7 +156,7 @@ export default function HomePage() {
       {/* Quick Links Strip */}
       <section className="bg-card border-b border-border">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border">
             {[
               { icon: Trophy, label: "Leaderboard", href: "/leaderboard", color: "#F5A623" },
               { icon: Users, label: "Teams", href: "/teams", color: "#E94560" },
@@ -168,13 +168,13 @@ export default function HomePage() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="flex items-center justify-center gap-2 py-5 hover:bg-background transition-colors group"
+                  className="flex items-center justify-center gap-1.5 sm:gap-2 py-4 sm:py-5 bg-card hover:bg-background transition-colors group"
                 >
                   <Icon
-                    className="w-4 h-4 transition-transform group-hover:scale-110"
+                    className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110"
                     style={{ color: link.color }}
                   />
-                  <span className="text-sm font-semibold text-foreground">
+                  <span className="text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">
                     {link.label}
                   </span>
                 </Link>

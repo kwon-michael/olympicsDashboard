@@ -11,6 +11,7 @@ import {
   Trophy,
   Check,
   AlertTriangle,
+  Star,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -35,24 +36,33 @@ import {
   GROUP_LABELS,
   type DodgeballData,
 } from "@/lib/dodgeball";
-import type { RosterTeam, DodgeballMatch } from "@/lib/types";
+import {
+  fetchSoloResults,
+  computeSoloTeamStandings,
+  soloBonusByTeam,
+  soloPriorityTeamIds,
+} from "@/lib/solo";
+import type { RosterTeam, DodgeballMatch, SoloResult } from "@/lib/types";
 
 const EPOCH = "1970-01-01";
 
 export default function AdminDodgeballPage() {
   const [roster, setRoster] = useState<RosterData | null>(null);
   const [dodge, setDodge] = useState<DodgeballData | null>(null);
+  const [solo, setSolo] = useState<SoloResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [r, d] = await Promise.all([
+    const [r, d, s] = await Promise.all([
       fetchRosterData(supabase),
       fetchDodgeballData(supabase),
+      fetchSoloResults(supabase),
     ]);
     setRoster(r);
     setDodge(d);
+    setSolo(s);
     setLoading(false);
   }, []);
 
@@ -66,9 +76,25 @@ export default function AdminDodgeballPage() {
     [teams]
   );
 
+  const soloStandings = useMemo(
+    () => (roster ? computeSoloTeamStandings(solo, roster.teams) : []),
+    [roster, solo]
+  );
+  const priorityTeamIds = useMemo(
+    () => soloPriorityTeamIds(soloStandings),
+    [soloStandings]
+  );
+
   const standings = useMemo(
-    () => (roster ? computeTeamStandings(roster.teams, roster.scores) : []),
-    [roster]
+    () =>
+      roster
+        ? computeTeamStandings(
+            roster.teams,
+            roster.scores,
+            soloBonusByTeam(soloStandings)
+          )
+        : [],
+    [roster, soloStandings]
   );
 
   const groupStandings = useMemo(
@@ -82,8 +108,8 @@ export default function AdminDodgeballPage() {
   const groupsDone = dodge ? groupStageComplete(dodge.matches) : false;
 
   const qualifiers = useMemo(
-    () => computeQualifiers(groupStandings),
-    [groupStandings]
+    () => computeQualifiers(groupStandings, priorityTeamIds),
+    [groupStandings, priorityTeamIds]
   );
   const wildcard = resolvedWildcard(qualifiers, dodge?.state ?? null);
   const four = resolvedQualifiers(qualifiers, dodge?.state ?? null);
@@ -439,6 +465,7 @@ export default function AdminDodgeballPage() {
                 qualifiers={qualifiers}
                 wildcard={wildcard}
                 onChooseWildcard={chooseWildcard}
+                priorityTeamIds={priorityTeamIds}
                 busy={busy}
               />
             </section>
@@ -706,11 +733,13 @@ function QualifiersSection({
   qualifiers,
   wildcard,
   onChooseWildcard,
+  priorityTeamIds,
   busy,
 }: {
   qualifiers: ReturnType<typeof computeQualifiers>;
   wildcard: ReturnType<typeof resolvedWildcard>;
   onChooseWildcard: (teamId: string) => void;
+  priorityTeamIds: Set<string>;
   busy: boolean;
 }) {
   const hasTie = qualifiers.wildcardTie.length > 0;
@@ -746,17 +775,28 @@ function QualifiersSection({
           Wildcard (best 2nd place)
         </p>
         {!hasTie && wildcard ? (
-          <div className="flex items-center gap-2 text-sm">
-            <span
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: wildcard.team.color }}
-            />
-            <span className="flex-1 font-semibold truncate">
-              {wildcard.team.name}
-            </span>
-            <span className="font-mono text-xs text-muted">
-              {wildcard.roundWins} RW
-            </span>
+          <div>
+            <div className="flex items-center gap-2 text-sm">
+              <span
+                className="w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: wildcard.team.color }}
+              />
+              <span className="flex-1 font-semibold truncate">
+                {wildcard.team.name}
+              </span>
+              {priorityTeamIds.has(wildcard.team.id) && (
+                <Star className="w-3.5 h-3.5 text-gold fill-gold shrink-0" />
+              )}
+              <span className="font-mono text-xs text-muted">
+                {wildcard.roundWins} RW
+              </span>
+            </div>
+            {qualifiers.wildcardByPriority && (
+              <p className="text-xs text-gold flex items-center gap-1.5 mt-2">
+                <Star className="w-3.5 h-3.5 fill-gold" />
+                Auto-advanced on the solo top-3 priority marker (broke a 2nd-place tie).
+              </p>
+            )}
           </div>
         ) : (
           <div>
@@ -785,6 +825,9 @@ function QualifiersSection({
                     <span className="flex-1 text-left font-semibold truncate">
                       {t.team.name}
                     </span>
+                    {priorityTeamIds.has(t.team.id) && (
+                      <Star className="w-3.5 h-3.5 text-gold fill-gold shrink-0" />
+                    )}
                     {chosen && <Check className="w-4 h-4 text-success" />}
                   </button>
                 );

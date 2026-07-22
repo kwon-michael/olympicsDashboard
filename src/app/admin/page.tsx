@@ -15,6 +15,7 @@ import {
   ScrollText,
   Swords,
   CircleDot,
+  Medal,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { canViewAuditLog } from "@/lib/auth";
@@ -35,6 +36,13 @@ const adminLinks = [
     description: "Award points to teams and players",
     icon: Trophy,
     color: "#F5A623",
+  },
+  {
+    href: "/admin/solo",
+    label: "Solo Events",
+    description: "Record per-event results; auto-ranks teams and awards placement points",
+    icon: Medal,
+    color: "#3B82F6",
   },
   {
     href: "/admin/roster",

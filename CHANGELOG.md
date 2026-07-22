@@ -115,6 +115,40 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.13 — Solo events, scoring test suite & CI
+
+### Solo events (new feature)
+- Standalone solo-event scoring universe: each of the nine roster teams enters exactly one participant per solo event, recorded as a single raw result per team per event
+- Admins record the raw measurement (time / distance / points) per team; the app ranks the teams within each event and awards placement points (1st=7, 2nd=5, 3rd=3, 4th=2, 5th=1, else 0), with standard-competition tie handling (tied teams share the higher place and the next place is skipped)
+- Solo points accumulate into a **separate** solo team leaderboard and never mix into the team-event totals — the only crossover is that the top 3 solo teams each earn a +1 team-event point and a wildcard "priority" marker
+- New scoring/data helpers in `src/lib/solo.ts`: `fetchSoloResults`, `computeEventStandings` (per-event ranking + ties), `computeSoloTeamStandings` (rollup + top-3 flag), `soloBonusByTeam`, and `soloPriorityTeamIds`
+
+### Leaderboard
+- Rebuilt with four tabs — Teams, Solo, Individual Events, Players
+- Team standings now fold in the +1 solo bonus (surfaced as a badge on the team row)
+- Individual Events tab: pick a solo event to see the per-team placement table with results formatted in the event's unit
+- Replaced the horizontally-scrolling tab bar with a non-scrolling responsive segmented control (2×2 on mobile, 4-across on desktop); trimmed the tab labels and let the event-selector chips wrap instead of scroll
+
+### Tournament engine
+- `computeQualifiers` now accepts the solo top-3 "priority" set: when the 2nd-place teams tie for the wildcard, a single priority-marked team advances automatically; if none or several share priority the tie stays manual
+
+### Admin
+- New admin page `/admin/solo` to record, edit, and delete solo results per team per event, with live per-event standings and audit logging
+- Added a "Solo Events" card to the admin dashboard
+
+### Testing & CI
+- Added Vitest with 68 unit tests over the scoring functions: `events` (input parsing/formatting round-trips, placement tables, component math), `solo` (ranking direction, ties, top-3 bonus), `roster` (team/player totals + bonus), and `tournament` (seeding, group standings, wildcard resolution)
+- Shared test factories in `src/lib/test-fixtures.ts`; added `npm test` and `npm run test:watch` scripts
+- New GitHub Actions workflow (`.github/workflows/ci.yml`): typecheck + tests on every push/PR to `main`; lint runs non-blocking for now (pre-existing lint debt)
+
+### UX
+- Added route-loading and session scaffolding: `loading.tsx`, a top navigation-progress bar (`navigation-progress.tsx`), an `auth-provider`, and a shared `spinner` component
+
+### Database
+- New schema file: `supabase/solo_events.sql` — `solo_results` table (one result per team per event, `UNIQUE (event_slug, team_id)`) with public-read/admin-write RLS (run once in Supabase)
+
+---
+
 ## v1.12 — Dodgeball tournament
 
 ### Dodgeball (new feature)

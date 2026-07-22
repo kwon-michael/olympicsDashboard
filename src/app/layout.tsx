@@ -3,8 +3,10 @@ import { Oswald, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { RealtimeProvider } from "@/components/providers/realtime-provider";
+import { AuthProvider } from "@/components/providers/auth-provider";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { NavigationProgress } from "@/components/layout/navigation-progress";
 
 const oswald = Oswald({
   variable: "--font-display",
@@ -43,13 +45,16 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <QueryProvider>
-          <RealtimeProvider>
-            <div className="flex flex-col min-h-screen">
-              <Navbar />
-              <main className="flex-1">{children}</main>
-              <Footer />
-            </div>
-          </RealtimeProvider>
+          <AuthProvider>
+            <RealtimeProvider>
+              <NavigationProgress />
+              <div className="flex flex-col min-h-screen">
+                <Navbar />
+                <main className="flex-1">{children}</main>
+                <Footer />
+              </div>
+            </RealtimeProvider>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

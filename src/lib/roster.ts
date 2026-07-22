@@ -35,13 +35,21 @@ export interface TeamStanding {
   team: RosterTeam;
   totalPoints: number;
   scoreCount: number;
+  /** Portion of totalPoints that came from the solo top-3 bonus (0 if none). */
+  bonusPoints: number;
   rank: number;
 }
 
-/** Team totals = sum of every score attached to the team (team-level + player). */
+/**
+ * Team totals = sum of every score attached to the team (team-level + player),
+ * plus an optional per-team bonus. `bonusByTeam` carries the +1 team-event point
+ * that each top-3 solo team earns (see src/lib/solo.ts). The bonus counts toward
+ * the total and ranking but is not a "score", so it doesn't affect scoreCount.
+ */
 export function computeTeamStandings(
   teams: RosterTeam[],
-  scores: RosterScore[]
+  scores: RosterScore[],
+  bonusByTeam?: Map<string, number>
 ): TeamStanding[] {
   const pointsByTeam = new Map<string, number>();
   const countByTeam = new Map<string, number>();
@@ -51,12 +59,16 @@ export function computeTeamStandings(
     countByTeam.set(s.team_id, (countByTeam.get(s.team_id) ?? 0) + 1);
   }
 
-  const standings = teams.map((team) => ({
-    team,
-    totalPoints: pointsByTeam.get(team.id) ?? 0,
-    scoreCount: countByTeam.get(team.id) ?? 0,
-    rank: 0,
-  }));
+  const standings = teams.map((team) => {
+    const bonus = bonusByTeam?.get(team.id) ?? 0;
+    return {
+      team,
+      totalPoints: (pointsByTeam.get(team.id) ?? 0) + bonus,
+      scoreCount: countByTeam.get(team.id) ?? 0,
+      bonusPoints: bonus,
+      rank: 0,
+    };
+  });
 
   standings.sort(
     (a, b) => b.totalPoints - a.totalPoints || a.team.sort_order - b.team.sort_order

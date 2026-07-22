@@ -69,7 +69,7 @@ export function Navbar() {
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-1">
+            <div className="hidden xl:flex items-center gap-1">
               {navLinks.map((link) => {
                 const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
                 const Icon = link.icon;
@@ -106,7 +106,7 @@ export function Navbar() {
               ) : (
                 <Link
                   href="/login"
-                  className="hidden md:flex items-center gap-2 bg-coral hover:bg-coral-light text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                  className="hidden xl:flex items-center gap-2 bg-coral hover:bg-coral-light text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
                 >
                   <LogIn className="w-4 h-4" />
                   Sign In
@@ -115,7 +115,7 @@ export function Navbar() {
 
               <button
                 onClick={toggleSidebar}
-                className="md:hidden p-2 text-white/80 hover:text-white"
+                className="xl:hidden p-2 text-white/80 hover:text-white"
               >
                 {sidebarOpen ? (
                   <X className="w-6 h-6" />
@@ -181,7 +181,7 @@ function ProfileDropdown({ user }: { user: User }) {
   };
 
   return (
-    <div ref={dropdownRef} className="relative hidden md:block">
+    <div ref={dropdownRef} className="relative hidden xl:block">
       <button
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
@@ -312,7 +312,7 @@ function AnimatedSidebar({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-40 xl:hidden"
           onClick={onClose}
         />
       )}
@@ -322,7 +322,7 @@ function AnimatedSidebar({
         initial={{ x: "100%" }}
         animate={{ x: isOpen ? 0 : "100%" }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="fixed top-0 right-0 bottom-0 w-72 bg-navy z-50 md:hidden shadow-2xl"
+        className="fixed top-0 right-0 bottom-0 w-72 bg-navy z-50 xl:hidden shadow-2xl"
       >
         <div className="p-6 pt-20 flex flex-col h-full">
           <div className="flex flex-col gap-2 flex-1">

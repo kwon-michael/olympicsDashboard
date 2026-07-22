@@ -15,13 +15,19 @@ import {
   type RosterData,
 } from "@/lib/roster";
 import { fetchTugData, type TugData } from "@/lib/tug";
+import {
+  fetchSoloResults,
+  computeSoloTeamStandings,
+  soloBonusByTeam,
+} from "@/lib/solo";
 import { TugGroups } from "@/components/tug/tug-groups";
 import { TugBracket } from "@/components/tug/tug-bracket";
-import type { RosterPlayer } from "@/lib/types";
+import type { RosterPlayer, SoloResult } from "@/lib/types";
 
 export default function TeamsPage() {
   const [data, setData] = useState<RosterData | null>(null);
   const [tug, setTug] = useState<TugData | null>(null);
+  const [solo, setSolo] = useState<SoloResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [tugOpen, setTugOpen] = useState(true);
@@ -29,12 +35,14 @@ export default function TeamsPage() {
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
-      const [roster, t] = await Promise.all([
+      const [roster, t, soloResults] = await Promise.all([
         fetchRosterData(supabase),
         fetchTugData(supabase),
+        fetchSoloResults(supabase),
       ]);
       setData(roster);
       setTug(t);
+      setSolo(soloResults);
       setLoading(false);
     };
     load();
@@ -47,11 +55,11 @@ export default function TeamsPage() {
     return map;
   }, [tug]);
 
-  const standings = useMemo(
-    () =>
-      data ? computeTeamStandings(data.teams, data.scores) : [],
-    [data]
-  );
+  const standings = useMemo(() => {
+    if (!data) return [];
+    const bonus = soloBonusByTeam(computeSoloTeamStandings(solo, data.teams));
+    return computeTeamStandings(data.teams, data.scores, bonus);
+  }, [data, solo]);
 
   const playersByTeam = useMemo(() => {
     const map = new Map<string, RosterPlayer[]>();

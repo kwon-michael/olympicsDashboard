@@ -12,7 +12,17 @@
       "PowerShell(npx tsc --noEmit -p tsconfig.json)",
       "PowerShell(npx tsc --noEmit -p tsconfig.json; if \\($?\\) { $errs = npm run lint 2>&1 | Select-String -Pattern \": error\" | Measure-Object | Select-Object -ExpandProperty Count; Write-Output \"Total lint errors: $errs\" })",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\({...p.dependencies},null,0\\)\\)\")",
+      "Bash(npx eslint *)",
+      "Bash(sed -i 's/^ORGANIZER_SIGNUP_CODE=/ADMIN_SIGNUP_CODE=/' .env.local)",
+      "Bash(rm -f supabase/migrate_organizer_access.sql)",
+      "PowerShell(npx eslint src/app/admin/roster/page.tsx src/app/teams/[id]/page.tsx 2>&1 | Select-Object -First 40)",
+      "Bash(git commit *)",
+      "PowerShell(npm run *)",
+      "Bash(git stash *)",
+      "Bash(git check-ignore *)"
     ]
   }
 }

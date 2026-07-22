@@ -2,7 +2,6 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Trophy,
@@ -26,7 +25,6 @@ const perks = [
 ];
 
 function SignupForm() {
-  const router = useRouter();
   const { setUser } = useAppStore();
   const [code, setCode] = useState("");
   const [email, setEmail] = useState("");
@@ -71,7 +69,7 @@ function SignupForm() {
 
     if (signInError || !signInData.user) {
       // Account was created; fall back to the login page.
-      router.push("/login");
+      window.location.assign("/login");
       return;
     }
 
@@ -84,8 +82,9 @@ function SignupForm() {
     if (profile) setUser(profile);
     logActivity(supabase, "sign_up", { method: "access_code" });
 
-    router.push("/setup-profile");
-    router.refresh();
+    // Full navigation so middleware sees the freshly-set auth cookies on the
+    // next request (see the note in login/page.tsx).
+    window.location.assign("/setup-profile");
   };
 
   return (

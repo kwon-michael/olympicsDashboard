@@ -21,6 +21,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { PageTransition } from "@/components/ui/page-transition";
+import { AnimatedLoader } from "@/components/ui/animated-loader";
 import { logAudit } from "@/lib/audit";
 import { canViewAuditLog } from "@/lib/auth";
 
@@ -510,7 +511,7 @@ export default function AdminAuditPage() {
 
             <div className="bg-card rounded-xl border border-border overflow-hidden">
               {auditLoading ? (
-                <div className="p-8 text-center text-muted text-sm">Loading...</div>
+                <AnimatedLoader label="Loading logs" />
               ) : auditEntries.length === 0 ? (
                 <div className="p-8 text-center text-muted text-sm">
                   No admin actions found.
@@ -721,7 +722,7 @@ export default function AdminAuditPage() {
 
             <div className="bg-card rounded-xl border border-border overflow-hidden">
               {activityLoading ? (
-                <div className="p-8 text-center text-muted text-sm">Loading...</div>
+                <AnimatedLoader label="Loading logs" />
               ) : activityEntries.length === 0 ? (
                 <div className="p-8 text-center text-muted text-sm">
                   No user activity found.

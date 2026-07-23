@@ -11,6 +11,7 @@ import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageTransition } from "@/components/ui/page-transition";
+import { AnimatedLoader } from "@/components/ui/animated-loader";
 import { logActivity } from "@/lib/audit";
 
 function LoginForm() {
@@ -165,13 +166,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center text-muted">
-          Loading...
-        </div>
-      }
-    >
+    <Suspense fallback={<AnimatedLoader fullScreen />}>
       <LoginForm />
     </Suspense>
   );

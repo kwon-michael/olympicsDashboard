@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { PageTransition } from "@/components/ui/page-transition";
+import { AnimatedLoader } from "@/components/ui/animated-loader";
 import { logAudit } from "@/lib/audit";
 import type { UserRole } from "@/lib/types";
 
@@ -213,9 +214,7 @@ export default function AdminPlayersPage() {
         {/* Players list */}
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           {loading ? (
-            <div className="text-center text-muted py-8 text-sm">
-              Loading players...
-            </div>
+            <AnimatedLoader label="Loading players" />
           ) : filteredPlayers.length === 0 ? (
             <div className="text-center text-muted py-8 text-sm">
               {search ? "No players match your search." : "No players registered yet."}

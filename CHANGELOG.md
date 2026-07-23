@@ -120,9 +120,13 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 ### Format & FAQ (new page)
 - New **`/format`** ("How It Works") page that explains the event to a first-time player: what you're competing for, how points are earned, and an FAQ
 - **How points work:** solo events award placement points (7 / 5 / 3 / 2 / 1) on a separate solo leaderboard, and the top 3 solo teams each carry +1 point onto the main team board plus playoff priority; team events feed the team total directly (each event's own scoring shown — Tail Grab, Tug of War, Dodgeball, Conditional Relay, with the relay worth the most)
-- Explains the three leaderboards (Teams / Solo / Individual-MVP), tie handling, elimination rules, and where to find scores/schedule/rules
+- Explains the two team-focused leaderboards (Teams / Solo), tie handling, elimination rules, and where to find scores/schedule/rules
+- Clarified that solo points don't contribute to team points directly — only the top-3 solo bonus does
 - Content is derived from the scoring engine (placement scales from the scoring helpers, per-event text from each event's config) so it can't drift out of sync
 - Added a **Format** link to the navbar; the scoring/FAQ content lives in a shared `FormatGuide` component
+
+### Admin dashboard
+- Made the tool cards uniform in size (equal-height grid) so the Solo Events / Team Events boxes line up, and shortened the Team Events card description to a single line
 
 ### Home page
 - Rebuilt as a simple landing that points to the Format page: hero with a **Read the Format** button, a prominent **"read the format before game day"** banner, and a closing **Know Before You Go** call-to-action — all linking to `/format`
@@ -131,6 +135,12 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ### Navbar
 - Removed the public **Dashboard** link from the navbar (top nav and the account dropdown); **Admin Dashboard** stays for admins and volunteers
+
+### Loading states
+- Replaced the spinning circle loaders across all pages with **skeleton loaders** — a new `Skeleton` / `SkeletonList` / `PageSkeleton` set mirrors the page content while it loads (leaderboard, teams, and every admin tool, plus the global route-transition loader and the dashboard). Removed the old `Spinner`/`FullPageLoader`
+- Replaced the remaining plain-text "Loading…" states with a new on-theme **animated loading panel** (`AnimatedLoader`): a flowing navy→coral→gold aurora with a light sweep, a pulsing flame badge, and bouncing dots — used on the login/signup gates, Player Management, Activity Logs, and the admin activity feed
+- The animated loader is fully responsive (fills its container / the viewport) and respects `prefers-reduced-motion`
+- The Button's inline spinner (an in-progress action indicator) is unchanged
 
 ---
 

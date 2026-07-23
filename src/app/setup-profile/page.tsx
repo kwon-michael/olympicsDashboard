@@ -69,7 +69,8 @@ export default function SetupProfilePage() {
 
     if (profile) setUser(profile);
 
-    router.push("/dashboard");
+    // Volunteers only use the admin tools, so send them there after setup.
+    router.push(profile?.role === "volunteer" ? "/admin" : "/dashboard");
   };
 
   return (
@@ -103,7 +104,7 @@ export default function SetupProfilePage() {
               id="lastName"
               label="Last Name"
               type="text"
-              placeholder="Jordan"
+              placeholder="Kwon"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               required

@@ -67,12 +67,24 @@ export default function AdminRosterPage() {
       .update({ team_id: newTeamId })
       .eq("id", player.id);
     if (!error) {
-      await logAudit(supabase, "update", "roster_player", player.id, {
-        action: "move",
-        player: player.name,
-        from: teamNameById.get(player.team_id),
-        to: teamNameById.get(newTeamId),
-      });
+      await logAudit(
+        supabase,
+        "update",
+        "roster_player",
+        player.id,
+        {
+          action: "move",
+          player: player.name,
+          from: teamNameById.get(player.team_id),
+          to: teamNameById.get(newTeamId),
+        },
+        {
+          table: "roster_players",
+          rowId: player.id,
+          before: { team_id: player.team_id },
+          after: { team_id: newTeamId },
+        }
+      );
       await load();
     }
     setBusyId(null);
@@ -86,10 +98,22 @@ export default function AdminRosterPage() {
       .update({ is_active: !player.is_active })
       .eq("id", player.id);
     if (!error) {
-      await logAudit(supabase, "update", "roster_player", player.id, {
-        action: player.is_active ? "cross_out" : "restore",
-        player: player.name,
-      });
+      await logAudit(
+        supabase,
+        "update",
+        "roster_player",
+        player.id,
+        {
+          action: player.is_active ? "cross_out" : "restore",
+          player: player.name,
+        },
+        {
+          table: "roster_players",
+          rowId: player.id,
+          before: { is_active: player.is_active },
+          after: { is_active: !player.is_active },
+        }
+      );
       await load();
     }
     setBusyId(null);
@@ -108,11 +132,23 @@ export default function AdminRosterPage() {
       .update({ name })
       .eq("id", player.id);
     if (!error) {
-      await logAudit(supabase, "update", "roster_player", player.id, {
-        action: "rename",
-        from: player.name,
-        to: name,
-      });
+      await logAudit(
+        supabase,
+        "update",
+        "roster_player",
+        player.id,
+        {
+          action: "rename",
+          from: player.name,
+          to: name,
+        },
+        {
+          table: "roster_players",
+          rowId: player.id,
+          before: { name: player.name },
+          after: { name },
+        }
+      );
       setEditId(null);
       await load();
     }
@@ -133,10 +169,22 @@ export default function AdminRosterPage() {
       .delete()
       .eq("id", player.id);
     if (!error) {
-      await logAudit(supabase, "delete", "roster_player", player.id, {
-        player: player.name,
-        team: teamNameById.get(player.team_id),
-      });
+      await logAudit(
+        supabase,
+        "delete",
+        "roster_player",
+        player.id,
+        {
+          player: player.name,
+          team: teamNameById.get(player.team_id),
+        },
+        {
+          table: "roster_players",
+          rowId: player.id,
+          // Full row so a revert can re-insert the player as they were.
+          before: { ...player },
+        }
+      );
       await load();
     }
     setBusyId(null);
@@ -151,17 +199,32 @@ export default function AdminRosterPage() {
 
     setBusyId(teamId);
     const supabase = createClient();
-    const { error } = await supabase.from("roster_players").insert({
-      team_id: teamId,
-      name,
-      is_active: true,
-      sort_order: nextSort,
-    });
+    const { data: inserted, error } = await supabase
+      .from("roster_players")
+      .insert({
+        team_id: teamId,
+        name,
+        is_active: true,
+        sort_order: nextSort,
+      })
+      .select("id")
+      .single();
     if (!error) {
-      await logAudit(supabase, "create", "roster_player", teamId, {
-        player: name,
-        team: teamNameById.get(teamId),
-      });
+      await logAudit(
+        supabase,
+        "create",
+        "roster_player",
+        teamId,
+        {
+          player: name,
+          team: teamNameById.get(teamId),
+        },
+        {
+          table: "roster_players",
+          rowId: inserted.id,
+          after: { team_id: teamId, name },
+        }
+      );
       setAddName((prev) => ({ ...prev, [teamId]: "" }));
       await load();
     }

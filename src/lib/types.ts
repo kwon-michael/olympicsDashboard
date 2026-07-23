@@ -1,4 +1,4 @@
-export type UserRole = "participant" | "admin";
+export type UserRole = "participant" | "volunteer" | "admin";
 
 export interface User {
   id: string;
@@ -57,6 +57,9 @@ export interface RosterScore {
   player_id: string | null;
   label: string;
   points: number;
+  // Raw inputs behind a computed team-event total (see /admin/team-events).
+  // NULL/absent for plain manual scores entered in Score Management.
+  metadata?: Record<string, unknown> | null;
   created_by: string | null;
   created_at: string;
 }

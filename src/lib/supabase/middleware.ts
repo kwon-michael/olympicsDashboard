@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { canSignIn, canViewAuditLog } from "@/lib/auth";
+import { canSignIn, canViewAuditLog, canAccessAdminPath } from "@/lib/auth";
 import type { UserRole } from "@/lib/types";
 
 export async function updateSession(request: NextRequest) {
@@ -72,16 +72,28 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Authenticated app areas require an admin account. Everyone else can hold
-    // an account but can't sign in and use the app.
+    // Authenticated app areas require an admin (or volunteer) account. Everyone
+    // else can hold an account but can't sign in and use the app.
+    const role = profile?.role as UserRole | undefined;
     const adminPaths = ["/dashboard", "/admin"];
     if (
       adminPaths.some((path) => request.nextUrl.pathname.startsWith(path)) &&
-      !canSignIn(profile?.role as UserRole | undefined)
+      !canSignIn(role)
     ) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("error", "not_admin");
+      return NextResponse.redirect(url);
+    }
+
+    // Volunteers may only reach a limited set of admin tools; bounce any other
+    // /admin path back to the admin landing page.
+    if (
+      request.nextUrl.pathname.startsWith("/admin") &&
+      !canAccessAdminPath(role, request.nextUrl.pathname)
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin";
       return NextResponse.redirect(url);
     }
 

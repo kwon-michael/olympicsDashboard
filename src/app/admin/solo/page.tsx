@@ -125,24 +125,45 @@ export default function AdminSoloPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from("solo_results").upsert(
-      {
-        event_slug: eventSlug,
-        team_id: teamId,
-        player_id: currentPlayer(teamId) || null,
-        value: dbValue,
-        created_by: user?.id ?? null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "event_slug,team_id" }
-    );
+    // An upsert here is a create when no result exists yet for this team+event,
+    // otherwise an in-place update — track which so the entry reverts correctly.
+    const prior = savedByTeam.get(teamId);
+    const { data: upserted, error } = await supabase
+      .from("solo_results")
+      .upsert(
+        {
+          event_slug: eventSlug,
+          team_id: teamId,
+          player_id: currentPlayer(teamId) || null,
+          value: dbValue,
+          created_by: user?.id ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "event_slug,team_id" }
+      )
+      .select("id")
+      .single();
 
     if (!error) {
-      await logAudit(supabase, "create", "solo_result", teamId, {
+      const details = {
         event: event.name,
         team: data?.teams.find((t) => t.id === teamId)?.name,
         value: rawValue,
-      });
+      };
+      if (prior) {
+        await logAudit(supabase, "update", "solo_result", teamId, details, {
+          table: "solo_results",
+          rowId: prior.id,
+          before: { value: prior.value, player_id: prior.player_id },
+          after: { value: dbValue },
+        });
+      } else {
+        await logAudit(supabase, "create", "solo_result", teamId, details, {
+          table: "solo_results",
+          rowId: upserted.id,
+          after: { value: dbValue },
+        });
+      }
       clearEdit(teamId); // fall back to the freshly-saved value
       window.dispatchEvent(new Event("scores-updated"));
       await load();
@@ -165,10 +186,22 @@ export default function AdminSoloPage() {
       .delete()
       .eq("id", saved.id);
     if (!error) {
-      await logAudit(supabase, "delete", "solo_result", teamId, {
-        event: event.name,
-        team: data?.teams.find((t) => t.id === teamId)?.name,
-      });
+      await logAudit(
+        supabase,
+        "delete",
+        "solo_result",
+        teamId,
+        {
+          event: event.name,
+          team: data?.teams.find((t) => t.id === teamId)?.name,
+        },
+        {
+          table: "solo_results",
+          rowId: saved.id,
+          // Full row so a revert can re-insert the result as it was.
+          before: { ...saved },
+        }
+      );
       clearEdit(teamId);
       window.dispatchEvent(new Event("scores-updated"));
       await load();

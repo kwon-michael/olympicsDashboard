@@ -41,9 +41,15 @@ CREATE TABLE IF NOT EXISTS public.roster_scores (
   player_id UUID REFERENCES public.roster_players(id) ON DELETE CASCADE,
   label TEXT NOT NULL,
   points INTEGER NOT NULL,
+  -- Optional raw inputs behind a computed team-event total (see
+  -- /admin/team-events). NULL for plain manual scores.
+  metadata JSONB,
   created_by UUID REFERENCES public.users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Older databases created before the recorder existed pick up the column here.
+ALTER TABLE public.roster_scores ADD COLUMN IF NOT EXISTS metadata JSONB;
 
 CREATE INDEX IF NOT EXISTS idx_roster_players_team ON public.roster_players(team_id);
 CREATE INDEX IF NOT EXISTS idx_roster_scores_team ON public.roster_scores(team_id);

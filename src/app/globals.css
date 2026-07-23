@@ -41,6 +41,18 @@
   box-sizing: border-box;
 }
 
+/* Never allow the page itself to scroll sideways. `clip` (not `hidden`) keeps
+   this from creating a scroll container, so `position: sticky` on the navbar
+   still works. This also contains the off-canvas mobile sidebar, which sits
+   translated off the right edge while closed. Inner regions that genuinely need
+   to scroll horizontally (wide tables, the event tabs) opt in with their own
+   `overflow-x-auto` container. */
+html,
+body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 body {
   font-family: var(--font-body);
   background: var(--color-background);

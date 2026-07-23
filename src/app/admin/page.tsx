@@ -21,6 +21,7 @@ import { createClient } from "@/lib/supabase/client";
 import { canViewAuditLog, VOLUNTEER_ADMIN_PATHS } from "@/lib/auth";
 import { useAppStore } from "@/lib/store";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
+import { AnimatedLoader } from "@/components/ui/animated-loader";
 
 interface AdminStats {
   totalTeams: number;
@@ -270,9 +271,7 @@ export default function AdminDashboardPage() {
         </h2>
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center text-muted text-sm">
-              Loading audit log...
-            </div>
+            <AnimatedLoader label="Loading activity" />
           ) : stats.recentActivity.length === 0 ? (
             <div className="p-8 text-center text-muted text-sm">
               No activity recorded yet.

@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonList } from "@/components/ui/skeleton";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -157,7 +158,7 @@ export default function AdminScoresPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-coral border-t-transparent rounded-full animate-spin" />
+          <SkeletonList rows={6} />
         </div>
       ) : (
         <>

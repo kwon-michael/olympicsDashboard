@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonList } from "@/components/ui/skeleton";
 
 import { useEffect, useState } from "react";
 import { CircleDot } from "lucide-react";
@@ -49,7 +50,7 @@ export default function DodgeballPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-coral border-t-transparent rounded-full animate-spin" />
+          <SkeletonList rows={6} />
         </div>
       ) : !locked || !dodge ? (
         <div className="text-center py-20">

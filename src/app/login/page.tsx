@@ -15,13 +15,13 @@ import { logActivity } from "@/lib/audit";
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/dashboard";
+  const redirectParam = searchParams.get("redirect");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(
     searchParams.get("error") === "not_admin"
-      ? "This account isn't authorized. Only admins can sign in."
+      ? "This account isn't authorized to sign in."
       : ""
   );
   const { setUser } = useAppStore();
@@ -43,6 +43,9 @@ function LoginForm() {
       return;
     }
 
+    // Default landing depends on role; an explicit ?redirect= always wins.
+    let destination = redirectParam || "/dashboard";
+
     if (data.user) {
       const { data: profile } = await supabase
         .from("users")
@@ -53,13 +56,18 @@ function LoginForm() {
       if (!canSignIn(profile?.role)) {
         await supabase.auth.signOut();
         setUser(null);
-        setError("This account isn't authorized. Only admins can sign in.");
+        setError("This account isn't authorized to sign in.");
         setLoading(false);
         return;
       }
 
       if (profile) setUser(profile);
       logActivity(supabase, "sign_in", { method: "password" });
+
+      // Volunteers only use the admin tools, so send them straight there.
+      if (!redirectParam && profile?.role === "volunteer") {
+        destination = "/admin";
+      }
     }
 
     // Use a full navigation rather than router.push so the browser re-requests
@@ -67,7 +75,7 @@ function LoginForm() {
     // navigation can race the cookie write, leaving middleware to see no
     // session and bounce the user back to /login. The button stays in its
     // loading state until the page unloads.
-    window.location.assign(redirect);
+    window.location.assign(destination);
   };
 
   return (

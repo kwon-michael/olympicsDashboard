@@ -27,6 +27,8 @@ const perks = [
 function SignupForm() {
   const { setUser } = useAppStore();
   const [code, setCode] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -37,6 +39,13 @@ function SignupForm() {
     e.preventDefault();
     setError("");
 
+    const trimmedFirst = firstName.trim();
+    const trimmedLast = lastName.trim();
+
+    if (!trimmedFirst || !trimmedLast) {
+      setError("First and last name are required.");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -48,11 +57,17 @@ function SignupForm() {
 
     setLoading(true);
 
-    // Create the admin account server-side (validates the access code).
+    // Create the account server-side (the access code decides admin vs volunteer).
     const res = await fetch("/api/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, code }),
+      body: JSON.stringify({
+        email,
+        password,
+        code,
+        firstName: trimmedFirst,
+        lastName: trimmedLast,
+      }),
     });
 
     if (!res.ok) {
@@ -82,9 +97,10 @@ function SignupForm() {
     if (profile) setUser(profile);
     logActivity(supabase, "sign_up", { method: "access_code" });
 
-    // Full navigation so middleware sees the freshly-set auth cookies on the
-    // next request (see the note in login/page.tsx).
-    window.location.assign("/setup-profile");
+    // Land straight on the dashboard — the account is created complete, so no
+    // profile-setup step. Volunteers go to their admin tools. Full navigation so
+    // middleware sees the freshly-set auth cookies (see the note in login/page.tsx).
+    window.location.assign(profile?.role === "volunteer" ? "/admin" : "/dashboard");
   };
 
   return (
@@ -104,8 +120,8 @@ function SignupForm() {
               OLYMPICS
             </h2>
             <p className="text-white/80 text-sm lg:text-base mb-8 max-w-sm">
-              Admin accounts run the show — set up events and record scores.
-              You&apos;ll need an access code to sign up.
+              This is for organizers and volunteers only. 
+              If you are a volunteer, please enter your access code to create an account.
             </p>
             <ul className="space-y-3">
               {perks.map(({ icon: Icon, text }) => (
@@ -125,7 +141,7 @@ function SignupForm() {
           <div className="p-8 lg:p-10 flex flex-col justify-center">
             <div className="mb-6">
               <h1 className="font-display text-2xl font-bold text-foreground">
-                CREATE ADMIN ACCOUNT
+                CREATE YOUR ACCOUNT
               </h1>
               <p className="text-sm text-muted mt-1">
                 Enter your access code and choose a password
@@ -137,11 +153,31 @@ function SignupForm() {
                 id="code"
                 label="Access Code"
                 type="password"
-                placeholder="Admin access code"
+                placeholder="Access code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 required
               />
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  id="firstName"
+                  label="First Name"
+                  type="text"
+                  placeholder="Michael"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
+                <Input
+                  id="lastName"
+                  label="Last Name"
+                  type="text"
+                  placeholder="Kwon"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                />
+              </div>
               <Input
                 id="email"
                 label="Email Address"

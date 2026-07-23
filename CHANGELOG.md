@@ -115,6 +115,62 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.14 — Revertible activity logs, log paging & volunteer role
+
+### Volunteers (new role)
+- Added a third user role, **volunteer**, between participant and admin. Volunteers can sign in but only reach three admin tools — **Solo Events**, **Tug of War**, and **Dodgeball** — so they can help run those live events without full admin access
+- The admin dashboard shows volunteers only their permitted cards; the navbar exposes the Admin Dashboard link to volunteers as well
+- Middleware bounces volunteers away from any other `/admin` page (scores, roster, schedule, players, logs) back to the admin landing
+- **Any admin** can appoint/remove volunteers (and promote/demote admins) from the Player Management page via a per-user role selector; you can't change your own role there. Role changes are recorded in the audit log
+- **Signup access code:** the signup form now assigns a role based on which code is entered — the admin code (`ADMIN_SIGNUP_CODE`) makes an admin, the volunteer code (`VOLUNTEER_SIGNUP_CODE`, defaulting to `bestvolunteerever`) makes a volunteer. Signup copy is no longer admin-specific
+- **Landing:** volunteers are sent to `/admin` (their tools) after login and after profile setup, instead of `/dashboard`
+- **Signup goes straight to the dashboard:** the signup form now collects first/last name up front and creates the account with its profile already complete, so it redirects immediately to the dashboard (admins → `/dashboard`, volunteers → `/admin`) instead of routing through the separate profile-setup step (which could stall/loop)
+- **View as volunteer:** admins get a "View as volunteer" button on the admin dashboard that previews the reduced volunteer experience (only the three tool cards, no activity feed) with a sticky banner and an "Exit preview" button; while previewing, the admin is kept within the volunteer-accessible tools. The preview is client-only and resets on refresh
+- Database: `users.role` CHECK now allows `volunteer`, and a new "Admins can update any profile" RLS policy lets admins change other users' roles (still gated by the existing `enforce_role_change` trigger) — run `supabase/migrate_volunteer_role.sql` once in Supabase (also folded into `supabase/schemas/02_users.sql`)
+
+### Activity logs — revert
+- Admin actions on the core data tables (roster players, scores, solo results, schedule entries) can now be **reverted** directly from the Activity Logs page: undo a create by deleting the row, restore a delete by re-inserting it, or roll an update back to its previous values
+- Each admin action now records a snapshot (`table_name`, `row_id`, `before`, `after`) so the reversal is exact; a **Revert** button appears on eligible entries with a confirmation dialog describing what will happen
+- Reverting marks the original entry as reverted (kept in the log, dimmed) and records the reversal itself as a separate `revert` entry for accountability
+- Tournament/bracket actions (Tug of War, Dodgeball) are intentionally **not** revertible — undoing them would leave derived seeding/bracket state inconsistent
+- Historical entries logged before this release have no snapshot and show as non-revertible
+
+### Activity logs — paging & filters
+- Added a **per-page selector** (5 / 20 / 50, default 20) shared across both the Admin Actions and User Activity tabs
+- (Filtering by the user/admin who performed an action already existed via the actor dropdown on each tab)
+
+### Database
+- `audit_log` gains `table_name`, `row_id`, `before`, `after`, `reverted_at`, `reverted_by` columns plus an owner-only UPDATE policy — run `supabase/migrate_audit_revert.sql` once in Supabase (also folded into `supabase/schemas/07_audit.sql`)
+
+### Navbar & mobile
+- Slightly tightened desktop nav link spacing so the links fit better before the mobile breakpoint
+- Eliminated mobile horizontal scroll: added a page-level `overflow-x: clip` (sticky-safe, unlike `hidden`) on `html`/`body`, which also contains the off-canvas mobile sidebar that sits translated off the right edge while closed. Wide tables and the event tabs keep their own opt-in `overflow-x-auto`
+
+### Team-event results recorder (new feature)
+- New **Team Events** hub on the admin dashboard (replacing the separate Tug of War / Dodgeball cards): admin dashboard → Team Events → the four team games, each on its own page
+- **Tail Grab** and **Conditional Relay** get a built-in results recorder (mirroring the Solo Events flow); **Tug of War** and **Dodgeball** link out to their existing tournament tools
+- **Tail Grab recorder:** per team, enter Round 1 and Round 2 separately (placement + tails grabbed per round). Points are computed automatically (placement points + tails, round-2 tails worth ×2) with a live per-round subtotal
+- **Conditional Relay recorder:** enter each team's final time; the app ranks teams fastest-to-slowest and awards placement points (15/12/10/8/6/5/3/2/1) with standard-competition tie handling, re-ranking the whole field whenever a time changes
+- Computed results are written as ordinary `roster_scores` rows, so they flow into the leaderboard exactly like manually-entered points — **Score Management is unchanged** and still available for ad-hoc awards
+- Volunteers can use the recorder/hub (added to the volunteer-accessible admin paths)
+- Added a generic `group` field to team scoring components (drives the Round 1 / Round 2 sections) and a `computeRelayStandings` helper, both unit-tested (6 new tests, 74 total)
+- Database: `roster_scores` gains a `metadata` JSONB column that stores the raw inputs behind each computed total so results can be reopened and edited — run `supabase/migrate_roster_scores_metadata.sql` once in Supabase (also folded into `supabase/roster.sql`)
+
+### Player Management — account removal
+- Any account can now be **removed** from Player Management (admins included) except your own, which would lock you out
+- Removal runs server-side via the service role (`/api/admin/delete-user`): it deletes both the login (`auth.users`) and the profile, cleaning up foreign-key references safely — authored content (events, schedule, teams, announcements) is reassigned to the acting admin rather than cascade-deleted
+- The player list was rebuilt as a responsive card layout (no horizontal scroll)
+
+### Activity logs — preserve deleted accounts
+- A removed account's history is now **kept and stays readable**: `audit_log.actor_id` and `user_activity.user_id` switch to `ON DELETE SET NULL`, and each row snapshots the actor/user display name at write time (via triggers), so entries show the original name marked "(removed)" instead of "Unknown"
+- The Activity Logs tables were rebuilt as responsive card lists (no horizontal scroll)
+- Database — run `supabase/migrate_preserve_deleted_actor_trail.sql` once in Supabase (also folded into `supabase/schemas/07_audit.sql`)
+
+### Signup
+- Profile-setup sample name now reads "Michael Kwon"
+
+---
+
 ## v1.13 — Solo events, scoring test suite & CI
 
 ### Solo events (new feature)

@@ -14,6 +14,12 @@ interface AppState {
   sidebarOpen: boolean;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+
+  // Admin "view as volunteer" preview. When true, an admin sees the reduced
+  // volunteer experience. Client-only and intentionally not persisted, so a
+  // hard refresh returns to the full admin view.
+  viewAsVolunteer: boolean;
+  setViewAsVolunteer: (on: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -29,4 +35,8 @@ export const useAppStore = create<AppState>((set) => ({
   sidebarOpen: false,
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+
+  // Admin "view as volunteer" preview
+  viewAsVolunteer: false,
+  setViewAsVolunteer: (on) => set({ viewAsVolunteer: on }),
 }));

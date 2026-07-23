@@ -26,6 +26,8 @@ export interface TeamScoreComponent {
   key: string;
   label: string;
   kind: "placement" | "tally";
+  /** Optional section heading the recorder groups this component under (e.g. "Round 1"). */
+  group?: string;
   /** kind === "placement" — points for each place, index 0 = 1st */
   placementPoints?: number[];
   /** kind === "tally" — points awarded per counted unit */
@@ -428,18 +430,32 @@ export const teamEvents: EventRule[] = [
       components: [
         {
           key: "r1Placement",
-          label: "Round 1 Placement",
+          label: "Placement",
+          group: "Round 1",
           kind: "placement",
           placementPoints: [5, 3, 2, 1],
         },
-        { key: "r1Tails", label: "Round 1 Tails", kind: "tally", pointsEach: 1 },
+        {
+          key: "r1Tails",
+          label: "Tails grabbed",
+          group: "Round 1",
+          kind: "tally",
+          pointsEach: 1,
+        },
         {
           key: "r2Placement",
-          label: "Round 2 Placement",
+          label: "Placement",
+          group: "Round 2",
           kind: "placement",
           placementPoints: [5, 3, 2, 1],
         },
-        { key: "r2Tails", label: "Round 2 Tails (×2)", kind: "tally", pointsEach: 2 },
+        {
+          key: "r2Tails",
+          label: "Tails grabbed (×2)",
+          group: "Round 2",
+          kind: "tally",
+          pointsEach: 2,
+        },
       ],
     },
   },

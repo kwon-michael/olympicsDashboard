@@ -79,7 +79,7 @@ export function Navbar() {
                     key={link.href}
                     href={link.href}
                     className={cn(
-                      "relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                      "relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                       isActive
                         ? "text-white"
                         : "text-white/60 hover:text-white hover:bg-white/5"
@@ -229,7 +229,7 @@ function ProfileDropdown({ user }: { user: User }) {
                 onClick={close}
               />
 
-              {user.role === "admin" && (
+              {(user.role === "admin" || user.role === "volunteer") && (
                 <DropdownLink
                   href="/admin"
                   icon={Shield}
@@ -348,7 +348,7 @@ function AnimatedSidebar({
               );
             })}
 
-            {user?.role === "admin" && (
+            {(user?.role === "admin" || user?.role === "volunteer") && (
               <Link
                 href="/admin"
                 onClick={onClose}

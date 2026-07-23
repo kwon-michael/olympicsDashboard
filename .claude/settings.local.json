@@ -22,7 +22,8 @@
       "Bash(git commit *)",
       "PowerShell(npm run *)",
       "Bash(git stash *)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(git checkout *)"
     ]
   }
 }

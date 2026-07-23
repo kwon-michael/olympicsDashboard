@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonList } from "@/components/ui/skeleton";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -289,7 +290,7 @@ export default function AdminSchedulePage() {
           <div className="flex-1 min-w-0">
             {loading ? (
               <div className="bg-card rounded-xl border border-border flex items-center justify-center py-20">
-                <div className="w-8 h-8 border-4 border-coral border-t-transparent rounded-full animate-spin" />
+                <SkeletonList rows={6} />
               </div>
             ) : (
               <ScheduleCalendar

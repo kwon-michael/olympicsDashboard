@@ -13,7 +13,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { FullPageLoader } from "@/components/ui/spinner";
+import { PageSkeleton } from "@/components/ui/skeleton";
 import { TeamBadge } from "@/components/ui/team-badge";
 import { ScoreCard } from "@/components/ui/score-card";
 import {
@@ -97,7 +97,7 @@ export default function DashboardPage() {
   }, [setUser]);
 
   if (loading) {
-    return <FullPageLoader label="Loading your dashboard…" />;
+    return <PageSkeleton />;
   }
 
   return (

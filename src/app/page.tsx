@@ -6,23 +6,15 @@ import { motion } from "framer-motion";
 import {
   Trophy,
   Users,
-  Zap,
   BookOpen,
   ArrowRight,
   Flame,
   Calendar,
-  Medal,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  StaggerContainer,
-  StaggerItem,
-} from "@/components/ui/page-transition";
-import { useAppStore } from "@/lib/store";
-import { allEvents } from "@/lib/events";
-
-const soloEvents = allEvents.filter((e) => e.type === "solo");
-const teamEvents = allEvents.filter((e) => e.type === "team");
+import { StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
+import { soloEvents, teamEvents } from "@/lib/events";
 
 const EVENT_TIME = new Date("2026-08-08T10:00:00").getTime();
 
@@ -59,7 +51,6 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
 }
 
 export default function HomePage() {
-  const user = useAppStore((s) => s.user);
   const countdown = useCountdown();
 
   return (
@@ -71,7 +62,7 @@ export default function HomePage() {
           <div className="absolute bottom-0 left-0 w-80 h-80 bg-gold/8 rounded-full blur-3xl" />
         </div>
 
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32 lg:py-44 text-center">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32 lg:py-40 text-center">
           <StaggerContainer>
             <StaggerItem>
               <div className="inline-flex items-center gap-2 bg-white/10 rounded-full px-4 py-1.5 mb-8">
@@ -98,21 +89,12 @@ export default function HomePage() {
 
             <StaggerItem>
               <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-                {user ? (
-                  <Link href="/dashboard">
-                    <Button size="lg">
-                      Dashboard
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </Link>
-                ) : (
-                  <Link href="/signup">
-                    <Button size="lg">
-                      Join the Games
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </Link>
-                )}
+                <Link href="/format">
+                  <Button size="lg">
+                    Read the Format
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
                 <Link href="/leaderboard">
                   <Button
                     variant="outline"
@@ -152,6 +134,23 @@ export default function HomePage() {
           </motion.div>
         </div>
       </section>
+
+      {/* Read-before-you-attend banner → Format page */}
+      <Link
+        href="/format"
+        className="block bg-coral hover:bg-coral-light transition-colors"
+      >
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-center gap-3 text-center text-white">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <p className="text-sm sm:text-base font-semibold">
+            New here?{" "}
+            <span className="underline underline-offset-2">
+              Read the format before game day
+            </span>{" "}
+            so you know exactly how points are won.
+          </p>
+        </div>
+      </Link>
 
       {/* Quick Links Strip */}
       <section className="bg-card border-b border-border">
@@ -280,29 +279,28 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* CTA → Format page */}
       <section className="bg-navy text-white">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <Medal className="w-10 h-10 text-gold mx-auto mb-5" />
+            <Flame className="w-10 h-10 text-coral mx-auto mb-5" />
             <h2 className="font-display text-3xl sm:text-4xl font-bold mb-3">
-              {user ? "YOUR GAMES AWAIT" : "READY TO COMPETE?"}
+              KNOW BEFORE YOU GO
             </h2>
             <p className="text-white/50 text-sm max-w-md mx-auto mb-8">
-              {user
-                ? "Check scores, manage your team, and stay on top of the action."
-                : "Sign up, form your team, and get ready. It takes 2 minutes."}
+              A two-minute read covering how the event runs, how points are
+              scored, and answers to common questions.
             </p>
-            <Link href={user ? "/dashboard" : "/signup"}>
+            <Link href="/format">
               <Button
                 size="lg"
                 className="bg-coral hover:bg-coral-light text-white"
               >
-                {user ? "Go to Dashboard" : "Get Started"}
+                Read the Format
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>

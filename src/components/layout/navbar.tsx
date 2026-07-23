@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy,
   Users,
-  LayoutDashboard,
+  Info,
   BookOpen,
   Clock,
   Menu,
@@ -31,21 +31,15 @@ const publicLinks = [
   { href: "/tug-of-war", label: "Tug of War", icon: Swords },
   { href: "/dodgeball", label: "Dodgeball", icon: CircleDot },
   { href: "/rules", label: "Rules", icon: BookOpen },
+  { href: "/format", label: "Format", icon: Info },
   { href: "/schedule", label: "Schedule", icon: Clock },
-];
-
-const authLinks = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, sidebarOpen, toggleSidebar, setSidebarOpen } = useAppStore();
 
-  const navLinks = [
-    ...publicLinks,
-    ...(user ? authLinks : []),
-  ];
+  const navLinks = publicLinks;
 
   return (
     <>
@@ -222,13 +216,6 @@ function ProfileDropdown({ user }: { user: User }) {
 
             {/* Menu items */}
             <div className="py-1">
-              <DropdownLink
-                href="/dashboard"
-                icon={LayoutDashboard}
-                label="Dashboard"
-                onClick={close}
-              />
-
               {(user.role === "admin" || user.role === "volunteer") && (
                 <DropdownLink
                   href="/admin"

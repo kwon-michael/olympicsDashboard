@@ -168,7 +168,7 @@ export function FormatGuide() {
             {NUM_TEAMS} teams of {PLAYERS_PER_TEAM} compete across two kinds of
             events: <strong>solo events</strong> (one player at a time) and{" "}
             <strong>team events</strong> (the whole team together). Every result
-            turns into points, and the points feed three leaderboards:
+            turns into points, and the points feed two leaderboards:
           </p>
           <ul className="space-y-2">
             <LeaderboardRow
@@ -180,11 +180,6 @@ export function FormatGuide() {
               icon={<Medal className="w-4 h-4 text-info" />}
               name="Solo"
               desc="Placement points across the solo events. The top 3 teams here earn the bonus and playoff priority."
-            />
-            <LeaderboardRow
-              icon={<Star className="w-4 h-4 text-coral" />}
-              name="Individual (MVP)"
-              desc="Tracks points tied to a single player, for bragging rights."
             />
           </ul>
         </div>
@@ -210,8 +205,9 @@ export function FormatGuide() {
           <div className="rounded-xl border border-gold/30 bg-gold/5 p-4 flex gap-3">
             <Star className="w-5 h-5 text-gold shrink-0 mt-0.5" />
             <p className="text-sm">
-              <strong>The solo bonus:</strong> solo points live on their own
-              board, but the <strong>top 3 solo teams</strong> each carry{" "}
+              <strong>The solo bonus:</strong> while solo points don&apos;t
+              contribute to team points, the{" "}
+              <strong>top 3 teams in the solo events</strong> each carry{" "}
               <strong>+{SOLO_BONUS_POINTS} point</strong> onto the main team
               leaderboard and gain <strong>playoff priority</strong> for the Tug
               of War and Dodgeball brackets.

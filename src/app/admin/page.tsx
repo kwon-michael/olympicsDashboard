@@ -48,7 +48,7 @@ const adminLinks = [
   {
     href: "/admin/team-events",
     label: "Team Events",
-    description: "Record all four team games — Tail Grab, Conditional Relay, Tug of War, Dodgeball",
+    description: "Record results for the four team games",
     icon: Swords,
     color: "#F43F5E",
   },
@@ -225,13 +225,13 @@ export default function AdminDashboardPage() {
         <h2 className="font-display text-lg font-bold text-foreground mb-4">
           MANAGE
         </h2>
-        <StaggerContainer className="grid sm:grid-cols-2 gap-4 mb-8">
+        <StaggerContainer className="grid sm:grid-cols-2 gap-4 mb-8 auto-rows-fr">
           {links.map((link) => {
             const Icon = link.icon;
             return (
-              <StaggerItem key={link.href}>
-                <Link href={link.href}>
-                  <div className="bg-card rounded-xl border border-border p-5 hover:border-foreground/20 transition-colors group">
+              <StaggerItem key={link.href} className="h-full">
+                <Link href={link.href} className="block h-full">
+                  <div className="bg-card rounded-xl border border-border p-5 hover:border-foreground/20 transition-colors group h-full">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
                         <div

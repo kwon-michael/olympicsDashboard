@@ -14,11 +14,12 @@ import {
   UserX,
   ScrollText,
   Swords,
-  CircleDot,
   Medal,
+  Eye,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { canViewAuditLog } from "@/lib/auth";
+import { canViewAuditLog, VOLUNTEER_ADMIN_PATHS } from "@/lib/auth";
+import { useAppStore } from "@/lib/store";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
 
 interface AdminStats {
@@ -45,25 +46,18 @@ const adminLinks = [
     color: "#3B82F6",
   },
   {
+    href: "/admin/team-events",
+    label: "Team Events",
+    description: "Record all four team games — Tail Grab, Conditional Relay, Tug of War, Dodgeball",
+    icon: Swords,
+    color: "#F43F5E",
+  },
+  {
     href: "/admin/roster",
     label: "Team Management",
     description: "Move players between teams, cross out, or replace",
     icon: Users,
     color: "#22C55E",
-  },
-  {
-    href: "/admin/tug-of-war",
-    label: "Tug of War",
-    description: "Lock groups from standings, record matches, seed the bracket",
-    icon: Swords,
-    color: "#6366F1",
-  },
-  {
-    href: "/admin/dodgeball",
-    label: "Dodgeball",
-    description: "Snake-seed groups from standings, record matches, seed the bracket",
-    icon: CircleDot,
-    color: "#F97316",
   },
   {
     href: "/admin/schedule",
@@ -100,6 +94,9 @@ export default function AdminDashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [canViewAudit, setCanViewAudit] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
+  const viewAsVolunteer = useAppStore((s) => s.viewAsVolunteer);
+  const setViewAsVolunteer = useAppStore((s) => s.setViewAsVolunteer);
 
   useEffect(() => {
     async function fetchStats() {
@@ -108,6 +105,16 @@ export default function AdminDashboardPage() {
       } = await supabase.auth.getUser();
       const auditAllowed = canViewAuditLog(user?.email);
       setCanViewAudit(auditAllowed);
+
+      // Role drives which tools are shown (see links filter below).
+      if (user) {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        setRole(profile?.role ?? null);
+      }
 
       const [teams, players, scores, audit] = await Promise.all([
         supabase.from("roster_teams").select("id", { count: "exact", head: true }),
@@ -135,7 +142,18 @@ export default function AdminDashboardPage() {
     fetchStats();
   }, []);
 
-  const links = canViewAudit ? [...adminLinks, auditLink] : adminLinks;
+  const isAdmin = role === "admin";
+  // An admin previewing "view as volunteer" sees the same reduced tools as a
+  // real volunteer.
+  const showVolunteerView = role === "volunteer" || (isAdmin && viewAsVolunteer);
+
+  // Volunteers only get the live-event tools; admins get everything, plus the
+  // audit link for the single owner account.
+  const links = showVolunteerView
+    ? adminLinks.filter((l) => VOLUNTEER_ADMIN_PATHS.includes(l.href))
+    : canViewAudit
+      ? [...adminLinks, auditLink]
+      : adminLinks;
 
   const statCards = [
     { label: "Teams", value: stats.totalTeams, icon: Users, color: "#22C55E" },
@@ -157,18 +175,30 @@ export default function AdminDashboardPage() {
     <PageTransition>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-xl bg-danger/10 flex items-center justify-center">
-            <Shield className="w-6 h-6 text-danger" />
+        <div className="flex items-center justify-between gap-3 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-danger/10 flex items-center justify-center">
+              <Shield className="w-6 h-6 text-danger" />
+            </div>
+            <div>
+              <h1 className="font-display text-2xl font-bold text-foreground">
+                ADMIN DASHBOARD
+              </h1>
+              <p className="text-sm text-muted">
+                Manage the Casualympics&trade;
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-display text-2xl font-bold text-foreground">
-              ADMIN DASHBOARD
-            </h1>
-            <p className="text-sm text-muted">
-              Manage the Casualympics&trade;
-            </p>
-          </div>
+          {/* Admins can preview the reduced volunteer experience. */}
+          {isAdmin && !viewAsVolunteer && (
+            <button
+              onClick={() => setViewAsVolunteer(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-foreground border border-border hover:border-foreground/20 rounded-lg px-3 py-2 transition-colors shrink-0"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              View as volunteer
+            </button>
+          )}
         </div>
 
         {/* Stats Grid */}
@@ -231,8 +261,9 @@ export default function AdminDashboardPage() {
           })}
         </StaggerContainer>
 
-        {/* Recent Activity — restricted to the audit-log owner */}
-        {canViewAudit && (
+        {/* Recent Activity — restricted to the audit-log owner; hidden while
+            previewing the volunteer view. */}
+        {canViewAudit && !showVolunteerView && (
           <>
         <h2 className="font-display text-lg font-bold text-foreground mb-4">
           RECENT ACTIVITY

@@ -14,16 +14,25 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { PageTransition } from "@/components/ui/page-transition";
+import { logAudit } from "@/lib/audit";
+import type { UserRole } from "@/lib/types";
 
 interface PlayerRow {
   id: string;
   email: string;
   display_name: string;
-  role: string;
+  role: UserRole;
   profile_completed: boolean;
   created_at: string;
 }
+
+const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: "participant", label: "Player" },
+  { value: "volunteer", label: "Volunteer" },
+  { value: "admin", label: "Admin" },
+];
 
 export default function AdminPlayersPage() {
   const supabase = createClient();
@@ -36,12 +45,19 @@ export default function AdminPlayersPage() {
   } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [updatingRole, setUpdatingRole] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
   }, []);
 
   async function fetchData() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    setCurrentUserId(user?.id ?? null);
+
     const { data } = await supabase
       .from("users")
       .select("id, email, display_name, role, profile_completed, created_at")
@@ -51,51 +67,71 @@ export default function AdminPlayersPage() {
     setLoading(false);
   }
 
-  async function deletePlayer(userId: string) {
+  // Any admin can change another user's role (appoint volunteers, promote/demote
+  // admins). The `enforce_role_change` DB trigger authorizes the change; you
+  // can't change your own role here, to avoid accidentally locking yourself out.
+  async function changeRole(player: PlayerRow, role: UserRole) {
+    if (role === player.role) return;
+    setUpdatingRole(player.id);
+    setFeedback(null);
+
+    const { error } = await supabase
+      .from("users")
+      .update({ role })
+      .eq("id", player.id);
+
+    if (error) {
+      setFeedback({ type: "error", message: `Failed to change role: ${error.message}` });
+    } else {
+      await logAudit(supabase, "update", "user_role", player.id, {
+        name: player.display_name,
+        from: player.role,
+        to: role,
+      });
+      setPlayers((prev) =>
+        prev.map((p) => (p.id === player.id ? { ...p, role } : p))
+      );
+      const roleLabel = ROLE_OPTIONS.find((r) => r.value === role)?.label ?? role;
+      setFeedback({
+        type: "success",
+        message: `${player.display_name} is now ${roleLabel}.`,
+      });
+    }
+    setUpdatingRole(null);
+  }
+
+  // Removing an account fully (login + profile) requires the service role and
+  // careful FK cleanup, so it runs server-side. See /api/admin/delete-user.
+  async function deletePlayer(player: PlayerRow) {
     setDeleting(true);
     setFeedback(null);
 
-    const { error: scoresErr } = await supabase
-      .from("scores")
-      .delete()
-      .eq("user_id", userId);
+    const res = await fetch("/api/admin/delete-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: player.id }),
+    });
+    const result = await res.json().catch(() => ({}));
 
-    if (scoresErr) {
-      setFeedback({ type: "error", message: `Failed to remove scores: ${scoresErr.message}` });
-      setDeleting(false);
-      return;
-    }
-
-    const { error: membersErr } = await supabase
-      .from("team_members")
-      .delete()
-      .eq("user_id", userId);
-
-    if (membersErr) {
-      setFeedback({ type: "error", message: `Failed to remove team membership: ${membersErr.message}` });
-      setDeleting(false);
-      return;
-    }
-
-    await supabase
-      .from("teams")
-      .update({ captain_id: "" })
-      .eq("captain_id", userId);
-
-    const { error: userErr } = await supabase
-      .from("users")
-      .delete()
-      .eq("id", userId);
-
-    if (userErr) {
-      setFeedback({ type: "error", message: `Failed to delete user: ${userErr.message}` });
-    } else {
+    if (!res.ok) {
       setFeedback({
-        type: "success",
-        message: "Player deleted. They will need to re-register to create a new account.",
+        type: "error",
+        message: result.error ?? "Failed to delete account.",
       });
-      setPlayers(players.filter((p) => p.id !== userId));
+      setDeleting(false);
+      return;
     }
+
+    await logAudit(supabase, "delete", "user", player.id, {
+      name: player.display_name,
+      email: player.email,
+      role: player.role,
+    });
+    setFeedback({
+      type: "success",
+      message: `${player.display_name}'s account was removed. They will need to re-register to sign in again.`,
+    });
+    setPlayers(players.filter((p) => p.id !== player.id));
 
     setConfirmDelete(null);
     setDeleting(false);
@@ -174,7 +210,7 @@ export default function AdminPlayersPage() {
           </div>
         </div>
 
-        {/* Players Table */}
+        {/* Players list */}
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           {loading ? (
             <div className="text-center text-muted py-8 text-sm">
@@ -185,93 +221,89 @@ export default function AdminPlayersPage() {
               {search ? "No players match your search." : "No players registered yet."}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-background border-b border-border">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                      Player
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                      Email
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                      Role
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                      Joined
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-muted text-xs uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {filteredPlayers.map((player) => (
-                    <tr key={player.id} className="hover:bg-background/50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-navy/10 flex items-center justify-center text-xs font-bold text-navy">
-                            {player.display_name.charAt(0).toUpperCase()}
+            <ul className="divide-y divide-border">
+              {filteredPlayers.map((player) => (
+                <li
+                  key={player.id}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 hover:bg-background/50"
+                >
+                  {/* Player identity — grows to fill, name/email truncate */}
+                  <div className="flex items-center gap-2 min-w-0 flex-1 basis-48">
+                    <div className="w-8 h-8 shrink-0 rounded-full bg-navy/10 flex items-center justify-center text-xs font-bold text-navy">
+                      {player.display_name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">
+                        {player.display_name}
+                      </p>
+                      <p className="text-xs text-muted truncate">{player.email}</p>
+                    </div>
+                  </div>
+
+                  {/* Role */}
+                  <div className="shrink-0">
+                    {player.id === currentUserId ? (
+                      // Don't let an admin change their own role here.
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-danger bg-danger/10 rounded-full px-2 py-0.5">
+                        <Shield className="w-3 h-3" />
+                        You
+                      </span>
+                    ) : (
+                      <div className="w-32">
+                        <Select
+                          value={player.role}
+                          disabled={updatingRole === player.id}
+                          onChange={(e) =>
+                            changeRole(player, e.target.value as UserRole)
+                          }
+                          options={ROLE_OPTIONS}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Joined */}
+                  <div className="shrink-0 text-xs text-muted w-20">
+                    {new Date(player.created_at).toLocaleDateString()}
+                  </div>
+
+                  {/* Actions — any account can be removed except your own,
+                      which would lock you out of the dashboard. */}
+                  <div className="shrink-0 ml-auto">
+                    {player.id !== currentUserId && (
+                      <>
+                        {confirmDelete === player.id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              loading={deleting}
+                              onClick={() => deletePlayer(player)}
+                            >
+                              Confirm
+                            </Button>
+                            <button
+                              onClick={() => setConfirmDelete(null)}
+                              className="text-xs text-muted hover:text-foreground transition-colors"
+                            >
+                              Cancel
+                            </button>
                           </div>
-                          <span className="font-medium text-foreground">
-                            {player.display_name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-muted">{player.email}</td>
-                      <td className="px-4 py-3">
-                        {player.role === "admin" ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-danger bg-danger/10 rounded-full px-2 py-0.5">
-                            <Shield className="w-3 h-3" />
-                            Admin
-                          </span>
                         ) : (
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted bg-background rounded-full px-2 py-0.5">
-                            Player
-                          </span>
+                          <button
+                            onClick={() => setConfirmDelete(player.id)}
+                            className="text-muted hover:text-danger transition-colors"
+                            title="Delete player"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-muted text-xs">
-                        {new Date(player.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {player.role !== "admin" && (
-                          <>
-                            {confirmDelete === player.id ? (
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  variant="danger"
-                                  size="sm"
-                                  loading={deleting}
-                                  onClick={() => deletePlayer(player.id)}
-                                >
-                                  Confirm
-                                </Button>
-                                <button
-                                  onClick={() => setConfirmDelete(null)}
-                                  className="text-xs text-muted hover:text-foreground transition-colors"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setConfirmDelete(player.id)}
-                                className="text-muted hover:text-danger transition-colors"
-                                title="Delete player"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>

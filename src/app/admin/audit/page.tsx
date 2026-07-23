@@ -15,6 +15,7 @@ import {
   ArrowUpDown,
   Trash2,
   AlertTriangle,
+  Undo2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -25,22 +26,29 @@ import { canViewAuditLog } from "@/lib/auth";
 
 interface AuditEntry {
   id: string;
-  actor_id: string;
+  actor_id: string | null;
+  actor_name: string | null;
   action: string;
   entity_type: string;
   entity_id: string;
   details: Record<string, unknown> | null;
+  table_name: string | null;
+  row_id: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  reverted_at: string | null;
   created_at: string;
-  actor: { display_name: string } | { display_name: string }[];
+  actor: { display_name: string } | { display_name: string }[] | null;
 }
 
 interface ActivityEntry {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  user_name: string | null;
   action: string;
   metadata: Record<string, unknown> | null;
   created_at: string;
-  user: { display_name: string } | { display_name: string }[];
+  user: { display_name: string } | { display_name: string }[] | null;
 }
 
 function getDisplayName(joined: { display_name: string } | { display_name: string }[] | null | undefined): string {
@@ -49,7 +57,22 @@ function getDisplayName(joined: { display_name: string } | { display_name: strin
   return joined.display_name ?? "Unknown";
 }
 
+// Resolve who acted, preferring the live profile join and falling back to the
+// name snapshotted on the log row when the account has since been deleted.
+function resolveName(
+  joined: { display_name: string } | { display_name: string }[] | null | undefined,
+  snapshot: string | null
+): string {
+  const live = getDisplayName(joined);
+  if (live !== "Unknown") return live;
+  if (snapshot) return `${snapshot} (removed)`;
+  return "Unknown";
+}
+
 function actionColor(action: string): { bg: string; text: string } {
+  if (action === "revert") {
+    return { bg: "bg-violet-500/10", text: "text-violet-500" };
+  }
   if (action.startsWith("create") || action === "join_team" || action === "sign_in") {
     return { bg: "bg-emerald-500/10", text: "text-emerald-500" };
   }
@@ -64,13 +87,36 @@ function actionColor(action: string): { bg: string; text: string } {
 
 type Tab = "admin" | "user";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [5, 20, 50];
+const DEFAULT_PAGE_SIZE = 20;
+
+// Admin actions whose entries can be reverted, given a captured snapshot. These
+// are the straightforward single-row data tables; tournament/bracket actions
+// are intentionally excluded because reverting them would leave derived state
+// (seeding, bracket propagation) inconsistent.
+const REVERTIBLE_TABLES = new Set([
+  "roster_players",
+  "roster_scores",
+  "solo_results",
+  "schedule_entries",
+]);
+
+function isRevertible(entry: AuditEntry): boolean {
+  if (entry.reverted_at) return false;
+  if (!entry.table_name || !REVERTIBLE_TABLES.has(entry.table_name)) return false;
+  if (entry.action === "delete") return !!entry.before;
+  if (entry.action === "create" || entry.action === "update") {
+    return !!entry.row_id && (entry.action === "create" || !!entry.before);
+  }
+  return false;
+}
 
 const adminActionLabels: Record<string, string> = {
   create: "Created",
   update: "Updated",
   delete: "Deleted",
   clear: "Cleared",
+  revert: "Reverted",
 };
 
 const userActionLabels: Record<string, string> = {
@@ -84,6 +130,28 @@ function formatAction(action: string, labels: Record<string, string>): string {
   return labels[action] ?? action.replace(/_/g, " ");
 }
 
+// Plain-language summary of what reverting a given entry will do.
+function revertDescription(entry: AuditEntry): string {
+  const target = (entry.table_name ?? entry.entity_type).replace(/_/g, " ");
+  const label =
+    (entry.details as Record<string, unknown> | null)?.title ??
+    (entry.details as Record<string, unknown> | null)?.player ??
+    (entry.details as Record<string, unknown> | null)?.label ??
+    (entry.details as Record<string, unknown> | null)?.name ??
+    "";
+  const suffix = label ? ` ("${label}")` : "";
+  switch (entry.action) {
+    case "create":
+      return `This will delete the ${target}${suffix} that was created.`;
+    case "delete":
+      return `This will restore the ${target}${suffix} that was deleted.`;
+    case "update":
+      return `This will roll the ${target}${suffix} back to its previous values.`;
+    default:
+      return "This will undo the recorded action.";
+  }
+}
+
 export default function AdminAuditPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -92,6 +160,9 @@ export default function AdminAuditPage() {
   const [authorized, setAuthorized] = useState<boolean | null>(null);
 
   const [tab, setTab] = useState<Tab>("admin");
+
+  // Rows per page (shared across both tabs).
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   // Admin audit state
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
@@ -121,17 +192,22 @@ export default function AdminAuditPage() {
   const [showClearModal, setShowClearModal] = useState(false);
   const [clearing, setClearing] = useState(false);
 
+  // Revert confirmation
+  const [revertTarget, setRevertTarget] = useState<AuditEntry | null>(null);
+  const [reverting, setReverting] = useState(false);
+  const [revertError, setRevertError] = useState<string | null>(null);
+
   // Fetch admin audit entries
   async function fetchAudit() {
     setAuditLoading(true);
     let query = supabase
       .from("audit_log")
       .select(
-        "id, actor_id, action, entity_type, entity_id, details, created_at, actor:users!audit_log_actor_id_fkey(display_name)",
+        "id, actor_id, actor_name, action, entity_type, entity_id, details, table_name, row_id, before, after, reverted_at, created_at, actor:users!audit_log_actor_id_fkey(display_name)",
         { count: "exact" }
       )
       .order("created_at", { ascending: auditSortAsc })
-      .range((auditPage - 1) * PAGE_SIZE, auditPage * PAGE_SIZE - 1);
+      .range((auditPage - 1) * pageSize, auditPage * pageSize - 1);
 
     if (auditFilterAction) query = query.eq("action", auditFilterAction);
     if (auditFilterActor) query = query.eq("actor_id", auditFilterActor);
@@ -148,11 +224,11 @@ export default function AdminAuditPage() {
     let query = supabase
       .from("user_activity")
       .select(
-        "id, user_id, action, metadata, created_at, user:users!user_activity_user_id_fkey(display_name)",
+        "id, user_id, user_name, action, metadata, created_at, user:users!user_activity_user_id_fkey(display_name)",
         { count: "exact" }
       )
       .order("created_at", { ascending: activitySortAsc })
-      .range((activityPage - 1) * PAGE_SIZE, activityPage * PAGE_SIZE - 1);
+      .range((activityPage - 1) * pageSize, activityPage * pageSize - 1);
 
     if (activityFilterAction) query = query.eq("action", activityFilterAction);
     if (activityFilterUser) query = query.eq("user_id", activityFilterUser);
@@ -229,6 +305,56 @@ export default function AdminAuditPage() {
     setShowClearModal(false);
   }
 
+  // Reverse a previously-recorded admin action using its captured snapshot:
+  // undo a create by deleting the row, restore a delete by re-inserting it, or
+  // roll an update back to the `before` values. The audit entry is then marked
+  // reverted and the reversal itself is logged for accountability.
+  async function revertEntry(entry: AuditEntry) {
+    if (!entry.table_name) return;
+    setReverting(true);
+    setRevertError(null);
+
+    let error: { message: string } | null = null;
+    if (entry.action === "create") {
+      ({ error } = await supabase
+        .from(entry.table_name)
+        .delete()
+        .eq("id", entry.row_id));
+    } else if (entry.action === "delete") {
+      ({ error } = await supabase.from(entry.table_name).insert(entry.before));
+    } else if (entry.action === "update") {
+      ({ error } = await supabase
+        .from(entry.table_name)
+        .update(entry.before)
+        .eq("id", entry.row_id));
+    }
+
+    if (error) {
+      setRevertError(error.message);
+      setReverting(false);
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    await supabase
+      .from("audit_log")
+      .update({ reverted_at: new Date().toISOString(), reverted_by: user?.id ?? null })
+      .eq("id", entry.id);
+    await logAudit(supabase, "revert", entry.entity_type, entry.entity_id, {
+      reverted_action: entry.action,
+      target: entry.table_name,
+    });
+
+    setReverting(false);
+    setRevertTarget(null);
+    await fetchAudit();
+    await loadFilterData();
+    // Let other open admin views know the underlying data changed.
+    window.dispatchEvent(new Event("scores-updated"));
+  }
+
   // Gate access to the audit-log owner; everyone else is bounced to /admin.
   useEffect(() => {
     async function checkAccess() {
@@ -252,14 +378,14 @@ export default function AdminAuditPage() {
 
   useEffect(() => {
     if (authorized && tab === "admin") fetchAudit();
-  }, [authorized, tab, auditPage, auditFilterAction, auditFilterActor, auditSortAsc]);
+  }, [authorized, tab, auditPage, pageSize, auditFilterAction, auditFilterActor, auditSortAsc]);
 
   useEffect(() => {
     if (authorized && tab === "user") fetchActivity();
-  }, [authorized, tab, activityPage, activityFilterAction, activityFilterUser, activitySortAsc]);
+  }, [authorized, tab, activityPage, pageSize, activityFilterAction, activityFilterUser, activitySortAsc]);
 
-  const auditTotalPages = Math.max(1, Math.ceil(auditTotal / PAGE_SIZE));
-  const activityTotalPages = Math.max(1, Math.ceil(activityTotal / PAGE_SIZE));
+  const auditTotalPages = Math.max(1, Math.ceil(auditTotal / pageSize));
+  const activityTotalPages = Math.max(1, Math.ceil(activityTotal / pageSize));
 
   // Don't render log data until access is confirmed (redirect handles the rest).
   if (!authorized) {
@@ -376,6 +502,10 @@ export default function AdminAuditPage() {
                   Clear filters
                 </button>
               )}
+              <PageSizeControl
+                pageSize={pageSize}
+                onChange={(n) => { setPageSize(n); setAuditPage(1); }}
+              />
             </div>
 
             <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -387,67 +517,67 @@ export default function AdminAuditPage() {
                 </div>
               ) : (
                 <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-background border-b border-border">
-                        <tr>
-                          <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                            Admin
-                          </th>
-                          <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                            Action
-                          </th>
-                          <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                            Target
-                          </th>
-                          <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                            Details
-                          </th>
-                          <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
-                            Time
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {auditEntries.map((entry) => {
-                          const actorName = getDisplayName(entry.actor);
-                          const detail =
-                            (entry.details as Record<string, unknown> | null)?.title ??
-                            (entry.details as Record<string, unknown> | null)?.name ??
-                            (entry.details as Record<string, unknown> | null)?.team_name ??
-                            "";
-                          const colors = actionColor(entry.action);
+                  <ul className="divide-y divide-border">
+                    {auditEntries.map((entry) => {
+                      const actorName = resolveName(entry.actor, entry.actor_name);
+                      const detail =
+                        (entry.details as Record<string, unknown> | null)?.title ??
+                        (entry.details as Record<string, unknown> | null)?.name ??
+                        (entry.details as Record<string, unknown> | null)?.team_name ??
+                        "";
+                      const colors = actionColor(entry.action);
 
-                          return (
-                            <tr key={entry.id} className="hover:bg-background/50">
-                              <td className="px-4 py-3 font-medium">
-                                {actorName}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${colors.bg} ${colors.text}`}>
-                                  {formatAction(entry.action, adminActionLabels)}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 capitalize text-muted">
-                                {entry.entity_type.replace(/_/g, " ")}
-                              </td>
-                              <td className="px-4 py-3 text-muted truncate max-w-[200px]">
-                                {detail ? String(detail) : "—"}
-                              </td>
-                              <td className="px-4 py-3 text-right text-xs text-muted whitespace-nowrap">
-                                {new Date(entry.created_at).toLocaleString()}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                      return (
+                        <li
+                          key={entry.id}
+                          className={`px-4 py-3 hover:bg-background/50 ${entry.reverted_at ? "opacity-50" : ""}`}
+                        >
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider shrink-0 ${colors.bg} ${colors.text}`}>
+                              {formatAction(entry.action, adminActionLabels)}
+                            </span>
+                            <span className="font-medium text-foreground">
+                              {actorName}
+                            </span>
+                            <span className="text-xs text-muted capitalize">
+                              {entry.entity_type.replace(/_/g, " ")}
+                            </span>
+                            <span className="ml-auto text-xs text-muted whitespace-nowrap">
+                              {new Date(entry.created_at).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                            {detail ? (
+                              <span className="text-sm text-muted min-w-0 break-words">
+                                {String(detail)}
+                              </span>
+                            ) : null}
+                            {entry.reverted_at ? (
+                              <span className="ml-auto text-[11px] text-muted italic shrink-0">
+                                Reverted
+                              </span>
+                            ) : isRevertible(entry) ? (
+                              <button
+                                onClick={() => { setRevertError(null); setRevertTarget(entry); }}
+                                className="ml-auto inline-flex items-center gap-1 text-xs text-coral hover:text-coral-light transition-colors shrink-0"
+                                title="Undo this action"
+                              >
+                                <Undo2 className="w-3.5 h-3.5" />
+                                Revert
+                              </button>
+                            ) : null}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
 
                   <Pagination
                     page={auditPage}
                     totalPages={auditTotalPages}
                     total={auditTotal}
+                    pageSize={pageSize}
                     onPageChange={setAuditPage}
                   />
                 </>
@@ -495,6 +625,53 @@ export default function AdminAuditPage() {
           </div>
         )}
 
+        {/* Revert confirmation modal */}
+        {revertTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-card rounded-2xl border border-border shadow-2xl w-full max-w-md p-6"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-11 h-11 rounded-xl bg-coral/10 flex items-center justify-center shrink-0">
+                  <Undo2 className="w-5 h-5 text-coral" />
+                </div>
+                <h2 className="font-display text-lg font-bold text-foreground">
+                  Revert this action?
+                </h2>
+              </div>
+              <p className="text-sm text-muted mb-4">
+                {revertDescription(revertTarget)}
+              </p>
+              <p className="text-xs text-muted mb-6">
+                The original entry stays in the log marked as reverted, and the
+                reversal is recorded separately.
+              </p>
+              {revertError && (
+                <p className="text-xs text-danger mb-4">{revertError}</p>
+              )}
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={() => { setRevertTarget(null); setRevertError(null); }}
+                  disabled={reverting}
+                  className="text-sm text-muted hover:text-foreground transition-colors px-4 py-2 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <Button
+                  size="sm"
+                  loading={reverting}
+                  onClick={() => revertEntry(revertTarget)}
+                >
+                  <Undo2 className="w-3.5 h-3.5" />
+                  Revert
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {/* User Activity Tab */}
         {tab === "user" && (
           <div>
@@ -536,6 +713,10 @@ export default function AdminAuditPage() {
                   Clear filters
                 </button>
               )}
+              <PageSizeControl
+                pageSize={pageSize}
+                onChange={(n) => { setPageSize(n); setActivityPage(1); }}
+              />
             </div>
 
             <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -547,62 +728,46 @@ export default function AdminAuditPage() {
                 </div>
               ) : (
                 <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-background border-b border-border">
-                        <tr>
-                          <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                            User
-                          </th>
-                          <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                            Action
-                          </th>
-                          <th className="text-left px-4 py-3 font-semibold text-muted text-xs uppercase">
-                            Details
-                          </th>
-                          <th className="text-right px-4 py-3 font-semibold text-muted text-xs uppercase">
-                            Time
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {activityEntries.map((entry) => {
-                          const userName = getDisplayName(entry.user);
-                          const meta = entry.metadata as Record<string, unknown> | null;
-                          const detail = meta
-                            ? Object.entries(meta)
-                                .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
-                                .join(", ")
-                            : "";
-                          const colors = actionColor(entry.action);
+                  <ul className="divide-y divide-border">
+                    {activityEntries.map((entry) => {
+                      const userName = resolveName(entry.user, entry.user_name);
+                      const meta = entry.metadata as Record<string, unknown> | null;
+                      const detail = meta
+                        ? Object.entries(meta)
+                            .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+                            .join(", ")
+                        : "";
+                      const colors = actionColor(entry.action);
 
-                          return (
-                            <tr key={entry.id} className="hover:bg-background/50">
-                              <td className="px-4 py-3 font-medium">
-                                {userName}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${colors.bg} ${colors.text}`}>
-                                  {formatAction(entry.action, userActionLabels)}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-muted truncate max-w-[250px]">
-                                {detail || "—"}
-                              </td>
-                              <td className="px-4 py-3 text-right text-xs text-muted whitespace-nowrap">
-                                {new Date(entry.created_at).toLocaleString()}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                      return (
+                        <li key={entry.id} className="px-4 py-3 hover:bg-background/50">
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider shrink-0 ${colors.bg} ${colors.text}`}>
+                              {formatAction(entry.action, userActionLabels)}
+                            </span>
+                            <span className="font-medium text-foreground">
+                              {userName}
+                            </span>
+                            <span className="ml-auto text-xs text-muted whitespace-nowrap">
+                              {new Date(entry.created_at).toLocaleString()}
+                            </span>
+                          </div>
+
+                          {detail ? (
+                            <p className="text-sm text-muted break-words mt-1">
+                              {detail}
+                            </p>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
 
                   <Pagination
                     page={activityPage}
                     totalPages={activityTotalPages}
                     total={activityTotal}
+                    pageSize={pageSize}
                     onPageChange={setActivityPage}
                   />
                 </>
@@ -615,15 +780,38 @@ export default function AdminAuditPage() {
   );
 }
 
+function PageSizeControl({
+  pageSize,
+  onChange,
+}: {
+  pageSize: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 ml-auto">
+      <span className="text-xs text-muted">Per page</span>
+      <div className="w-20">
+        <Select
+          value={String(pageSize)}
+          onChange={(e) => onChange(Number(e.target.value))}
+          options={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }))}
+        />
+      </div>
+    </div>
+  );
+}
+
 function Pagination({
   page,
   totalPages,
   total,
+  pageSize,
   onPageChange,
 }: {
   page: number;
   totalPages: number;
   total: number;
+  pageSize: number;
   onPageChange: (p: number) => void;
 }) {
   if (totalPages <= 1) return null;
@@ -631,7 +819,7 @@ function Pagination({
   return (
     <div className="flex items-center justify-between px-4 py-3 border-t border-border">
       <span className="text-xs text-muted">
-        Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+        Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
       </span>
       <div className="flex items-center gap-1">
         <button

@@ -61,21 +61,36 @@ export default function AdminScoresPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from("roster_scores").insert({
-      team_id: teamId,
-      player_id: playerId || null,
-      label: label.trim(),
-      points: pts,
-      created_by: user?.id ?? null,
-    });
-
-    if (!error) {
-      await logAudit(supabase, "create", "roster_score", teamId, {
-        team: teamName,
-        player: playerId ? playerNameById.get(playerId) : null,
+    const { data: inserted, error } = await supabase
+      .from("roster_scores")
+      .insert({
+        team_id: teamId,
+        player_id: playerId || null,
         label: label.trim(),
         points: pts,
-      });
+        created_by: user?.id ?? null,
+      })
+      .select("id")
+      .single();
+
+    if (!error) {
+      await logAudit(
+        supabase,
+        "create",
+        "roster_score",
+        teamId,
+        {
+          team: teamName,
+          player: playerId ? playerNameById.get(playerId) : null,
+          label: label.trim(),
+          points: pts,
+        },
+        {
+          table: "roster_scores",
+          rowId: inserted.id,
+          after: { team_id: teamId, label: label.trim(), points: pts },
+        }
+      );
       setLabel("");
       setPoints("");
       setPlayerId("");
@@ -92,11 +107,23 @@ export default function AdminScoresPage() {
       .delete()
       .eq("id", score.id);
     if (!error) {
-      await logAudit(supabase, "delete", "roster_score", score.team_id, {
-        team: teamNameById.get(score.team_id),
-        label: score.label,
-        points: score.points,
-      });
+      await logAudit(
+        supabase,
+        "delete",
+        "roster_score",
+        score.team_id,
+        {
+          team: teamNameById.get(score.team_id),
+          label: score.label,
+          points: score.points,
+        },
+        {
+          table: "roster_scores",
+          rowId: score.id,
+          // Full row so a revert can re-insert the score as it was.
+          before: { ...score },
+        }
+      );
       window.dispatchEvent(new Event("scores-updated"));
       await load();
     }

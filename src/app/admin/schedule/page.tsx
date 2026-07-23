@@ -125,6 +125,7 @@ export default function AdminSchedulePage() {
     };
 
     if (editingId) {
+      const prior = entries.find((e) => e.id === editingId);
       const { error } = await supabase
         .from("schedule_entries")
         .update({ ...payload, updated_at: new Date().toISOString() })
@@ -133,9 +134,33 @@ export default function AdminSchedulePage() {
       if (error) {
         setFeedback({ type: "error", message: error.message });
       } else {
-        await logAudit(supabase, "update", "schedule_entry", editingId, {
-          title: payload.title,
-        });
+        await logAudit(
+          supabase,
+          "update",
+          "schedule_entry",
+          editingId,
+          { title: payload.title },
+          {
+            table: "schedule_entries",
+            rowId: editingId,
+            // Prior values for exactly the fields the form edits.
+            before: prior
+              ? {
+                  title: prior.title,
+                  description: prior.description,
+                  start_time: prior.start_time,
+                  end_time: prior.end_time,
+                  location: prior.location,
+                  category: prior.category,
+                  event_slug: prior.event_slug,
+                  section: prior.section,
+                  section_note: prior.section_note,
+                  lead: prior.lead,
+                }
+              : null,
+            after: { title: payload.title },
+          }
+        );
         setFeedback({ type: "success", message: "Entry updated." });
         resetForm();
         await fetchEntries();
@@ -163,9 +188,18 @@ export default function AdminSchedulePage() {
       if (error) {
         setFeedback({ type: "error", message: error.message });
       } else {
-        await logAudit(supabase, "create", "schedule_entry", inserted.id, {
-          title: payload.title,
-        });
+        await logAudit(
+          supabase,
+          "create",
+          "schedule_entry",
+          inserted.id,
+          { title: payload.title },
+          {
+            table: "schedule_entries",
+            rowId: inserted.id,
+            after: { title: payload.title },
+          }
+        );
         setFeedback({ type: "success", message: "Entry added to schedule." });
         resetForm();
         await fetchEntries();
@@ -176,12 +210,25 @@ export default function AdminSchedulePage() {
 
   async function handleDelete() {
     if (!editingId) return;
+    const prior = entries.find((e) => e.id === editingId);
     const { error } = await supabase
       .from("schedule_entries")
       .delete()
       .eq("id", editingId);
     if (!error) {
-      await logAudit(supabase, "delete", "schedule_entry", editingId);
+      await logAudit(
+        supabase,
+        "delete",
+        "schedule_entry",
+        editingId,
+        prior ? { title: prior.title } : undefined,
+        {
+          table: "schedule_entries",
+          rowId: editingId,
+          // Full row so a revert can re-insert the entry as it was.
+          before: prior ? { ...prior } : null,
+        }
+      );
       setEntries(entries.filter((e) => e.id !== editingId));
       resetForm();
     }

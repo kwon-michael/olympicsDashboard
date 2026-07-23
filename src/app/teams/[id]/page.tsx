@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonList } from "@/components/ui/skeleton";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
@@ -50,7 +51,7 @@ export default function TeamProfilePage() {
   if (loading) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-coral border-t-transparent rounded-full animate-spin" />
+        <SkeletonList rows={6} />
       </div>
     );
   }

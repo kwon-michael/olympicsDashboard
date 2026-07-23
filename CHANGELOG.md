@@ -136,6 +136,12 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 ### Navbar
 - Removed the public **Dashboard** link from the navbar (top nav and the account dropdown); **Admin Dashboard** stays for admins and volunteers
 
+### Loading states
+- Replaced the spinning circle loaders across all pages with **skeleton loaders** — a new `Skeleton` / `SkeletonList` / `PageSkeleton` set mirrors the page content while it loads (leaderboard, teams, and every admin tool, plus the global route-transition loader and the dashboard). Removed the old `Spinner`/`FullPageLoader`
+- Replaced the remaining plain-text "Loading…" states with a new on-theme **animated loading panel** (`AnimatedLoader`): a flowing navy→coral→gold aurora with a light sweep, a pulsing flame badge, and bouncing dots — used on the login/signup gates, Player Management, Activity Logs, and the admin activity feed
+- The animated loader is fully responsive (fills its container / the viewport) and respects `prefers-reduced-motion`
+- The Button's inline spinner (an in-progress action indicator) is unchanged
+
 ---
 
 ## v1.14 — Revertible activity logs, log paging & volunteer role

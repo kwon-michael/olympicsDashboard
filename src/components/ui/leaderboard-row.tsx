@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { cn, getMedalEmoji, formatPoints } from "@/lib/utils";
+import { readableTextColor } from "@/lib/colors";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface LeaderboardRowProps {
@@ -62,8 +63,11 @@ export function LeaderboardRow({
 
       {/* Team Avatar */}
       <div
-        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-        style={{ backgroundColor: teamColor }}
+        className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
+        style={{
+          backgroundColor: teamColor,
+          color: readableTextColor(teamColor),
+        }}
       >
         {teamAvatarUrl ? (
           <img

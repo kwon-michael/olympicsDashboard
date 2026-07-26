@@ -12,6 +12,7 @@ import {
   StaggerItem,
 } from "@/components/ui/page-transition";
 import { fetchRosterData, playerPointsMap, type RosterData } from "@/lib/roster";
+import { readableTextColor } from "@/lib/colors";
 import type { RosterTeam } from "@/lib/types";
 
 export default function TeamProfilePage() {
@@ -98,8 +99,11 @@ export default function TeamProfilePage() {
         <div className="p-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
             <div
-              className="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-lg"
-              style={{ backgroundColor: team.color }}
+              className="w-20 h-20 rounded-2xl flex items-center justify-center font-bold text-3xl shadow-lg"
+              style={{
+                backgroundColor: team.color,
+                color: readableTextColor(team.color),
+              }}
             >
               {team.name.charAt(0).toUpperCase()}
             </div>
@@ -137,11 +141,14 @@ export default function TeamProfilePage() {
                 <StaggerItem key={player.id}>
                   <div className="flex items-center gap-3 p-3 bg-background rounded-xl">
                     <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
                       style={{
                         backgroundColor: player.is_active
                           ? team.color
                           : "#94A3B8",
+                        color: readableTextColor(
+                          player.is_active ? team.color : "#94A3B8"
+                        ),
                       }}
                     >
                       {player.name[0]?.toUpperCase() || "?"}

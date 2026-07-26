@@ -3,7 +3,7 @@ import { SkeletonList } from "@/components/ui/skeleton";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Users, Star, Medal, Zap } from "lucide-react";
+import { Trophy, Users, Star, Medal, Zap, Swords, CircleDot } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PageTransition } from "@/components/ui/page-transition";
 import { getMedalEmoji } from "@/lib/utils";
@@ -20,25 +20,48 @@ import {
   soloBonusByTeam,
 } from "@/lib/solo";
 import { soloEvents, getScoringInputBySlug, getUnitLabel } from "@/lib/events";
+import { readableTextColor } from "@/lib/colors";
+import { fetchTugData, type TugData } from "@/lib/tug";
+import { fetchDodgeballData, type DodgeballData } from "@/lib/dodgeball";
+import { TugGroups } from "@/components/tug/tug-groups";
+import { TugBracket } from "@/components/tug/tug-bracket";
+import { TournamentGroups } from "@/components/tournament/tournament-groups";
+import { TournamentBracket } from "@/components/tournament/tournament-bracket";
 import type { SoloResult } from "@/lib/types";
 
-type Tab = "teams" | "solo" | "events" | "players";
+type Tab = "teams" | "solo" | "events" | "players" | "tug" | "dodgeball";
+
+const TABS: Tab[] = ["teams", "solo", "events", "players", "tug", "dodgeball"];
+
+function initialTab(): Tab {
+  if (typeof window !== "undefined") {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t && (TABS as string[]).includes(t)) return t as Tab;
+  }
+  return "teams";
+}
 
 export default function LeaderboardPage() {
   const [data, setData] = useState<RosterData | null>(null);
   const [solo, setSolo] = useState<SoloResult[]>([]);
+  const [tug, setTug] = useState<TugData | null>(null);
+  const [dodge, setDodge] = useState<DodgeballData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("teams");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [eventSlug, setEventSlug] = useState<string>(soloEvents[0].slug);
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [roster, soloResults] = await Promise.all([
+    const [roster, soloResults, tugData, dodgeData] = await Promise.all([
       fetchRosterData(supabase),
       fetchSoloResults(supabase),
+      fetchTugData(supabase),
+      fetchDodgeballData(supabase),
     ]);
     setData(roster);
     setSolo(soloResults);
+    setTug(tugData);
+    setDodge(dodgeData);
     setLoading(false);
   }, []);
 
@@ -131,7 +154,7 @@ export default function LeaderboardPage() {
       {/* Content */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-6">
           <TabButton
             active={tab === "teams"}
             onClick={() => setTab("teams")}
@@ -155,6 +178,18 @@ export default function LeaderboardPage() {
             onClick={() => setTab("players")}
             icon={<Star className="w-4 h-4" />}
             label="Players"
+          />
+          <TabButton
+            active={tab === "tug"}
+            onClick={() => setTab("tug")}
+            icon={<Swords className="w-4 h-4" />}
+            label="Tug of War"
+          />
+          <TabButton
+            active={tab === "dodgeball"}
+            onClick={() => setTab("dodgeball")}
+            icon={<CircleDot className="w-4 h-4" />}
+            label="Dodgeball"
           />
         </div>
 
@@ -196,8 +231,11 @@ export default function LeaderboardPage() {
                         )}
                       </div>
                       <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-                        style={{ backgroundColor: s.team.color }}
+                        className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
+                        style={{
+                          backgroundColor: s.team.color,
+                          color: readableTextColor(s.team.color),
+                        }}
                       >
                         {s.team.name.charAt(0).toUpperCase()}
                       </div>
@@ -269,8 +307,11 @@ export default function LeaderboardPage() {
                       )}
                     </div>
                     <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-                      style={{ backgroundColor: s.team.color }}
+                      className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
+                      style={{
+                        backgroundColor: s.team.color,
+                        color: readableTextColor(s.team.color),
+                      }}
                     >
                       {s.team.name.charAt(0).toUpperCase()}
                     </div>
@@ -403,6 +444,24 @@ export default function LeaderboardPage() {
               <EmptyState label="No results recorded for this event yet" />
             )}
           </div>
+        ) : tab === "tug" ? (
+          <BracketTab
+            locked={tug?.state?.groups_locked ?? false}
+            hasData={!!tug}
+            icon={Swords}
+            notStarted="Groups are decided once the solo events wrap up. Check back soon!"
+            groups={<TugGroups teams={data?.teams ?? []} tug={tug!} />}
+            bracket={<TugBracket teams={data?.teams ?? []} tug={tug!} />}
+          />
+        ) : tab === "dodgeball" ? (
+          <BracketTab
+            locked={dodge?.state?.groups_locked ?? false}
+            hasData={!!dodge}
+            icon={CircleDot}
+            notStarted="Groups are decided once Tug of War wraps up. Check back soon!"
+            groups={<TournamentGroups teams={data?.teams ?? []} data={dodge!} />}
+            bracket={<TournamentBracket teams={data?.teams ?? []} data={dodge!} />}
+          />
         ) : playerStandings.length > 0 ? (
           <div className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="overflow-x-auto">
@@ -437,8 +496,11 @@ export default function LeaderboardPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                            style={{ backgroundColor: p.teamColor }}
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                            style={{
+                              backgroundColor: p.teamColor,
+                              color: readableTextColor(p.teamColor),
+                            }}
                           >
                             {p.player.name.charAt(0).toUpperCase()}
                           </div>
@@ -507,6 +569,50 @@ function TabButton({
       {icon}
       {label}
     </button>
+  );
+}
+
+function BracketTab({
+  locked,
+  hasData,
+  icon: Icon,
+  notStarted,
+  groups,
+  bracket,
+}: {
+  locked: boolean;
+  hasData: boolean;
+  icon: React.ElementType;
+  notStarted: string;
+  groups: React.ReactNode;
+  bracket: React.ReactNode;
+}) {
+  if (!locked || !hasData) {
+    return (
+      <div className="text-center py-20">
+        <Icon className="w-16 h-16 text-muted mx-auto mb-4" />
+        <h3 className="font-display text-xl font-bold text-foreground mb-2">
+          NOT STARTED YET
+        </h3>
+        <p className="text-muted">{notStarted}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-10">
+      <section>
+        <h2 className="font-display text-lg font-bold text-foreground mb-4">
+          GROUP STAGE
+        </h2>
+        {groups}
+      </section>
+      <section>
+        <h2 className="font-display text-lg font-bold text-foreground mb-4">
+          PLAYOFF BRACKET
+        </h2>
+        {bracket}
+      </section>
+    </div>
   );
 }
 

@@ -4,14 +4,15 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Flame, ArrowRight, LogIn } from "lucide-react";
+import { ArrowRight, LogIn } from "lucide-react";
+import { RunnerMark } from "@/components/ui/runner-mark";
 import { createClient } from "@/lib/supabase/client";
 import { canSignIn } from "@/lib/auth";
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageTransition } from "@/components/ui/page-transition";
-import { AnimatedLoader } from "@/components/ui/animated-loader";
+import { PageSkeleton } from "@/components/ui/skeleton";
 import { logActivity } from "@/lib/audit";
 
 function LoginForm() {
@@ -86,7 +87,7 @@ function LoginForm() {
           {/* Header */}
           <div className="text-center mb-8">
             <div className="w-14 h-14 bg-coral rounded-xl mx-auto flex items-center justify-center mb-4">
-              <Flame className="w-7 h-7 text-white" />
+              <RunnerMark className="w-7 h-7 text-white" />
             </div>
             <h1 className="font-display text-2xl font-bold text-foreground">
               WELCOME BACK
@@ -166,7 +167,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<AnimatedLoader fullScreen />}>
+    <Suspense fallback={<PageSkeleton />}>
       <LoginForm />
     </Suspense>
   );

@@ -15,11 +15,9 @@ import {
   Shield,
   LogIn,
   LogOut,
-  Flame,
   ChevronDown,
-  Swords,
-  CircleDot,
 } from "lucide-react";
+import { RunnerMark } from "@/components/ui/runner-mark";
 import { cn, getInitials } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/lib/store";
@@ -28,8 +26,6 @@ import type { User } from "@/lib/types";
 const publicLinks = [
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/teams", label: "Teams", icon: Users },
-  { href: "/tug-of-war", label: "Tug of War", icon: Swords },
-  { href: "/dodgeball", label: "Dodgeball", icon: CircleDot },
   { href: "/rules", label: "Rules", icon: BookOpen },
   { href: "/format", label: "Format", icon: Info },
   { href: "/schedule", label: "Schedule", icon: Clock },
@@ -49,7 +45,7 @@ export function Navbar() {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 group">
               <div className="w-9 h-9 bg-coral rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Flame className="w-5 h-5 text-white" />
+                <RunnerMark className="w-5 h-5 text-white" />
               </div>
               <div className="hidden sm:block">
                 <span className="font-display text-lg font-bold tracking-wide">

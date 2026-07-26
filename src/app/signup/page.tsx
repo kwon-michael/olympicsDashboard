@@ -16,7 +16,7 @@ import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageTransition } from "@/components/ui/page-transition";
-import { AnimatedLoader } from "@/components/ui/animated-loader";
+import { PageSkeleton } from "@/components/ui/skeleton";
 import { logActivity } from "@/lib/audit";
 
 const perks = [
@@ -247,7 +247,7 @@ function SignupForm() {
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={<AnimatedLoader fullScreen />}>
+    <Suspense fallback={<PageSkeleton />}>
       <SignupForm />
     </Suspense>
   );

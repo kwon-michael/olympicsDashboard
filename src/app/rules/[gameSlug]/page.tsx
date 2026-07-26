@@ -129,6 +129,33 @@ export default function RuleDetailPage() {
           </section>
         )}
 
+        {/* Conditions announcement (kept secret until closer to the event) */}
+        {event.slug === "conditioned-relay" && (
+          <section>
+            <h2 className="font-display text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-coral" />
+              LEG CONDITIONS
+            </h2>
+            <div
+              className="rounded-xl border p-5 flex items-start gap-3"
+              style={{
+                backgroundColor: event.color + "08",
+                borderColor: event.color + "20",
+              }}
+            >
+              <Info
+                className="w-5 h-5 mt-0.5 shrink-0"
+                style={{ color: event.color }}
+              />
+              <p className="text-sm text-muted leading-relaxed">
+                Each leg&apos;s condition is being kept under wraps for now — the
+                full set of relay conditions will be announced closer to the
+                event. Check back nearer the day for the details.
+              </p>
+            </div>
+          </section>
+        )}
+
         {/* Rules */}
         <section>
           <h2 className="font-display text-xl font-bold text-foreground mb-4 flex items-center gap-2">

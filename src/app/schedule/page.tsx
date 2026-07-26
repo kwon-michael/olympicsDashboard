@@ -118,6 +118,11 @@ export default function SchedulePage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Live "what's happening now" marker */}
+        {!loading && entries.length > 0 && (
+          <LiveStatus entries={entries} currentMinutes={currentMinutes} />
+        )}
+
         {/* View toggle */}
         {!loading && entries.length > 0 && (
           <div className="flex items-center justify-end mb-6">
@@ -172,6 +177,202 @@ export default function SchedulePage() {
         )}
       </div>
     </PageTransition>
+  );
+}
+
+function formatEventDate(): string {
+  const [y, m, d] = EVENT_DATE.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
+ * A live marker summarising what's going on right now. Updates every minute via
+ * the parent's `currentMinutes` clock and covers every point in the day:
+ * before the first item, during an item, in a gap, after the last item, and on
+ * any day that isn't event day.
+ */
+function LiveStatus({
+  entries,
+  currentMinutes,
+}: {
+  entries: ScheduleEntry[];
+  currentMinutes: number;
+}) {
+  const items = [...entries].sort(
+    (a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time)
+  );
+  if (items.length === 0) return null;
+
+  // Any day other than event day — show a simple countdown / status.
+  if (!isEventDay()) {
+    const [y, m, d] = EVENT_DATE.split("-").map(Number);
+    const eventDate = new Date(y, m - 1, d);
+    const now = new Date();
+    const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.round(
+      (eventDate.getTime() - today0.getTime()) / 86_400_000
+    );
+    if (diffDays > 0) {
+      return (
+        <StatusBanner
+          tone="idle"
+          label="Not live yet"
+          title={`${diffDays} day${diffDays === 1 ? "" : "s"} to go`}
+          meta={`The games begin on ${formatEventDate()}.`}
+        />
+      );
+    }
+    return (
+      <StatusBanner
+        tone="done"
+        label="All done"
+        title="That's a wrap!"
+        meta="Thanks for playing — check the leaderboard for final standings."
+      />
+    );
+  }
+
+  const firstStart = timeToMinutes(items[0].start_time);
+  const lastEnd = items.reduce(
+    (max, e) => Math.max(max, timeToMinutes(e.end_time)),
+    0
+  );
+  const active = items.find(
+    (e) =>
+      currentMinutes >= timeToMinutes(e.start_time) &&
+      currentMinutes < timeToMinutes(e.end_time)
+  );
+  const next = items.find((e) => timeToMinutes(e.start_time) > currentMinutes);
+
+  // Before the first item of the day.
+  if (currentMinutes < firstStart) {
+    return (
+      <StatusBanner
+        tone="soon"
+        label="Starting soon"
+        title={items[0].title}
+        meta={`First up at ${formatTime(items[0].start_time)}`}
+      />
+    );
+  }
+
+  // After the last item of the day.
+  if (currentMinutes >= lastEnd) {
+    return (
+      <StatusBanner
+        tone="done"
+        label="All done"
+        title="That's a wrap!"
+        meta="Thanks for playing — check the leaderboard for final standings."
+      />
+    );
+  }
+
+  // Something is happening right now.
+  if (active) {
+    const event = active.event_slug ? getEventBySlug(active.event_slug) : null;
+    const config = categoryConfig[active.category] ?? categoryConfig.general;
+    const color = event?.color ?? config.color;
+    const Icon = event?.icon ?? config.icon;
+    return (
+      <StatusBanner
+        tone="live"
+        label="Happening now"
+        title={active.title}
+        color={color}
+        icon={Icon}
+        meta={`${formatTime(active.start_time)} – ${formatTime(
+          active.end_time
+        )}${active.location ? ` · ${active.location}` : ""}`}
+        upNext={
+          next ? `${next.title} at ${formatTime(next.start_time)}` : undefined
+        }
+      />
+    );
+  }
+
+  // In a gap between items.
+  return (
+    <StatusBanner
+      tone="break"
+      label="Short break"
+      title={next ? next.title : "Up next"}
+      meta={next ? `Resumes at ${formatTime(next.start_time)}` : undefined}
+    />
+  );
+}
+
+function StatusBanner({
+  tone,
+  label,
+  title,
+  meta,
+  upNext,
+  color,
+  icon: Icon,
+}: {
+  tone: "live" | "soon" | "break" | "done" | "idle";
+  label: string;
+  title: string;
+  meta?: string;
+  upNext?: string;
+  color?: string;
+  icon?: React.ElementType;
+}) {
+  const accent =
+    color ?? (tone === "idle" || tone === "done" ? "#6B7280" : "#E94560");
+  return (
+    <div
+      className="mb-6 rounded-2xl border p-5 flex items-start gap-4"
+      style={{ backgroundColor: accent + "10", borderColor: accent + "33" }}
+    >
+      <div
+        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+        style={{ backgroundColor: accent + "20" }}
+      >
+        {Icon ? (
+          <Icon className="w-6 h-6" style={{ color: accent }} />
+        ) : (
+          <Clock className="w-6 h-6" style={{ color: accent }} />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          {tone === "live" && (
+            <span className="relative flex h-2.5 w-2.5">
+              <span
+                className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping"
+                style={{ backgroundColor: accent }}
+              />
+              <span
+                className="relative inline-flex h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: accent }}
+              />
+            </span>
+          )}
+          <span
+            className="text-[11px] font-bold uppercase tracking-wider"
+            style={{ color: accent }}
+          >
+            {label}
+          </span>
+        </div>
+        <h3 className="font-display text-xl font-bold text-foreground mt-1 truncate">
+          {title}
+        </h3>
+        {meta && <p className="text-sm text-muted mt-0.5">{meta}</p>}
+        {upNext && (
+          <p className="text-xs text-muted mt-2">
+            <span className="font-semibold text-foreground">Up next:</span>{" "}
+            {upNext}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 

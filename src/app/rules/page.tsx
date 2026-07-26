@@ -49,10 +49,6 @@ function EventCard({ event }: { event: EventRule }) {
           </div>
         </div>
 
-        <p className="text-sm text-muted mt-3 line-clamp-2">
-          {event.description}
-        </p>
-
         {/* Quick info pills */}
         <div className="flex flex-wrap gap-2 mt-4">
           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted bg-background rounded-full px-2.5 py-1 border border-border">
@@ -136,9 +132,6 @@ export default function RulesPage() {
               <h2 className="font-display text-2xl font-bold text-foreground">
                 SOLO EVENTS
               </h2>
-              <p className="text-sm text-muted">
-                Individual competitions — your performance, your glory
-              </p>
             </div>
           </div>
           <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -160,9 +153,6 @@ export default function RulesPage() {
               <h2 className="font-display text-2xl font-bold text-foreground">
                 TEAM EVENTS
               </h2>
-              <p className="text-sm text-muted">
-                Compete together — coordination and teamwork win the day
-              </p>
             </div>
           </div>
           <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

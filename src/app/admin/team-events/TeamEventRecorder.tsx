@@ -18,6 +18,7 @@ import {
   type TeamScoreComponent,
 } from "@/lib/events";
 import { getMedalEmoji } from "@/lib/utils";
+import { readableTextColor } from "@/lib/colors";
 import type { RosterScore } from "@/lib/types";
 
 /** metadata value → the string the form should show. */
@@ -436,8 +437,11 @@ export function TeamEventRecorder({ slug }: { slug: string }) {
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                      style={{ backgroundColor: team.color }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                      style={{
+                        backgroundColor: team.color,
+                        color: readableTextColor(team.color),
+                      }}
                     >
                       {team.name.charAt(0).toUpperCase()}
                     </div>

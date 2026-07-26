@@ -93,31 +93,34 @@ CREATE POLICY "Admins manage roster scores" ON public.roster_scores
 -- ----------------------------------------------------------------------------
 -- Seed (only when empty)
 -- ----------------------------------------------------------------------------
+-- Teams are identified by color (see src/lib/colors.ts). The color→player-group
+-- pairing below is one fixed shuffle; migrate_team_colors.sql re-randomizes an
+-- existing database in place.
 INSERT INTO public.roster_teams (name, color, sort_order)
 SELECT v.name, v.color, v.sort_order
 FROM (VALUES
-  ('Team 1', '#E94560', 1),
-  ('Team 2', '#3B82F6', 2),
-  ('Team 3', '#22C55E', 3),
-  ('Team 4', '#F59E0B', 4),
-  ('Team 5', '#A855F7', 5),
-  ('Team 6', '#EF4444', 6),
-  ('Team 7', '#14B8A6', 7),
-  ('Team 8', '#EC4899', 8),
-  ('Team 9', '#6366F1', 9)
+  ('Purple',     '#A855F7', 1),
+  ('Orange',     '#F97316', 2),
+  ('Grey',       '#6B7280', 3),
+  ('Red',        '#EF4444', 4),
+  ('Light Blue', '#38BDF8', 5),
+  ('Yellow',     '#FACC15', 6),
+  ('Pink',       '#EC4899', 7),
+  ('Dark Blue',  '#1E40AF', 8),
+  ('Green',      '#22C55E', 9)
 ) AS v(name, color, sort_order)
 WHERE NOT EXISTS (SELECT 1 FROM public.roster_teams);
 
 WITH p(team_name, name, sort_order) AS (VALUES
-  ('Team 1','Trinity',1),('Team 1','Emma',2),('Team 1','Umar',3),('Team 1','Ibby',4),('Team 1','Cris',5),('Team 1','Vico',6),
-  ('Team 2','Becca',1),('Team 2','Kyle',2),('Team 2','Paolo',3),('Team 2','Josh',4),('Team 2','Tommy',5),('Team 2','Frank',6),
-  ('Team 3','Leanne',1),('Team 3','Kaylee',2),('Team 3','Julian',3),('Team 3','Nich',4),('Team 3','Jonny',5),('Team 3','Jowshe',6),
-  ('Team 4','Marisa',1),('Team 4','Fawad',2),('Team 4','Jean-Luc',3),('Team 4','Miz',4),('Team 4','Sky',5),('Team 4','David G',6),
-  ('Team 5','Stephanie',1),('Team 5','Ricky',2),('Team 5','Samuel',3),('Team 5','Derek',4),('Team 5','Arian',5),('Team 5','Shyan',6),
-  ('Team 6','Jolie',1),('Team 6','Kevin',2),('Team 6','Amir',3),('Team 6','Stanley',4),('Team 6','Ryan',5),('Team 6','Abdel',6),
-  ('Team 7','Maggie',1),('Team 7','Julia',2),('Team 7','Cameron',3),('Team 7','Tristan',4),('Team 7','Jaiden',5),('Team 7','Troy',6),
-  ('Team 8','Sara',1),('Team 8','Rachel',2),('Team 8','Rouben',3),('Team 8','Alex',4),('Team 8','Aaron',5),('Team 8','Sahand',6),
-  ('Team 9','Vic',1),('Team 9','Cait',2),('Team 9','Matthew',3),('Team 9','Alec',4),('Team 9','Dylan',5),('Team 9','Amar',6)
+  ('Purple','Trinity',1),('Purple','Emma',2),('Purple','Umar',3),('Purple','Ibby',4),('Purple','Cris',5),('Purple','Vico',6),
+  ('Orange','Becca',1),('Orange','Kyle',2),('Orange','Paolo',3),('Orange','Josh',4),('Orange','Tommy',5),('Orange','Frank',6),
+  ('Grey','Leanne',1),('Grey','Kaylee',2),('Grey','Julian',3),('Grey','Nich',4),('Grey','Jonny',5),('Grey','Jowshe',6),
+  ('Red','Marisa',1),('Red','Fawad',2),('Red','Jean-Luc',3),('Red','Miz',4),('Red','Sky',5),('Red','David G',6),
+  ('Light Blue','Stephanie',1),('Light Blue','Ricky',2),('Light Blue','Samuel',3),('Light Blue','Derek',4),('Light Blue','Arian',5),('Light Blue','Shyan',6),
+  ('Yellow','Jolie',1),('Yellow','Kevin',2),('Yellow','Amir',3),('Yellow','Stanley',4),('Yellow','Ryan',5),('Yellow','Abdel',6),
+  ('Pink','Maggie',1),('Pink','Julia',2),('Pink','Cameron',3),('Pink','Tristan',4),('Pink','Jaiden',5),('Pink','Troy',6),
+  ('Dark Blue','Sara',1),('Dark Blue','Rachel',2),('Dark Blue','Rouben',3),('Dark Blue','Alex',4),('Dark Blue','Aaron',5),('Dark Blue','Sahand',6),
+  ('Green','Vic',1),('Green','Cait',2),('Green','Matthew',3),('Green','Alec',4),('Green','Dylan',5),('Green','Amar',6)
 )
 INSERT INTO public.roster_players (team_id, name, sort_order)
 SELECT t.id, p.name, p.sort_order

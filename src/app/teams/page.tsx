@@ -3,7 +3,7 @@ import { SkeletonList } from "@/components/ui/skeleton";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Users, Search, Trophy, Swords, ChevronDown } from "lucide-react";
+import { Users, Search, Trophy, Swords, ChevronDown, Copy, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   PageTransition,
@@ -16,6 +16,7 @@ import {
   type RosterData,
 } from "@/lib/roster";
 import { fetchTugData, type TugData } from "@/lib/tug";
+import { readableTextColor } from "@/lib/colors";
 import {
   fetchSoloResults,
   computeSoloTeamStandings,
@@ -32,6 +33,7 @@ export default function TeamsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [tugOpen, setTugOpen] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -84,6 +86,35 @@ export default function TeamsPage() {
     s.team.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const totalPlayers = data?.players.length ?? 0;
+
+  function buildRosterText(): string {
+    const teams = data?.teams ?? [];
+    const lines: string[] = [
+      `All players — ${totalPlayers} across ${teams.length} teams`,
+      "",
+    ];
+    for (const team of teams) {
+      const members = playersByTeam.get(team.id) ?? [];
+      lines.push(`${team.name} (${members.length})`);
+      for (const p of members) {
+        lines.push(`- ${p.name}${p.is_active ? "" : " (inactive)"}`);
+      }
+      lines.push("");
+    }
+    return lines.join("\n").trimEnd();
+  }
+
+  async function handleCopyAll() {
+    try {
+      await navigator.clipboard.writeText(buildRosterText());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard unavailable (e.g. insecure context) — silently ignore.
+    }
+  }
+
   return (
     <PageTransition className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -96,6 +127,24 @@ export default function TeamsPage() {
             {standings.length} team{standings.length !== 1 ? "s" : ""} competing
           </p>
         </div>
+
+        <button
+          onClick={handleCopyAll}
+          disabled={loading || totalPlayers === 0}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          {copied ? (
+            <>
+              <Check className="w-4 h-4 text-success" />
+              Copied {totalPlayers} players
+            </>
+          ) : (
+            <>
+              <Copy className="w-4 h-4" />
+              Copy all players
+            </>
+          )}
+        </button>
       </div>
 
       {/* Search */}
@@ -124,7 +173,7 @@ export default function TeamsPage() {
               TUG OF WAR
             </span>
             <Link
-              href="/tug-of-war"
+              href="/leaderboard?tab=tug"
               onClick={(e) => e.stopPropagation()}
               className="text-xs text-coral hover:underline ml-2"
             >
@@ -162,8 +211,11 @@ export default function TeamsPage() {
 
                   <div className="flex items-center gap-4 mb-4">
                     <div
-                      className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl"
-                      style={{ backgroundColor: s.team.color }}
+                      className="w-14 h-14 rounded-xl flex items-center justify-center font-bold text-xl"
+                      style={{
+                        backgroundColor: s.team.color,
+                        color: readableTextColor(s.team.color),
+                      }}
                     >
                       {s.team.name.charAt(0).toUpperCase()}
                     </div>

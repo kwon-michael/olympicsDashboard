@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { readableTextColor } from "@/lib/colors";
 
 interface TeamBadgeProps {
   name: string;
@@ -30,11 +31,11 @@ export function TeamBadge({
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-full font-semibold text-white",
+        "inline-flex items-center rounded-full font-semibold",
         sizeClasses[size],
         className
       )}
-      style={{ backgroundColor: color }}
+      style={{ backgroundColor: color, color: readableTextColor(color) }}
     >
       <div
         className={cn(

@@ -115,6 +115,36 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.16 — Color teams, runner logo & consolidated tournaments
+
+### Teams by color
+- Teams are now identified by **color** instead of number — the nine teams became Red, Green, Dark Blue, Light Blue, Yellow, Purple, Orange, Pink, and Grey, with each team's card, icon, and leaderboard avatar painted its own color
+- Colors are assigned to the existing player groups in a random shuffle (`supabase/migrate_team_colors.sql`); the seed in `supabase/roster.sql` ships one fixed shuffle for fresh databases
+- Added `src/lib/colors.ts` with the canonical color palette and a `readableTextColor` helper so team initials stay legible (dark text on light tiles like Yellow/Light Blue, white on dark ones) across the teams pages, leaderboard, and admin recorders
+
+### Runner logo (brand mark)
+- Replaced the Flame logo with a new **running-figure mark** (`RunnerMark`) in the navbar, footer, and the login/signup screens
+- Swapped the site favicon from `favicon.ico` to a new `icon.svg`
+
+### Tournaments moved into the Leaderboard
+- Added **Tug of War** and **Dodgeball** tabs to `/leaderboard` (six-tab segmented nav), each showing its group stage and playoff bracket via a shared `BracketTab`
+- The leaderboard now deep-links by tab — `?tab=tug`, `?tab=dodgeball`, etc. — reading the active tab from the URL on load
+- The standalone `/tug-of-war` and `/dodgeball` pages now redirect to their leaderboard tabs, and the two links were removed from the navbar
+
+### Schedule — live "happening now" marker
+- Added a live status banner to `/schedule` that updates every minute and covers every point in the day: a pre-event countdown ("N days to go"), the current/next item during event day, gaps between items, after the last item, and an "all done" state once the games wrap
+
+### Rules & event content
+- **Conditional Relay:** the specific leg conditions are now kept secret until closer to the event — the game's rules page shows a "Leg Conditions" announcement placeholder instead, and the detailed conditions + condition-specific equipment were removed from the event data; relay wording was tightened (tag-based handoffs, clearer restart rule)
+- Clarified team size to **6 players per team** (Tail Grab now references "Players 2 through 6")
+- Rebuilt the **Tail Grab explainer animation** for six players per team
+- Trimmed redundant helper text from the Rules index (card descriptions and the solo/team section blurbs)
+
+### Loading states — skeletons everywhere
+- Removed the `AnimatedLoader` (the aurora/light-sweep/bouncing-dots panel added in v1.15) and its CSS; the login/signup gates now fall back to `PageSkeleton`, and the admin dashboard, Activity Logs, and Player Management use `SkeletonList` — so every loading state is now a content skeleton
+
+---
+
 ## v1.15 — Format & FAQ page, simpler home
 
 ### Format & FAQ (new page)

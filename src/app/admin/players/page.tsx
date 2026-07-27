@@ -32,8 +32,22 @@ interface PlayerRow {
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "participant", label: "Player" },
   { value: "volunteer", label: "Volunteer" },
+  { value: "captain", label: "Captain" },
   { value: "admin", label: "Admin" },
 ];
+
+interface RosterPlayerLite {
+  id: string;
+  name: string;
+  team_id: string;
+  team_name: string;
+  sort_order: number;
+  captain_user_id: string | null;
+}
+
+// Roles for which a captain (roster-player) link is meaningful: captains sign in
+// to the dashboard wager panel, and admins can be captains too.
+const CAPTAIN_LINK_ROLES: UserRole[] = ["captain", "admin"];
 
 export default function AdminPlayersPage() {
   const supabase = createClient();
@@ -48,6 +62,8 @@ export default function AdminPlayersPage() {
   const [deleting, setDeleting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
+  const [rosterPlayers, setRosterPlayers] = useState<RosterPlayerLite[]>([]);
+  const [assigningPlayer, setAssigningPlayer] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -59,13 +75,94 @@ export default function AdminPlayersPage() {
     } = await supabase.auth.getUser();
     setCurrentUserId(user?.id ?? null);
 
-    const { data } = await supabase
-      .from("users")
-      .select("id, email, display_name, role, profile_completed, created_at")
-      .order("display_name");
+    const [{ data }, { data: rp }] = await Promise.all([
+      supabase
+        .from("users")
+        .select("id, email, display_name, role, profile_completed, created_at")
+        .order("display_name"),
+      supabase
+        .from("roster_players")
+        .select("id, name, team_id, sort_order, captain_user_id, team:roster_teams(name, sort_order)")
+        .order("sort_order"),
+    ]);
+
+    const mapped: RosterPlayerLite[] = (
+      (rp as {
+        id: string;
+        name: string;
+        team_id: string;
+        sort_order: number;
+        captain_user_id: string | null;
+        team: { name: string; sort_order: number } | { name: string; sort_order: number }[] | null;
+      }[]) ?? []
+    ).map((r) => {
+      const team = Array.isArray(r.team) ? r.team[0] : r.team;
+      return {
+        id: r.id,
+        name: r.name,
+        team_id: r.team_id,
+        team_name: team?.name ?? "—",
+        sort_order: (team?.sort_order ?? 0) * 1000 + r.sort_order,
+        captain_user_id: r.captain_user_id,
+      };
+    });
+    mapped.sort((a, b) => a.sort_order - b.sort_order);
 
     setPlayers(data ?? []);
+    setRosterPlayers(mapped);
     setLoading(false);
+  }
+
+  // Link a user (captain) to a roster player, or clear with playerId === "". A
+  // user captains at most one player, so release any player they currently hold,
+  // then claim the chosen one (which also displaces its previous captain).
+  async function assignCaptainPlayer(user: PlayerRow, playerId: string) {
+    setAssigningPlayer(user.id);
+    setFeedback(null);
+
+    const clear = await supabase
+      .from("roster_players")
+      .update({ captain_user_id: null })
+      .eq("captain_user_id", user.id);
+    if (clear.error) {
+      setFeedback({ type: "error", message: `Failed to update assignment: ${clear.error.message}` });
+      setAssigningPlayer(null);
+      return;
+    }
+
+    if (playerId) {
+      const claim = await supabase
+        .from("roster_players")
+        .update({ captain_user_id: user.id })
+        .eq("id", playerId);
+      if (claim.error) {
+        setFeedback({ type: "error", message: `Failed to assign player: ${claim.error.message}` });
+        setAssigningPlayer(null);
+        return;
+      }
+    }
+
+    const target = rosterPlayers.find((p) => p.id === playerId);
+    await logAudit(supabase, "update", "player_captain", user.id, {
+      name: user.display_name,
+      player: target ? `${target.team_name} — ${target.name}` : "none",
+    });
+
+    // Reflect locally: this user now captains only `playerId`.
+    setRosterPlayers((prev) =>
+      prev.map((p) => ({
+        ...p,
+        captain_user_id:
+          p.id === playerId ? user.id : p.captain_user_id === user.id ? null : p.captain_user_id,
+      }))
+    );
+    setFeedback({
+      type: "success",
+      message: target
+        ? `${user.display_name} now captains ${target.name} (${target.team_name}).`
+        : `${user.display_name} is no longer assigned to a player.`,
+    });
+    setAssigningPlayer(null);
   }
 
   // Any admin can change another user's role (appoint volunteers, promote/demote
@@ -89,6 +186,18 @@ export default function AdminPlayersPage() {
         from: player.role,
         to: role,
       });
+      // Only captains/admins can hold a player link; release it otherwise.
+      if (!CAPTAIN_LINK_ROLES.includes(role)) {
+        await supabase
+          .from("roster_players")
+          .update({ captain_user_id: null })
+          .eq("captain_user_id", player.id);
+        setRosterPlayers((prev) =>
+          prev.map((p) =>
+            p.captain_user_id === player.id ? { ...p, captain_user_id: null } : p
+          )
+        );
+      }
       setPlayers((prev) =>
         prev.map((p) => (p.id === player.id ? { ...p, role } : p))
       );
@@ -239,8 +348,8 @@ export default function AdminPlayersPage() {
                     </div>
                   </div>
 
-                  {/* Role */}
-                  <div className="shrink-0">
+                  {/* Role (+ team assignment for captains) */}
+                  <div className="shrink-0 flex items-center gap-2">
                     {player.id === currentUserId ? (
                       // Don't let an admin change their own role here.
                       <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-danger bg-danger/10 rounded-full px-2 py-0.5">
@@ -256,6 +365,27 @@ export default function AdminPlayersPage() {
                             changeRole(player, e.target.value as UserRole)
                           }
                           options={ROLE_OPTIONS}
+                        />
+                      </div>
+                    )}
+
+                    {/* Which roster player this captain is (their team's points
+                        are what they wager). Available to captains and admins. */}
+                    {CAPTAIN_LINK_ROLES.includes(player.role) && (
+                      <div className="w-44">
+                        <Select
+                          value={
+                            rosterPlayers.find((p) => p.captain_user_id === player.id)?.id ?? ""
+                          }
+                          disabled={assigningPlayer === player.id}
+                          onChange={(e) => assignCaptainPlayer(player, e.target.value)}
+                          options={[
+                            { value: "", label: "— No player —" },
+                            ...rosterPlayers.map((p) => ({
+                              value: p.id,
+                              label: `${p.team_name} — ${p.name}`,
+                            })),
+                          ]}
                         />
                       </div>
                     )}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -14,13 +15,27 @@ import {
   Zap,
 } from "lucide-react";
 import { PageTransition } from "@/components/ui/page-transition";
-import { getEventBySlug, soloGeneralRules } from "@/lib/events";
+import { getEventBySlug, soloGeneralRules, type EventRule } from "@/lib/events";
+import { createClient } from "@/lib/supabase/client";
+import { applyRuleOverride, fetchRuleOverrides } from "@/lib/rules";
 import { TailGrabAnimation } from "@/components/rules/tail-grab-animation";
 
 export default function RuleDetailPage() {
   const params = useParams();
   const slug = params.gameSlug as string;
-  const event = getEventBySlug(slug);
+  // Start from the static definition, then fold in any admin edit for this slug.
+  const [event, setEvent] = useState<EventRule | undefined>(() =>
+    getEventBySlug(slug)
+  );
+
+  useEffect(() => {
+    const base = getEventBySlug(slug);
+    if (!base) return;
+    const supabase = createClient();
+    fetchRuleOverrides(supabase).then((overrides) => {
+      setEvent(applyRuleOverride(base, overrides[slug]));
+    });
+  }, [slug]);
 
   if (!event) {
     return (

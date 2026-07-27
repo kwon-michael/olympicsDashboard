@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Creates an admin or volunteer account, depending on which shared access code
-// was entered. The code gates who can create an account — no schema edits
-// required to onboard a new admin/volunteer. The admin code comes from
-// ADMIN_SIGNUP_CODE; the volunteer code from VOLUNTEER_SIGNUP_CODE (defaulting
-// to a known value so volunteers can sign up without extra configuration).
+// Creates an admin, volunteer, or captain account, depending on which shared
+// access code was entered. The code gates who can create an account — no schema
+// edits required to onboard someone. The admin code comes from ADMIN_SIGNUP_CODE;
+// the volunteer code from VOLUNTEER_SIGNUP_CODE; the captain code from
+// CAPTAIN_SIGNUP_CODE (both defaulting to a known value so onboarding works
+// without extra configuration).
 export async function POST(request: Request) {
   const adminCode = process.env.ADMIN_SIGNUP_CODE;
   const volunteerCode = process.env.VOLUNTEER_SIGNUP_CODE ?? "bestvolunteerever";
-  if (!adminCode && !volunteerCode) {
+  const captainCode = process.env.CAPTAIN_SIGNUP_CODE ?? "Captain1";
+  if (!adminCode && !volunteerCode && !captainCode) {
     return NextResponse.json(
       { error: "Sign-up is not configured. Contact an administrator." },
       { status: 500 }
@@ -54,12 +56,14 @@ export async function POST(request: Request) {
     );
   }
   // The entered code decides the role. Admin code is checked first so that if
-  // the two codes were ever set to the same value, admin wins.
-  let role: "admin" | "volunteer";
+  // codes were ever set to the same value, admin wins.
+  let role: "admin" | "volunteer" | "captain";
   if (adminCode && code === adminCode) {
     role = "admin";
   } else if (volunteerCode && code === volunteerCode) {
     role = "volunteer";
+  } else if (captainCode && code === captainCode) {
+    role = "captain";
   } else {
     return NextResponse.json(
       { error: "Invalid access code." },

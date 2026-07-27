@@ -36,6 +36,7 @@ export function player(overrides: Partial<RosterPlayer> = {}): RosterPlayer {
     name: "Player",
     is_active: true,
     sort_order: 0,
+    captain_user_id: null,
     created_at: "2026-07-01T00:00:00Z",
     ...overrides,
   };

@@ -87,13 +87,15 @@ export async function updateSession(request: NextRequest) {
     }
 
     // Volunteers may only reach a limited set of admin tools; bounce any other
-    // /admin path back to the admin landing page.
+    // /admin path back to the admin landing page. Captains have no admin tools
+    // at all, so send them to their dashboard instead (redirecting them to
+    // /admin would loop, since they can't open it either).
     if (
       request.nextUrl.pathname.startsWith("/admin") &&
       !canAccessAdminPath(role, request.nextUrl.pathname)
     ) {
       const url = request.nextUrl.clone();
-      url.pathname = "/admin";
+      url.pathname = role === "captain" ? "/dashboard" : "/admin";
       return NextResponse.redirect(url);
     }
 

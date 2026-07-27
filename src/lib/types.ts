@@ -1,4 +1,4 @@
-export type UserRole = "participant" | "volunteer" | "admin";
+export type UserRole = "participant" | "volunteer" | "admin" | "captain";
 
 export interface User {
   id: string;
@@ -42,12 +42,37 @@ export interface RosterTeam {
   created_at: string;
 }
 
+// ---- Captain playoff wagers (Tug of War / Dodgeball bracket) ----
+export type WagerTournament = "tug" | "dodgeball";
+export type WagerStatus = "pending" | "won" | "lost" | "void";
+
+export interface Wager {
+  id: string;
+  captain_id: string | null;
+  captain_name: string | null;
+  team_id: string;
+  tournament: WagerTournament;
+  match_id: string;
+  picked_team_id: string;
+  stake: number;
+  status: WagerStatus;
+  // Net change to the team total once resolved: 0 pending, +1 won, -1 lost, 0 void.
+  net_points: number;
+  stake_score_id: string | null;
+  payout_score_id: string | null;
+  settled_at: string | null;
+  created_at: string;
+}
+
 export interface RosterPlayer {
   id: string;
   team_id: string;
   name: string;
   is_active: boolean;
   sort_order: number;
+  // The user account (a captain) tied to this person, if any. Being linked here
+  // is what makes a user a captain; their wager team is this player's team_id.
+  captain_user_id: string | null;
   created_at: string;
 }
 
@@ -313,6 +338,13 @@ export interface Database {
         Insert: Omit<DodgeballMatch, "id" | "created_at" | "updated_at"> &
           Partial<Pick<DodgeballMatch, "id">>;
         Update: Partial<Omit<DodgeballMatch, "id" | "created_at">>;
+      };
+      wagers: {
+        // Rows are only created via the place_wager RPC and mutated by triggers,
+        // so Insert/Update aren't used from the client.
+        Row: Wager;
+        Insert: never;
+        Update: never;
       };
     };
     Views: {

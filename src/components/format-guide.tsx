@@ -110,6 +110,16 @@ const faqs: { q: string; a: React.ReactNode }[] = [
     ),
   },
   {
+    q: "Who officiates the games?",
+    a: (
+      <>
+        Every game is officiated — a designated referee runs each event, makes
+        the calls, and settles any disputes on the spot. Their ruling is final,
+        so play hard and trust the whistle.
+      </>
+    ),
+  },
+  {
     q: 'When am I "out" in Tail Grab or Dodgeball?',
     a: (
       <>

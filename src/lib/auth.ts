@@ -3,10 +3,16 @@ import type { UserRole } from "@/lib/types";
 // Roles permitted to sign in and use the authenticated app. Everyone else
 // (e.g. participants) may create an account, but cannot sign in. Volunteers
 // sign in but only reach a limited slice of the admin tools (see below).
-export const SIGN_IN_ROLES: UserRole[] = ["admin", "volunteer"];
+// Captains sign in to reach their /dashboard (with the playoff wager panel) but
+// get none of the /admin tools.
+export const SIGN_IN_ROLES: UserRole[] = ["admin", "volunteer", "captain"];
 
 export function canSignIn(role: UserRole | null | undefined): boolean {
   return !!role && SIGN_IN_ROLES.includes(role);
+}
+
+export function isCaptain(role: UserRole | null | undefined): boolean {
+  return role === "captain";
 }
 
 // Admin tools a volunteer is allowed to open. Volunteers help run these three

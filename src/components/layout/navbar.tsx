@@ -16,6 +16,7 @@ import {
   LogIn,
   LogOut,
   ChevronDown,
+  Coins,
 } from "lucide-react";
 import { RunnerMark } from "@/components/ui/runner-mark";
 import { cn, getInitials } from "@/lib/utils";
@@ -220,6 +221,14 @@ function ProfileDropdown({ user }: { user: User }) {
                   onClick={close}
                 />
               )}
+              {user.role === "captain" && (
+                <DropdownLink
+                  href="/dashboard"
+                  icon={Coins}
+                  label="Captain Dashboard"
+                  onClick={close}
+                />
+              )}
             </div>
 
             {/* Sign out */}
@@ -344,6 +353,22 @@ function AnimatedSidebar({
               >
                 <Shield className="w-5 h-5" />
                 Admin Dashboard
+              </Link>
+            )}
+
+            {user?.role === "captain" && (
+              <Link
+                href="/dashboard"
+                onClick={onClose}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
+                  pathname.startsWith("/dashboard")
+                    ? "bg-coral text-white"
+                    : "text-white/60 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <Coins className="w-5 h-5" />
+                Captain Dashboard
               </Link>
             )}
           </div>

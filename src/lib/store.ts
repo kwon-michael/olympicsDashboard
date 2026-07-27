@@ -20,6 +20,12 @@ interface AppState {
   // hard refresh returns to the full admin view.
   viewAsVolunteer: boolean;
   setViewAsVolunteer: (on: boolean) => void;
+
+  // Admin "view as captain" preview. When true, an admin sees the captain
+  // dashboard wager panel (UI only — betting disabled). Client-only, not
+  // persisted.
+  viewAsCaptain: boolean;
+  setViewAsCaptain: (on: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -39,4 +45,8 @@ export const useAppStore = create<AppState>((set) => ({
   // Admin "view as volunteer" preview
   viewAsVolunteer: false,
   setViewAsVolunteer: (on) => set({ viewAsVolunteer: on }),
+
+  // Admin "view as captain" preview
+  viewAsCaptain: false,
+  setViewAsCaptain: (on) => set({ viewAsCaptain: on }),
 }));

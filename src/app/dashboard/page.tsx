@@ -9,6 +9,8 @@ import {
   Calendar,
   ArrowRight,
   Plus,
+  Eye,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/lib/store";
@@ -21,13 +23,19 @@ import {
   StaggerContainer,
   StaggerItem,
 } from "@/components/ui/page-transition";
+import { WagerPanel } from "@/components/dashboard/wager-panel";
 import type { Team, TeamMember, Event, Score } from "@/lib/types";
 
 export default function DashboardPage() {
   const { user, setUser } = useAppStore();
+  const viewAsCaptain = useAppStore((s) => s.viewAsCaptain);
+  const setViewAsCaptain = useAppStore((s) => s.setViewAsCaptain);
   const [myTeam, setMyTeam] = useState<(Team & { members: TeamMember[] }) | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [recentScores, setRecentScores] = useState<Score[]>([]);
+  // Whether this account is linked to a roster player (i.e. is a captain),
+  // regardless of role — an admin can be a captain too.
+  const [isLinkedCaptain, setIsLinkedCaptain] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -48,6 +56,14 @@ export default function DashboardPage() {
         .single();
 
       if (profile) setUser(profile);
+
+      // Is this account linked to a roster player (a captain)?
+      const { data: captainPlayer } = await supabase
+        .from("roster_players")
+        .select("id")
+        .eq("captain_user_id", authUser.id)
+        .maybeSingle();
+      setIsLinkedCaptain(!!captainPlayer);
 
       // Load team membership
       const { data: membership } = await supabase
@@ -115,6 +131,30 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Main Content */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Captain playoff wagers. Shown functionally to captains (anyone
+              linked to a roster player), and as a UI-only preview to admins who
+              turned on "view as captain". */}
+          {user?.id && (user.role === "captain" || isLinkedCaptain) ? (
+            <WagerPanel userId={user.id} />
+          ) : user?.id && user.role === "admin" && viewAsCaptain ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 bg-amber-500/95 text-amber-950 rounded-xl px-4 py-2">
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  <Eye className="w-4 h-4" />
+                  Viewing as a captain — preview only.
+                </span>
+                <button
+                  onClick={() => setViewAsCaptain(false)}
+                  className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-950/10 hover:bg-amber-950/20 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Exit preview
+                </button>
+              </div>
+              <WagerPanel userId={user.id} preview />
+            </div>
+          ) : null}
+
           {/* My Team Card */}
           <StaggerContainer>
             <StaggerItem>

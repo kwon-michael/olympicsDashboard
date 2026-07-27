@@ -17,6 +17,7 @@ import {
   Medal,
   Eye,
   BookOpen,
+  Coins,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { canViewAuditLog, VOLUNTEER_ADMIN_PATHS } from "@/lib/auth";
@@ -82,6 +83,13 @@ const adminLinks = [
     icon: BookOpen,
     color: "#0EA5E9",
   },
+  {
+    href: "/admin/wagers",
+    label: "Wager History",
+    description: "Captain playoff bets and the team points won or lost",
+    icon: Coins,
+    color: "#EAB308",
+  },
 ];
 
 // Restricted to the audit-log owner (see canViewAuditLog).
@@ -106,6 +114,7 @@ export default function AdminDashboardPage() {
   const [role, setRole] = useState<string | null>(null);
   const viewAsVolunteer = useAppStore((s) => s.viewAsVolunteer);
   const setViewAsVolunteer = useAppStore((s) => s.setViewAsVolunteer);
+  const setViewAsCaptain = useAppStore((s) => s.setViewAsCaptain);
 
   useEffect(() => {
     async function fetchStats() {
@@ -198,15 +207,26 @@ export default function AdminDashboardPage() {
               </p>
             </div>
           </div>
-          {/* Admins can preview the reduced volunteer experience. */}
+          {/* Admins can preview the reduced volunteer experience and the captain
+              wager panel. */}
           {isAdmin && !viewAsVolunteer && (
-            <button
-              onClick={() => setViewAsVolunteer(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-foreground border border-border hover:border-foreground/20 rounded-lg px-3 py-2 transition-colors shrink-0"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              View as volunteer
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setViewAsVolunteer(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-foreground border border-border hover:border-foreground/20 rounded-lg px-3 py-2 transition-colors"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                View as volunteer
+              </button>
+              <Link
+                href="/dashboard"
+                onClick={() => setViewAsCaptain(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-foreground border border-border hover:border-foreground/20 rounded-lg px-3 py-2 transition-colors"
+              >
+                <Coins className="w-3.5 h-3.5" />
+                View as captain
+              </Link>
+            </div>
           )}
         </div>
 

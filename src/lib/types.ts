@@ -180,6 +180,23 @@ export interface ScheduleEntry {
   updated_at: string;
 }
 
+export interface EventRuleOverride {
+  slug: string;
+  name: string | null;
+  category: string | null;
+  description: string | null;
+  participants: string | null;
+  attempts: string | null;
+  equipment: string[] | null;
+  rules: string[] | null;
+  scoring: string | null;
+  setup: string[] | null;
+  tips: string[] | null;
+  conditions: string[] | null;
+  updated_by: string;
+  updated_at: string;
+}
+
 export interface AuditLogEntry {
   id: string;
   actor_id: string;
@@ -237,6 +254,12 @@ export interface Database {
         Row: ScheduleEntry;
         Insert: Omit<ScheduleEntry, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<ScheduleEntry, "id" | "created_at">>;
+      };
+      event_rules: {
+        Row: EventRuleOverride;
+        Insert: Omit<EventRuleOverride, "updated_at"> &
+          Partial<Pick<EventRuleOverride, "updated_at">>;
+        Update: Partial<Omit<EventRuleOverride, "slug">>;
       };
       roster_teams: {
         Row: RosterTeam;

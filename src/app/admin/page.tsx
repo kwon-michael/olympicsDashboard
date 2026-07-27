@@ -16,6 +16,7 @@ import {
   Swords,
   Medal,
   Eye,
+  BookOpen,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { canViewAuditLog, VOLUNTEER_ADMIN_PATHS } from "@/lib/auth";
@@ -73,6 +74,13 @@ const adminLinks = [
     description: "View and remove registered players",
     icon: UserX,
     color: "#EF4444",
+  },
+  {
+    href: "/admin/rules",
+    label: "Event Rules",
+    description: "Edit the public rulebook text for each event",
+    icon: BookOpen,
+    color: "#0EA5E9",
   },
 ];
 

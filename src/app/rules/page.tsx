@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   BookOpen,
@@ -14,6 +15,8 @@ import {
   StaggerItem,
 } from "@/components/ui/page-transition";
 import { soloEvents, teamEvents, type EventRule } from "@/lib/events";
+import { createClient } from "@/lib/supabase/client";
+import { applyRuleOverride, fetchRuleOverrides } from "@/lib/rules";
 
 /* ------------------------------------------------------------------ */
 /*  Event Card (links to detail page)                                  */
@@ -77,6 +80,19 @@ function EventCard({ event }: { event: EventRule }) {
 /* ------------------------------------------------------------------ */
 
 export default function RulesPage() {
+  // Seed with the static defaults so the page renders instantly, then merge any
+  // admin edits from the DB once they load.
+  const [solo, setSolo] = useState<EventRule[]>(soloEvents);
+  const [team, setTeam] = useState<EventRule[]>(teamEvents);
+
+  useEffect(() => {
+    const supabase = createClient();
+    fetchRuleOverrides(supabase).then((overrides) => {
+      setSolo(soloEvents.map((e) => applyRuleOverride(e, overrides[e.slug])));
+      setTeam(teamEvents.map((e) => applyRuleOverride(e, overrides[e.slug])));
+    });
+  }, []);
+
   return (
     <PageTransition>
       {/* Header */}
@@ -135,7 +151,7 @@ export default function RulesPage() {
             </div>
           </div>
           <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {soloEvents.map((event) => (
+            {solo.map((event) => (
               <StaggerItem key={event.slug}>
                 <EventCard event={event} />
               </StaggerItem>
@@ -156,7 +172,7 @@ export default function RulesPage() {
             </div>
           </div>
           <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {teamEvents.map((event) => (
+            {team.map((event) => (
               <StaggerItem key={event.slug}>
                 <EventCard event={event} />
               </StaggerItem>

@@ -7,6 +7,7 @@ import type {
   RosterPlayer,
   RosterScore,
   SoloResult,
+  Wager,
 } from "@/lib/types";
 import type { TeamStanding } from "@/lib/roster";
 import type {
@@ -92,6 +93,26 @@ export function groupMember(
     team_id: "team-x",
     group_label: "A",
     seed: 1,
+    created_at: "2026-07-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+export function wager(overrides: Partial<Wager> = {}): Wager {
+  return {
+    id: uid("wager"),
+    captain_id: "user-x",
+    captain_name: "Captain",
+    team_id: "team-x",
+    tournament: "tug",
+    match_id: "match-x",
+    picked_team_id: "team-x",
+    stake: 1,
+    status: "pending",
+    net_points: 0,
+    stake_score_id: null,
+    payout_score_id: null,
+    settled_at: null,
     created_at: "2026-07-01T00:00:00Z",
     ...overrides,
   };

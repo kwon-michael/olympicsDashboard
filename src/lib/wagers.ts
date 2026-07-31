@@ -71,9 +71,13 @@ export async function fetchWagerData(
     supabase.from("roster_teams").select("*").order("sort_order"),
     fetchTugData(supabase),
     fetchDodgeballData(supabase),
+    // Scoped to this user explicitly, not just by RLS: an admin can read every
+    // wager, so without the filter the "View as captain" preview would surface
+    // other teams' bets as the viewer's own.
     supabase
       .from("wagers")
       .select("*")
+      .eq("captain_id", userId)
       .order("created_at", { ascending: false }),
     supabase
       .from("roster_players")

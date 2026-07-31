@@ -1,9 +1,11 @@
 -- ============================================
 -- Captain playoff wagers
 -- ============================================
--- Lets a team captain (users.role = 'captain', linked to one roster team via
--- roster_teams.captain_id) stake exactly one of their team's points on the
--- result of a Tug of War / Dodgeball *playoff* match (stage semi/final/third).
+-- Lets a team captain stake exactly one of their team's points on the result of
+-- a Tug of War / Dodgeball *playoff* match (stage semi/final/third). A captain
+-- is a user linked to one roster player via roster_players.captain_user_id —
+-- that link, not users.role, is what makes someone a captain, so an admin can be
+-- one too. The team whose points they stake is that player's team.
 --
 -- Economy (escrow model, all expressed as roster_scores rows so the wager moves
 -- the real team standings):

@@ -79,6 +79,7 @@ export function standing(
     totalPoints: 0,
     scoreCount: 0,
     bonusPoints: 0,
+    tournamentPoints: 0,
     rank: 0,
     ...overrides,
   };

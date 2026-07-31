@@ -81,30 +81,96 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 4px;
 }
 
-/* Medal shimmer animation */
-@keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
+/* Hide the scrollbar on horizontally scrollable strips (tab bars, chip rows)
+   where the overflowing content is itself the affordance. Keyboard and wheel
+   scrolling still work. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-.medal-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-  background-size: 200% 100%;
-  animation: shimmer 2s ease-in-out infinite;
+/* Modal windows (see components/ui/modal.tsx) are native <dialog> elements, so
+   the browser owns the top layer, the focus trap and Esc — there is no portal or
+   z-index ladder here. Open/close is animated in CSS only: `@starting-style`
+   supplies the pre-open state, and `allow-discrete` keeps `display`/`overlay`
+   animating on the way out so the closing frames aren't dropped. The
+   reduced-motion block below collapses these durations along with everything
+   else. */
+.app-modal {
+  opacity: 0;
+  translate: 0 0.75rem;
+  scale: 0.97;
+  transition:
+    opacity 200ms ease,
+    translate 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    scale 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
 }
 
-/* Glow effect for position changes */
-@keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(233, 69, 96, 0); }
-  50% { box-shadow: 0 0 20px 4px rgba(233, 69, 96, 0.4); }
+.app-modal[open] {
+  opacity: 1;
+  translate: none;
+  scale: 1;
 }
 
-.glow-pulse {
-  animation: glow-pulse 1.5s ease-in-out;
+@starting-style {
+  .app-modal[open] {
+    opacity: 0;
+    translate: 0 0.75rem;
+    scale: 0.97;
+  }
+}
+
+.app-modal::backdrop {
+  background: rgb(15 23 41 / 0);
+  backdrop-filter: blur(0px);
+  transition:
+    background 200ms ease,
+    backdrop-filter 200ms ease,
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+}
+
+.app-modal[open]::backdrop {
+  background: rgb(15 23 41 / 0.55);
+  backdrop-filter: blur(3px);
+}
+
+@starting-style {
+  .app-modal[open]::backdrop {
+    background: rgb(15 23 41 / 0);
+    backdrop-filter: blur(0px);
+  }
+}
+
+/* Freeze the page behind an open modal. `:has` keeps this declarative — no body
+   style bookkeeping in JS — and the reserved gutter stops the vanishing
+   scrollbar from shifting the layout underneath. */
+html:has(.app-modal[open]) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
 }
 
 /* Confetti burst keyframes */
 @keyframes confetti-fall {
   0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
   100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* Respect a reduced-motion preference globally. Components that animate
+   deliberately opt back in with Tailwind's `motion-safe:` variant or framer's
+   `useReducedMotion`, so this is the floor, not the whole story. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

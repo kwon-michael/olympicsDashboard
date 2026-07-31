@@ -100,6 +100,9 @@ const REVERTIBLE_TABLES = new Set([
   "roster_scores",
   "solo_results",
   "schedule_entries",
+  // Safe to revert: a tiebreak only sets listed order, so undoing one just puts
+  // the tied teams back on a shared rank. No points are derived from it.
+  "tiebreaks",
 ]);
 
 function isRevertible(entry: AuditEntry): boolean {

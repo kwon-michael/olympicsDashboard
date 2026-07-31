@@ -17,6 +17,41 @@ import { teamEvents, type EventRule } from "@/lib/events";
  */
 export const TOURNAMENT_TEAM_EVENT_SLUGS = ["tug-of-war", "dodgeball"] as const;
 
+/**
+ * The four team games in the order they're played on the day, per the schedule
+ * (see supabase/seed_schedule.sql):
+ *
+ *   13:00  Tug of War Tournament
+ *   14:00  Dodgeball Tournament
+ *   15:00  Tail-Grab Deathmatch
+ *   15:30  Conditioned 75m Relay
+ *
+ * The declaration order of `teamEvents` in lib/events.ts is a rulebook order,
+ * not a running order, so anything listing the games for someone working the
+ * event should sort by this instead. Schedule entries carry an optional
+ * `event_slug` link, but it's unset by default, so deriving the running order
+ * from the schedule table isn't reliable — this constant is the source of truth.
+ */
+export const TEAM_EVENT_DAY_ORDER = [
+  "tug-of-war",
+  "dodgeball",
+  "tail-grab",
+  "conditioned-relay",
+] as const;
+
+/** Position in the running order; unknown slugs sort to the end. */
+export function teamEventDayIndex(slug: string): number {
+  const i = (TEAM_EVENT_DAY_ORDER as readonly string[]).indexOf(slug);
+  return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+}
+
+/** Sort any list of team-game-ish records into event-day order. */
+export function byTeamEventDayOrder<T extends { slug: string }>(items: T[]): T[] {
+  return [...items].sort(
+    (a, b) => teamEventDayIndex(a.slug) - teamEventDayIndex(b.slug)
+  );
+}
+
 export const recorderTeamEvents: EventRule[] = teamEvents.filter(
   (e) =>
     !!e.teamScoring &&

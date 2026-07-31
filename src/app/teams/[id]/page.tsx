@@ -11,21 +11,50 @@ import {
   StaggerContainer,
   StaggerItem,
 } from "@/components/ui/page-transition";
-import { fetchRosterData, playerPointsMap, type RosterData } from "@/lib/roster";
+import {
+  fetchRosterData,
+  playerPointsMap,
+  activeTeamSizes,
+  type RosterData,
+} from "@/lib/roster";
+import { fetchSoloResults } from "@/lib/solo";
+import { computeStandings } from "@/lib/standings";
+import { fetchTiebreaks, type Tiebreak } from "@/lib/tiebreak";
+import { fetchTugData, type TugData } from "@/lib/tug";
+import { fetchDodgeballData, type DodgeballData } from "@/lib/dodgeball";
 import { readableTextColor } from "@/lib/colors";
-import type { RosterTeam } from "@/lib/types";
+import type { RosterTeam, SoloResult } from "@/lib/types";
 
 export default function TeamProfilePage() {
   const params = useParams();
   const teamId = params.id as string;
 
   const [data, setData] = useState<RosterData | null>(null);
+  // Everything the team total is made of beyond its roster_scores rows: the
+  // solo top-3 bonus and both tournaments. Without these the header would
+  // under-report against the leaderboard.
+  const [solo, setSolo] = useState<SoloResult[]>([]);
+  const [tiebreaks, setTiebreaks] = useState<Tiebreak[]>([]);
+  const [tug, setTug] = useState<TugData | null>(null);
+  const [dodge, setDodge] = useState<DodgeballData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
-      setData(await fetchRosterData(supabase));
+      const [roster, soloResults, tiebreakRows, tugData, dodgeData] =
+        await Promise.all([
+          fetchRosterData(supabase),
+          fetchSoloResults(supabase),
+          fetchTiebreaks(supabase),
+          fetchTugData(supabase),
+          fetchDodgeballData(supabase),
+        ]);
+      setData(roster);
+      setSolo(soloResults);
+      setTiebreaks(tiebreakRows);
+      setTug(tugData);
+      setDodge(dodgeData);
       setLoading(false);
     };
     load();
@@ -41,7 +70,18 @@ export default function TeamProfilePage() {
     [data, teamId]
   );
   const perPlayer = useMemo(() => playerPointsMap(teamScores), [teamScores]);
-  const totalPoints = teamScores.reduce((sum, s) => sum + s.points, 0);
+  // The same number the leaderboard shows — scores, solo bonus and tournament
+  // points — rather than a local sum of this team's score rows.
+  const standing = useMemo(() => {
+    if (!data) return null;
+    const { teams } = computeStandings(data.teams, data.scores, solo, tiebreaks, {
+      tug: tug?.matches,
+      dodgeball: dodge?.matches,
+      teamSizes: activeTeamSizes(data.players),
+    });
+    return teams.find((s) => s.team.id === teamId) ?? null;
+  }, [data, solo, tiebreaks, tug, dodge, teamId]);
+  const totalPoints = standing?.totalPoints ?? 0;
 
   const playerNameById = useMemo(() => {
     const map = new Map<string, string>();

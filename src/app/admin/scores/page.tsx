@@ -8,6 +8,9 @@ import { createClient } from "@/lib/supabase/client";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Field } from "@/components/ui/field";
+import { TieAlert } from "@/components/admin/tie-alert";
 import { logAudit } from "@/lib/audit";
 import { fetchRosterData, type RosterData } from "@/lib/roster";
 import type { RosterScore } from "@/lib/types";
@@ -48,6 +51,11 @@ export default function AdminScoresPage() {
   const teamNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const t of data?.teams ?? []) m.set(t.id, t.name);
+    return m;
+  }, [data]);
+  const teamColorById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of data?.teams ?? []) m.set(t.id, t.color);
     return m;
   }, [data]);
 
@@ -162,79 +170,71 @@ export default function AdminScoresPage() {
         </div>
       ) : (
         <>
+          <TieAlert className="mb-6" />
+
           {/* Score entry form */}
           <form
             onSubmit={handleSubmit}
             className="bg-card rounded-2xl border border-border p-6 mb-8 space-y-4"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Team
-                </label>
-                <select
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Team" htmlFor="score-team">
+                <Select
+                  id="score-team"
                   value={teamId}
                   onChange={(e) => {
                     setTeamId(e.target.value);
                     setPlayerId("");
                   }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
                   required
-                >
-                  <option value="">Select a team…</option>
-                  {data?.teams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  options={[
+                    { value: "", label: "Select a team…" },
+                    ...(data?.teams ?? []).map((t) => ({
+                      value: t.id,
+                      label: t.name,
+                    })),
+                  ]}
+                />
+              </Field>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Award to
-                </label>
-                <select
+              <Field label="Award to" htmlFor="score-player">
+                <Select
+                  id="score-player"
                   value={playerId}
                   onChange={(e) => setPlayerId(e.target.value)}
                   disabled={!teamId}
-                  className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral disabled:opacity-50"
-                >
-                  <option value="">Whole team</option>
-                  {teamPlayers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                      {p.is_active ? "" : " (crossed out)"}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  options={[
+                    { value: "", label: "Whole team" },
+                    ...teamPlayers.map((p) => ({
+                      value: p.id,
+                      label: p.is_active ? p.name : `${p.name} (crossed out)`,
+                    })),
+                  ]}
+                />
+              </Field>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Label
-                </label>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_140px]">
+              <Field label="Label" htmlFor="score-label">
                 <Input
+                  id="score-label"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                   placeholder="e.g. 100m Dash, Tug of War win"
                   required
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Points
-                </label>
+              </Field>
+              <Field label="Points" htmlFor="score-points">
                 <Input
+                  id="score-points"
                   type="number"
+                  inputMode="numeric"
                   value={points}
                   onChange={(e) => setPoints(e.target.value)}
                   placeholder="0"
                   required
                 />
-              </div>
+              </Field>
             </div>
 
             <div className="flex justify-end">
@@ -254,30 +254,41 @@ export default function AdminScoresPage() {
               {recentScores.map((score) => (
                 <div
                   key={score.id}
-                  className="flex items-center justify-between px-4 py-3 gap-4"
+                  className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-foreground/[0.02]"
                 >
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">
-                      {score.label}
-                    </p>
-                    <p className="text-xs text-muted truncate">
-                      {teamNameById.get(score.team_id) ?? "Team"}
-                      {score.player_id
-                        ? ` · ${playerNameById.get(score.player_id) ?? "Player"}`
-                        : " · Team score"}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span
+                      aria-hidden
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{
+                        backgroundColor:
+                          teamColorById.get(score.team_id) ?? "#94A3B8",
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {score.label}
+                      </p>
+                      <p className="truncate text-xs text-muted">
+                        {teamNameById.get(score.team_id) ?? "Team"}
+                        {score.player_id
+                          ? ` · ${playerNameById.get(score.player_id) ?? "Player"}`
+                          : " · Team score"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="font-mono text-lg font-bold text-foreground">
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="font-mono text-lg font-semibold tabular-nums">
                       {score.points > 0 ? "+" : ""}
                       {score.points}
                     </span>
                     <button
                       onClick={() => handleDelete(score)}
-                      className="p-1.5 rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                      aria-label={`Delete score: ${score.label}`}
+                      className="rounded-lg p-1.5 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
                       title="Delete score"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>

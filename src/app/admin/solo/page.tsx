@@ -22,8 +22,11 @@ import {
   parseInputToDbValue,
   type ScoringInput,
 } from "@/lib/events";
-import { getMedalEmoji } from "@/lib/utils";
-import { readableTextColor } from "@/lib/colors";
+import { EventChips } from "@/components/ui/event-chips";
+import { Field } from "@/components/ui/field";
+import { Select } from "@/components/ui/select";
+import { RecorderCard } from "@/components/admin/recorder-card";
+import { TieAlert } from "@/components/admin/tie-alert";
 import type { SoloResult } from "@/lib/types";
 
 const PLACEHOLDER: Record<ScoringInput, string> = {
@@ -102,6 +105,17 @@ export default function AdminSoloPage() {
       delete next[editKey(teamId)];
       return next;
     });
+  /** True when this team holds edits that differ from what's stored. */
+  const isDirty = (teamId: string): boolean => {
+    const e = edits[editKey(teamId)];
+    if (!e) return false;
+    const saved = savedByTeam.get(teamId);
+    return (
+      (e.value !== undefined &&
+        e.value !== (saved ? dbValueToInput(saved.value, mode) : "")) ||
+      (e.playerId !== undefined && e.playerId !== (saved?.player_id ?? ""))
+    );
+  };
 
   const standingByTeam = useMemo(() => {
     const m = new Map<string, SoloEventRow>();
@@ -242,31 +256,19 @@ export default function AdminSoloPage() {
         </div>
       ) : (
         <>
-          {/* Event selector */}
-          <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
-            {soloEvents.map((ev) => {
-              const Icon = ev.icon;
-              const active = ev.slug === eventSlug;
-              return (
-                <button
-                  key={ev.slug}
-                  onClick={() => setEventSlug(ev.slug)}
-                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors border ${
-                    active
-                      ? "text-white border-transparent"
-                      : "bg-card border-border text-muted hover:text-foreground"
-                  }`}
-                  style={active ? { backgroundColor: ev.color } : undefined}
-                >
-                  <Icon className="w-4 h-4" />
-                  {ev.name}
-                </button>
-              );
-            })}
-          </div>
+          <TieAlert className="mb-5" />
 
-          <p className="text-xs text-muted mb-4">
-            Recording <span className="font-semibold text-foreground">{event.name}</span>{" "}
+          <EventChips
+            events={soloEvents}
+            value={eventSlug}
+            onChange={setEventSlug}
+            label="Solo event"
+            className="mb-5"
+          />
+
+          <p className="mb-4 border-l-2 border-border pl-3 text-xs leading-relaxed text-muted">
+            Recording{" "}
+            <span className="font-medium text-foreground">{event.name}</span>{" "}
             &middot; enter each team&apos;s {getUnitLabel(mode).toLowerCase()}.
           </p>
 
@@ -282,71 +284,51 @@ export default function AdminSoloPage() {
               const err = errorTeam[team.id];
 
               return (
-                <div
+                <RecorderCard
                   key={team.id}
-                  className="bg-card rounded-xl border border-border p-4"
+                  teamName={team.name}
+                  teamColor={team.color}
+                  rank={standing?.rank}
+                  points={standing?.points}
+                  unsaved={isDirty(team.id)}
                 >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                      style={{
-                        backgroundColor: team.color,
-                        color: readableTextColor(team.color),
-                      }}
+                  <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                    <Field
+                      label={getUnitLabel(mode)}
+                      htmlFor={`${team.id}-value`}
                     >
-                      {team.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="font-display text-sm font-bold uppercase tracking-wide flex-1 truncate">
-                      {team.name}
-                    </span>
-                    {standing && (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold shrink-0">
-                        <span className="text-base leading-none">
-                          {getMedalEmoji(standing.rank) || `#${standing.rank}`}
-                        </span>
-                        <span
-                          className="font-mono"
-                          style={{ color: team.color }}
-                        >
-                          {standing.points} pt{standing.points !== 1 ? "s" : ""}
-                        </span>
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-                    <div>
-                      <label className="block text-[11px] font-medium text-muted mb-1">
-                        {getUnitLabel(mode)}
-                      </label>
                       <Input
+                        id={`${team.id}-value`}
                         value={currentValue(team.id)}
                         onChange={(e) =>
                           setEdit(team.id, { value: e.target.value })
                         }
                         placeholder={PLACEHOLDER[mode]}
+                        error={err || undefined}
+                        inputMode={mode === "points" ? "numeric" : "decimal"}
                       />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-muted mb-1">
-                        Participant (optional)
-                      </label>
-                      <select
+                    </Field>
+                    <Field
+                      label="Participant (optional)"
+                      htmlFor={`${team.id}-player`}
+                    >
+                      <Select
+                        id={`${team.id}-player`}
                         value={currentPlayer(team.id)}
                         onChange={(e) =>
                           setEdit(team.id, { playerId: e.target.value })
                         }
-                        className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
-                      >
-                        <option value="">—</option>
-                        {teamPlayers.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                            {p.is_active ? "" : " (crossed out)"}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                        options={[
+                          { value: "", label: "—" },
+                          ...teamPlayers.map((p) => ({
+                            value: p.id,
+                            label: p.is_active
+                              ? p.name
+                              : `${p.name} (crossed out)`,
+                          })),
+                        ]}
+                      />
+                    </Field>
                     <div className="flex items-center gap-2">
                       <Button
                         onClick={() => saveTeam(team.id)}
@@ -360,18 +342,16 @@ export default function AdminSoloPage() {
                         <button
                           onClick={() => clearTeam(team.id)}
                           disabled={isSaving}
-                          className="p-2 rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                          aria-label={`Clear ${team.name}'s result`}
+                          className="rounded-lg p-2 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
                           title="Clear result"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       )}
                     </div>
                   </div>
-                  {err && (
-                    <p className="text-xs text-danger mt-2">{err}</p>
-                  )}
-                </div>
+                </RecorderCard>
               );
             })}
           </div>

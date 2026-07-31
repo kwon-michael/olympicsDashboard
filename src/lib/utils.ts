@@ -18,31 +18,15 @@ export function formatPoints(points: number): string {
   return points.toLocaleString();
 }
 
-export function getMedalColor(rank: number): string | null {
-  switch (rank) {
-    case 1:
-      return "#F5A623"; // gold
-    case 2:
-      return "#C0C0C0"; // silver
-    case 3:
-      return "#CD7F32"; // bronze
-    default:
-      return null;
-  }
+/** 1 → "1st", 2 → "2nd", 13 → "13th". */
+export function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
 }
 
-export function getMedalEmoji(rank: number): string {
-  switch (rank) {
-    case 1:
-      return "🥇";
-    case 2:
-      return "🥈";
-    case 3:
-      return "🥉";
-    default:
-      return "";
-  }
-}
+// Medal presentation lives in `components/ui/rank-badge` — a numeral in a
+// metal-tinted disc, rather than the 🥇🥈🥉 emoji this used to hand out.
 
 export function timeAgo(date: Date | string): string {
   const now = new Date();

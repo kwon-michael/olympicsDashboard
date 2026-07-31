@@ -37,19 +37,28 @@ export interface TeamStanding {
   scoreCount: number;
   /** Portion of totalPoints that came from the solo top-3 bonus (0 if none). */
   bonusPoints: number;
+  /** Portion of totalPoints earned in the Tug of War / Dodgeball tournaments. */
+  tournamentPoints: number;
   rank: number;
 }
 
 /**
  * Team totals = sum of every score attached to the team (team-level + player),
- * plus an optional per-team bonus. `bonusByTeam` carries the +1 team-event point
- * that each top-3 solo team earns (see src/lib/solo.ts). The bonus counts toward
- * the total and ranking but is not a "score", so it doesn't affect scoreCount.
+ * plus two computed per-team contributions:
+ *
+ *   `bonusByTeam`       the +1 team-event point each top-3 solo team earns
+ *                       (see src/lib/solo.ts)
+ *   `tournamentByTeam`  round wins, eliminations and bracket placement from the
+ *                       two tournaments (see src/lib/tournamentPoints.ts)
+ *
+ * Both count toward the total and the ranking, but neither is a roster_scores
+ * row, so neither affects scoreCount.
  */
 export function computeTeamStandings(
   teams: RosterTeam[],
   scores: RosterScore[],
-  bonusByTeam?: Map<string, number>
+  bonusByTeam?: Map<string, number>,
+  tournamentByTeam?: Map<string, number>
 ): TeamStanding[] {
   const pointsByTeam = new Map<string, number>();
   const countByTeam = new Map<string, number>();
@@ -61,11 +70,13 @@ export function computeTeamStandings(
 
   const standings = teams.map((team) => {
     const bonus = bonusByTeam?.get(team.id) ?? 0;
+    const tournament = tournamentByTeam?.get(team.id) ?? 0;
     return {
       team,
-      totalPoints: (pointsByTeam.get(team.id) ?? 0) + bonus,
+      totalPoints: (pointsByTeam.get(team.id) ?? 0) + bonus + tournament,
       scoreCount: countByTeam.get(team.id) ?? 0,
       bonusPoints: bonus,
+      tournamentPoints: tournament,
       rank: 0,
     };
   });
@@ -131,6 +142,20 @@ export function computePlayerStandings(
   });
 
   return standings;
+}
+
+/**
+ * teamId → how many active players it fields. Dodgeball derives eliminations by
+ * subtracting survivors from this, so a team playing a player short is counted
+ * against the size it actually put on court rather than a flat six.
+ */
+export function activeTeamSizes(players: RosterPlayer[]): Map<string, number> {
+  const sizes = new Map<string, number>();
+  for (const p of players) {
+    if (!p.is_active) continue;
+    sizes.set(p.team_id, (sizes.get(p.team_id) ?? 0) + 1);
+  }
+  return sizes;
 }
 
 /** Sum of a single player's scores (used on the team page breakdown). */

@@ -12,15 +12,26 @@ import {
  * Read-only view of the three tournament pools with round-win standings. Rank 1
  * (group winner) and rank 2 (wildcard contender) are highlighted so viewers can
  * see who is advancing. Shared by the Tug of War and Dodgeball views.
+ *
+ * `priorityTeamIds` (the solo top 3) only matters when teams finish level on
+ * round wins — passing it keeps this table in the same order the qualifiers are
+ * actually drawn from.
  */
 export function TournamentGroups({
   teams,
   data,
+  priorityTeamIds,
 }: {
   teams: RosterTeam[];
   data: TournamentData;
+  priorityTeamIds?: Set<string>;
 }) {
-  const standings = computeGroupStandings(data.groupMembers, data.matches, teams);
+  const standings = computeGroupStandings(
+    data.groupMembers,
+    data.matches,
+    teams,
+    priorityTeamIds
+  );
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

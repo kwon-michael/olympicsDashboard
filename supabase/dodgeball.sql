@@ -8,8 +8,10 @@
 -- winner of each group plus the best of the three 2nd-place teams advance to a
 -- randomized 4-team bracket (semifinals -> final + 3rd-place match).
 --
--- This is display/tracking only: final placement points are still awarded
--- through the normal roster score tools. Only admins can write; anyone can read.
+-- These rows are also what the team leaderboard is scored from: round wins,
+-- eliminations and the final bracket placement are turned into points by
+-- src/lib/tournamentPoints.ts, so nothing here needs re-entering by hand in the
+-- roster score tools. Only admins can write; anyone can read.
 --
 -- Safe to run more than once: tables use IF NOT EXISTS and policies are dropped
 -- and recreated. The single dodgeball_state row is seeded only when absent.
@@ -51,6 +53,12 @@ CREATE TABLE IF NOT EXISTS public.dodgeball_matches (
   team_b UUID REFERENCES public.roster_teams(id) ON DELETE CASCADE,
   score_a INT,                        -- round wins for team_a
   score_b INT,                        -- round wins for team_b
+  -- Players still alive at the end of each round, one entry per round. The
+  -- opponent's eliminations are derived from these (team size − survivors); see
+  -- src/lib/tournamentPoints.ts. NULL entries are rounds not played or not yet
+  -- counted, and are distinct from a counted zero.
+  survivors_a INT[],
+  survivors_b INT[],
   winner_id UUID REFERENCES public.roster_teams(id) ON DELETE CASCADE,
   is_tiebreaker BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

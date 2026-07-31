@@ -94,3 +94,8 @@ yarn-error.log*
 # Vercel
 # ========================
 .vercel
+
+# ========================
+# Claude Code
+# ========================
+.claude/worktrees/

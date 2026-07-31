@@ -47,6 +47,14 @@ export interface TournamentMatch {
   team_b: string | null;
   score_a: number | null;
   score_b: number | null;
+  /**
+   * Players each team had left alive at the end of each round, one entry per
+   * round. The *opponent's* eliminations are derived from these. Dodgeball only
+   * — absent on tournaments that don't score eliminations (see
+   * src/lib/tournamentPoints.ts).
+   */
+  survivors_a?: (number | null)[] | null;
+  survivors_b?: (number | null)[] | null;
   winner_id: string | null;
   is_tiebreaker: boolean;
   created_at: string;
@@ -148,13 +156,24 @@ export interface GroupStanding {
 }
 
 /**
- * Per-group standings ordered by round wins (desc) then seed (asc). Round wins
- * accumulate from every played group match (winner_id set).
+ * Per-group standings. Round wins accumulate from every played group match
+ * (winner_id set), and teams are ordered by:
+ *
+ *   1. round wins (desc)
+ *   2. head-to-head: matches won against the teams they're level with
+ *   3. the solo top-3 playoff priority marker
+ *   4. seed (asc) — where the team stood when the groups were locked
+ *
+ * Every position is decided by that chain, so `rank` is positional (1, 2, 3…)
+ * rather than shared between level teams: each group has exactly one winner and
+ * exactly one runner-up for the wildcard race even when teams finish level on
+ * round wins.
  */
 export function computeGroupStandings(
   groupMembers: TournamentGroupMember[],
   matches: TournamentMatch[],
-  teams: RosterTeam[]
+  teams: RosterTeam[],
+  priorityTeamIds: Set<string> = new Set()
 ): GroupStanding[] {
   const teamById = new Map(teams.map((t) => [t.id, t]));
   // Tiebreakers are one-off games between 2nd-place teams from different groups
@@ -186,12 +205,37 @@ export function computeGroupStandings(
       };
     });
 
-    rows.sort((a, b) => b.roundWins - a.roundWins || a.seed - b.seed);
+    // Head-to-head, counted only against the teams a row is level with on round
+    // wins: for the usual two-way tie that is simply "who won when they played".
+    // Scoring it per team (rather than comparing pairs inside the sort) keeps
+    // the ordering transitive — three teams that each beat one of the others
+    // stay level here and fall through to the next criterion.
+    const headToHead = new Map<string, number>();
+    for (const r of rows) {
+      const levelWith = new Set(
+        rows
+          .filter((x) => x !== r && x.roundWins === r.roundWins)
+          .map((x) => x.team.id)
+      );
+      const wins = groupMatches.filter((m) => {
+        if (m.winner_id !== r.team.id) return false;
+        const opponent = m.team_a === r.team.id ? m.team_b : m.team_a;
+        return opponent != null && levelWith.has(opponent);
+      }).length;
+      headToHead.set(r.team.id, wins);
+    }
+
+    const priority = (r: GroupTeamStanding) =>
+      priorityTeamIds.has(r.team.id) ? 1 : 0;
+    rows.sort(
+      (a, b) =>
+        b.roundWins - a.roundWins ||
+        headToHead.get(b.team.id)! - headToHead.get(a.team.id)! ||
+        priority(b) - priority(a) ||
+        a.seed - b.seed
+    );
     rows.forEach((r, i) => {
-      r.rank =
-        i > 0 && r.roundWins === rows[i - 1].roundWins
-          ? rows[i - 1].rank
-          : i + 1;
+      r.rank = i + 1;
     });
 
     return { label, teams: rows };
@@ -219,22 +263,29 @@ export interface Qualifiers {
 
 /**
  * Determine the four qualifiers: each group winner plus the best of the three
- * 2nd-place teams (by round wins). If the top two 2nd-place teams are tied, the
- * wildcard is undecided (wildcardTie lists them) and must be broken manually —
- * UNLESS exactly one tied team carries the solo top-3 priority marker
+ * 2nd-place teams, measured purely on round wins from this tournament's group
+ * stage. If the top two 2nd-place teams are level on round wins, the wildcard is
+ * undecided (wildcardTie lists them) and must be broken manually — UNLESS
+ * exactly one tied team carries the solo top-3 priority marker
  * (`priorityTeamIds`), in which case it automatically moves forward. If several
  * tied teams share priority, the tie narrows to just those and is still manual.
+ *
+ * Winner and runner-up are taken by *position* in the group table (see
+ * `computeGroupStandings` for the head-to-head / priority / seed chain that
+ * settles level teams), not by the `rank` value: a team that finished level at
+ * the top of its group is still that group's runner-up, and its round wins still
+ * count in the wildcard race.
  */
 export function computeQualifiers(
   groupStandings: GroupStanding[],
   priorityTeamIds: Set<string> = new Set()
 ): Qualifiers {
   const groupWinners = groupStandings
-    .map((g) => g.teams.find((t) => t.rank === 1))
+    .map((g) => g.teams[0])
     .filter((t): t is GroupTeamStanding => Boolean(t));
 
   const secondPlace = groupStandings
-    .map((g) => g.teams.find((t) => t.rank === 2))
+    .map((g) => g.teams[1])
     .filter((t): t is GroupTeamStanding => Boolean(t))
     .sort((a, b) => b.roundWins - a.roundWins || a.seed - b.seed);
 

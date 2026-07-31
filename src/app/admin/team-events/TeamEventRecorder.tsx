@@ -17,8 +17,11 @@ import {
   type EventRule,
   type TeamScoreComponent,
 } from "@/lib/events";
-import { getMedalEmoji } from "@/lib/utils";
-import { readableTextColor } from "@/lib/colors";
+import { Field } from "@/components/ui/field";
+import { Select } from "@/components/ui/select";
+import { RecorderCard } from "@/components/admin/recorder-card";
+import { TieAlert } from "@/components/admin/tie-alert";
+import { ordinal } from "@/lib/utils";
 import type { RosterScore } from "@/lib/types";
 
 /** metadata value → the string the form should show. */
@@ -94,6 +97,29 @@ export function TeamEventRecorder({ slug }: { slug: string }) {
       return next;
     });
 
+  // Rank-by-time keeps the admin's raw entry under `timeRaw` in metadata while
+  // the form keys the edit as `time`, so the saved value needs resolving by
+  // hand — `inputValue(id, "time")` would always miss and blank the field.
+  const savedTimeRaw = (teamId: string) =>
+    metaString(savedByTeam.get(teamId), "timeRaw");
+  const timeValue = (teamId: string): string => {
+    const e = edits[editKey(teamId)];
+    if (e && e.time !== undefined) return e.time;
+    return savedTimeRaw(teamId);
+  };
+
+  /** True when this team holds edits that differ from what's stored. */
+  const isDirty = (teamId: string): boolean => {
+    const e = edits[editKey(teamId)];
+    if (!e) return false;
+    const saved = savedByTeam.get(teamId);
+    return Object.entries(e).some(([key, value]) =>
+      key === "time"
+        ? value !== savedTimeRaw(teamId)
+        : value !== metaString(saved, key)
+    );
+  };
+
   const setErr = (teamId: string, msg: string) =>
     setErrorTeam((e) => ({ ...e, [teamId]: msg }));
 
@@ -159,11 +185,7 @@ export function TeamEventRecorder({ slug }: { slug: string }) {
     if (method !== "rank-by-time" || !data) return new Map<string, { rank: number; points: number }>();
     const entries: { teamId: string; timeCs: number }[] = [];
     for (const team of data.teams) {
-      const raw = (() => {
-        const e = edits[editKey(team.id)];
-        if (e && e.time !== undefined) return e.time;
-        return metaString(savedByTeam.get(team.id), "timeRaw");
-      })();
+      const raw = timeValue(team.id);
       if (raw.trim() === "") continue;
       const cs = parseInputToDbValue(raw, "time");
       if (cs !== null) entries.push({ teamId: team.id, timeCs: cs });
@@ -176,7 +198,7 @@ export function TeamEventRecorder({ slug }: { slug: string }) {
   async function saveRelay(teamId: string) {
     if (!event) return;
     setErr(teamId, "");
-    const raw = inputValue(teamId, "time");
+    const raw = timeValue(teamId);
     const cs = parseInputToDbValue(raw, "time");
     if (cs === null) {
       setErr(teamId, "Enter a valid time (e.g. 1:23.4)");
@@ -409,7 +431,9 @@ export function TeamEventRecorder({ slug }: { slug: string }) {
         </div>
       ) : (
         <>
-          <p className="text-xs text-muted mb-4">
+          <TieAlert className="mb-5" />
+
+          <p className="mb-4 border-l-2 border-border pl-3 text-xs leading-relaxed text-muted">
             {method === "rank-by-time"
               ? "Enter each team's final time. The app ranks teams fastest-to-slowest and awards placement points automatically."
               : "Enter each team's placement and tail count per round. Points are summed automatically."}
@@ -431,54 +455,34 @@ export function TeamEventRecorder({ slug }: { slug: string }) {
                   : undefined;
 
               return (
-                <div
+                <RecorderCard
                   key={team.id}
-                  className="bg-card rounded-xl border border-border p-4"
+                  teamName={team.name}
+                  teamColor={team.color}
+                  rank={rank}
+                  points={points}
+                  unsaved={isDirty(team.id)}
                 >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                      style={{
-                        backgroundColor: team.color,
-                        color: readableTextColor(team.color),
-                      }}
-                    >
-                      {team.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="font-display text-sm font-bold uppercase tracking-wide flex-1 truncate">
-                      {team.name}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold shrink-0">
-                      {rank !== undefined && (
-                        <span className="text-base leading-none">
-                          {getMedalEmoji(rank) || `#${rank}`}
-                        </span>
-                      )}
-                      <span className="font-mono" style={{ color: team.color }}>
-                        {points} pt{points !== 1 ? "s" : ""}
-                      </span>
-                    </span>
-                  </div>
-
                   {method === "rank-by-time" ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
-                      <div>
-                        <label className="block text-[11px] font-medium text-muted mb-1">
-                          Final time
-                        </label>
+                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_auto]">
+                      <Field label="Final time" htmlFor={`${team.id}-time`}>
                         <Input
-                          value={inputValue(team.id, "time")}
+                          id={`${team.id}-time`}
+                          value={timeValue(team.id)}
                           onChange={(e) =>
                             setInput(team.id, "time", e.target.value)
                           }
                           placeholder="e.g. 1:23.4 or 83.5"
+                          inputMode="decimal"
+                          error={err || undefined}
                         />
-                      </div>
+                      </Field>
                       <SaveClear
                         onSave={() => saveRelay(team.id)}
                         onClear={() => clearTeam(team.id)}
                         saving={isSaving}
                         hasSaved={!!saved}
+                        teamName={team.name}
                       />
                     </div>
                   ) : (
@@ -491,19 +495,16 @@ export function TeamEventRecorder({ slug }: { slug: string }) {
                             inputs
                           );
                           return (
-                            <div
+                            <fieldset
                               key={group.name ?? gi}
-                              className="rounded-lg border border-border bg-background/40 p-3"
+                              className="rounded-xl border border-border bg-background/40 p-3"
                             >
                               {group.name && (
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
+                                <div className="mb-2.5 flex items-center justify-between gap-2">
+                                  <legend className="text-[11px] font-semibold tracking-wider text-muted uppercase">
                                     {group.name}
-                                  </span>
-                                  <span
-                                    className="font-mono text-xs font-semibold"
-                                    style={{ color: team.color }}
-                                  >
+                                  </legend>
+                                  <span className="font-mono text-xs font-semibold tabular-nums text-muted">
                                     {subtotal} pt{subtotal !== 1 ? "s" : ""}
                                   </span>
                                 </div>
@@ -512,29 +513,30 @@ export function TeamEventRecorder({ slug }: { slug: string }) {
                                 {group.items.map((c) => (
                                   <ComponentField
                                     key={c.key}
+                                    id={`${team.id}-${c.key}`}
                                     component={c}
                                     value={inputValue(team.id, c.key)}
                                     onChange={(v) => setInput(team.id, c.key, v)}
                                   />
                                 ))}
                               </div>
-                            </div>
+                            </fieldset>
                           );
                         }
                       )}
-                      <div className="flex justify-end">
+                      <div className="flex items-center justify-end gap-3">
+                        {err && <p className="text-xs text-danger">{err}</p>}
                         <SaveClear
                           onSave={() => saveComponents(team.id)}
                           onClear={() => clearTeam(team.id)}
                           saving={isSaving}
                           hasSaved={!!saved}
+                          teamName={team.name}
                         />
                       </div>
                     </div>
                   )}
-
-                  {err && <p className="text-xs text-danger mt-2">{err}</p>}
-                </div>
+                </RecorderCard>
               );
             })}
           </div>
@@ -563,10 +565,12 @@ function groupComponents(
 
 /** One placement dropdown or tally number input for a component-scored event. */
 function ComponentField({
+  id,
   component,
   value,
   onChange,
 }: {
+  id: string;
   component: TeamScoreComponent;
   value: string;
   onChange: (v: string) => void;
@@ -574,38 +578,34 @@ function ComponentField({
   if (component.kind === "placement") {
     const places = component.placementPoints ?? [];
     return (
-      <div>
-        <label className="block text-[11px] font-medium text-muted mb-1">
-          {component.label}
-        </label>
-        <select
+      <Field label={component.label} htmlFor={id}>
+        <Select
+          id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
-        >
-          <option value="">—</option>
-          {places.map((pts, i) => (
-            <option key={i} value={String(i + 1)}>
-              {ordinal(i + 1)} ({pts} pt{pts !== 1 ? "s" : ""})
-            </option>
-          ))}
-        </select>
-      </div>
+          options={[
+            { value: "", label: "—" },
+            ...places.map((pts, i) => ({
+              value: String(i + 1),
+              label: `${ordinal(i + 1)} (${pts} pt${pts !== 1 ? "s" : ""})`,
+            })),
+          ]}
+        />
+      </Field>
     );
   }
   return (
-    <div>
-      <label className="block text-[11px] font-medium text-muted mb-1">
-        {component.label}
-      </label>
+    <Field label={component.label} htmlFor={id}>
       <Input
+        id={id}
         type="number"
         min={0}
+        inputMode="numeric"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="0"
       />
-    </div>
+    </Field>
   );
 }
 
@@ -614,34 +614,32 @@ function SaveClear({
   onClear,
   saving,
   hasSaved,
+  teamName,
 }: {
   onSave: () => void;
   onClear: () => void;
   saving: boolean;
   hasSaved: boolean;
+  teamName: string;
 }) {
   return (
     <div className="flex items-center gap-2">
       <Button onClick={onSave} loading={saving} size="sm">
-        <Check className="w-4 h-4" />
+        <Check className="h-4 w-4" />
         Save
       </Button>
       {hasSaved && (
         <button
           onClick={onClear}
           disabled={saving}
-          className="p-2 rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+          aria-label={`Clear ${teamName}'s result`}
+          className="rounded-lg p-2 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
           title="Clear result"
         >
-          <Trash2 className="w-4 h-4" />
+          <Trash2 className="h-4 w-4" />
         </button>
       )}
     </div>
   );
 }
 
-function ordinal(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
-}

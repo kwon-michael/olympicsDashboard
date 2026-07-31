@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { cn, getMedalEmoji, formatPoints } from "@/lib/utils";
+import { RankBadge } from "@/components/ui/rank-badge";
+import { cn, formatPoints } from "@/lib/utils";
 
 interface ScoreCardProps {
   teamName: string;
@@ -24,7 +25,6 @@ export function ScoreCard({
   className,
   animate = true,
 }: ScoreCardProps) {
-  const medal = rank ? getMedalEmoji(rank) : "";
   const Wrapper = animate ? motion.div : "div";
   const wrapperProps = animate
     ? {
@@ -48,33 +48,23 @@ export function ScoreCard({
         style={{ backgroundColor: teamColor }}
       />
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {rank && (
-            <div className="flex items-center gap-1">
-              {medal && <span className="text-xl">{medal}</span>}
-              <span className="font-mono text-xs text-muted font-semibold">
-                #{rank}
-              </span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          {rank !== undefined && (
+            <div className="flex w-7 shrink-0 justify-center">
+              <RankBadge rank={rank} />
             </div>
           )}
-          <div>
-            <p className="font-display text-sm font-bold uppercase tracking-wide">
+          <div className="min-w-0">
+            <p className="font-display truncate text-sm font-semibold uppercase">
               {teamName}
             </p>
-            {playerName && (
-              <p className="text-xs text-muted">{playerName}</p>
-            )}
-            {eventName && (
-              <p className="text-xs text-muted">{eventName}</p>
-            )}
+            {playerName && <p className="text-xs text-muted">{playerName}</p>}
+            {eventName && <p className="text-xs text-muted">{eventName}</p>}
           </div>
         </div>
 
-        <div
-          className="font-mono text-2xl font-bold"
-          style={{ color: teamColor }}
-        >
+        <div className="font-mono text-2xl font-semibold tabular-nums">
           {formatPoints(points)}
         </div>
       </div>

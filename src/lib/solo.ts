@@ -20,6 +20,9 @@ import {
 /** Team-event points awarded to each of the top 3 solo teams. */
 export const SOLO_BONUS_POINTS = 1;
 
+/** How many solo places earn the bonus and playoff priority. */
+export const SOLO_BONUS_PLACES = 3;
+
 export async function fetchSoloResults(
   supabase: SupabaseClient
 ): Promise<SoloResult[]> {
@@ -136,10 +139,24 @@ export function computeSoloTeamStandings(
         : i + 1;
   });
   for (const s of standings) {
-    s.isTop3 = s.totalPoints > 0 && s.rank <= 3;
+    s.isTop3 = s.totalPoints > 0 && s.rank <= SOLO_BONUS_PLACES;
   }
 
   return standings;
+}
+
+/**
+ * Re-derive `isTop3` from whatever ranks a board currently carries. Needed after
+ * a tiebreak has expanded a tied group into distinct places: a three-way tie for
+ * 3rd flags all three here before the tiebreak, and exactly one after it.
+ *
+ * Returns new objects; the input is not mutated.
+ */
+export function flagSoloTop3<T extends SoloTeamStanding>(standings: T[]): T[] {
+  return standings.map((s) => ({
+    ...s,
+    isTop3: s.totalPoints > 0 && s.rank <= SOLO_BONUS_PLACES,
+  }));
 }
 
 /** teamId → +1 bonus for each top-3 solo team (for computeTeamStandings). */

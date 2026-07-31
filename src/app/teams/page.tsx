@@ -10,18 +10,13 @@ import {
   StaggerContainer,
   StaggerItem,
 } from "@/components/ui/page-transition";
-import {
-  fetchRosterData,
-  computeTeamStandings,
-  type RosterData,
-} from "@/lib/roster";
+import { fetchRosterData, activeTeamSizes, type RosterData } from "@/lib/roster";
 import { fetchTugData, type TugData } from "@/lib/tug";
+import { fetchDodgeballData, type DodgeballData } from "@/lib/dodgeball";
 import { readableTextColor } from "@/lib/colors";
-import {
-  fetchSoloResults,
-  computeSoloTeamStandings,
-  soloBonusByTeam,
-} from "@/lib/solo";
+import { fetchSoloResults, soloPriorityTeamIds } from "@/lib/solo";
+import { computeStandings } from "@/lib/standings";
+import { fetchTiebreaks, type Tiebreak } from "@/lib/tiebreak";
 import { TugGroups } from "@/components/tug/tug-groups";
 import { TugBracket } from "@/components/tug/tug-bracket";
 import type { RosterPlayer, SoloResult } from "@/lib/types";
@@ -29,7 +24,11 @@ import type { RosterPlayer, SoloResult } from "@/lib/types";
 export default function TeamsPage() {
   const [data, setData] = useState<RosterData | null>(null);
   const [tug, setTug] = useState<TugData | null>(null);
+  // Not rendered here — fetched only so the team totals on this page match the
+  // leaderboard, which scores both tournaments into them.
+  const [dodge, setDodge] = useState<DodgeballData | null>(null);
   const [solo, setSolo] = useState<SoloResult[]>([]);
+  const [tiebreaks, setTiebreaks] = useState<Tiebreak[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [tugOpen, setTugOpen] = useState(true);
@@ -38,14 +37,18 @@ export default function TeamsPage() {
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
-      const [roster, t, soloResults] = await Promise.all([
+      const [roster, t, d, soloResults, tiebreakRows] = await Promise.all([
         fetchRosterData(supabase),
         fetchTugData(supabase),
+        fetchDodgeballData(supabase),
         fetchSoloResults(supabase),
+        fetchTiebreaks(supabase),
       ]);
       setData(roster);
       setTug(t);
+      setDodge(d);
       setSolo(soloResults);
+      setTiebreaks(tiebreakRows);
       setLoading(false);
     };
     load();
@@ -58,11 +61,21 @@ export default function TeamsPage() {
     return map;
   }, [tug]);
 
-  const standings = useMemo(() => {
-    if (!data) return [];
-    const bonus = soloBonusByTeam(computeSoloTeamStandings(solo, data.teams));
-    return computeTeamStandings(data.teams, data.scores, bonus);
-  }, [data, solo]);
+  const resolved = useMemo(() => {
+    if (!data) return null;
+    return computeStandings(data.teams, data.scores, solo, tiebreaks, {
+      tug: tug?.matches,
+      dodgeball: dodge?.matches,
+      teamSizes: activeTeamSizes(data.players),
+    });
+  }, [data, solo, tiebreaks, tug, dodge]);
+  const standings = resolved?.teams ?? [];
+  // Only used to order teams left level on round wins inside a tug group,
+  // matching how the wildcard is drawn.
+  const priorityTeamIds = useMemo(
+    () => soloPriorityTeamIds(resolved?.solo ?? []),
+    [resolved]
+  );
 
   const playersByTeam = useMemo(() => {
     const map = new Map<string, RosterPlayer[]>();
@@ -187,7 +200,11 @@ export default function TeamsPage() {
           </button>
           {tugOpen && (
             <div className="px-4 pb-5 pt-1 space-y-6">
-              <TugGroups teams={data?.teams ?? []} tug={tug} />
+              <TugGroups
+                teams={data?.teams ?? []}
+                tug={tug}
+                priorityTeamIds={priorityTeamIds}
+              />
               <TugBracket teams={data?.teams ?? []} tug={tug} />
             </div>
           )}

@@ -8,9 +8,10 @@
 -- plus the best of the three 2nd-place teams advance to a randomized 4-team
 -- bracket (semifinals -> final + 3rd-place match).
 --
--- This is display/tracking only: final placement points (5/3/2/1) are still
--- awarded through the normal roster score tools. Only admins can write; anyone
--- can read.
+-- These rows are also what the team leaderboard is scored from: round wins and
+-- the final bracket placement (5/3/2/1) are turned into points by
+-- src/lib/tournamentPoints.ts, so nothing here needs re-entering by hand in the
+-- roster score tools. Only admins can write; anyone can read.
 --
 -- Safe to run more than once: tables use IF NOT EXISTS and policies are dropped
 -- and recreated. The single tug_state row is seeded only when absent.

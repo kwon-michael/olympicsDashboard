@@ -18,12 +18,14 @@ import {
   Eye,
   BookOpen,
   Coins,
+  Scale,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { canViewAuditLog, VOLUNTEER_ADMIN_PATHS } from "@/lib/auth";
 import { useAppStore } from "@/lib/store";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
 import { SkeletonList } from "@/components/ui/skeleton";
+import { TieAlert } from "@/components/admin/tie-alert";
 
 interface AdminStats {
   totalTeams: number;
@@ -89,6 +91,14 @@ const adminLinks = [
     description: "Captain playoff bets and the team points won or lost",
     icon: Coins,
     color: "#EAB308",
+  },
+  {
+    href: "/admin/tiebreaks",
+    label: "Tiebreaks",
+    description:
+      "Settle teams level on points with the result of an external game",
+    icon: Scale,
+    color: "#3B82F6",
   },
 ];
 
@@ -229,6 +239,10 @@ export default function AdminDashboardPage() {
             </div>
           )}
         </div>
+
+        {/* Tie notification — renders only for admins, and only when a tie
+            actually needs settling. */}
+        <TieAlert className="mb-6" />
 
         {/* Stats Grid */}
         <StaggerContainer className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">

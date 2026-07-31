@@ -140,7 +140,17 @@ export interface TugMatch {
 export type DodgeballStage = TugStage;
 export type DodgeballState = TugState;
 export type DodgeballGroupMember = TugGroupMember;
-export type DodgeballMatch = TugMatch;
+
+/**
+ * Same shape as a tug match plus the per-round survivor counts: dodgeball awards
+ * a point per opponent eliminated, and eliminations are derived from how many
+ * players each side had left alive when the round ended. One entry per round;
+ * NULL entries are rounds not played or not yet counted.
+ */
+export interface DodgeballMatch extends TugMatch {
+  survivors_a: (number | null)[] | null;
+  survivors_b: (number | null)[] | null;
+}
 
 export interface Event {
   id: string;

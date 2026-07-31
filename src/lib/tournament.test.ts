@@ -85,18 +85,64 @@ describe("computeGroupStandings", () => {
     ]);
   });
 
-  it("breaks equal round wins by seed", () => {
+  const allLevel = [
+    match({ team_a: t1.id, team_b: t2.id, score_a: 1, score_b: 1, winner_id: t1.id }),
+    match({ team_a: t3.id, team_b: t1.id, score_a: 1, score_b: 1, winner_id: t3.id }),
+    match({ team_a: t2.id, team_b: t3.id, score_a: 1, score_b: 1, winner_id: t2.id }),
+  ];
+
+  it("puts the head-to-head winner above a team it is level with", () => {
     const matches = [
-      match({ team_a: t1.id, team_b: t2.id, score_a: 1, score_b: 1, winner_id: t1.id }),
-      match({ team_a: t3.id, team_b: t1.id, score_a: 1, score_b: 1, winner_id: t3.id }),
-      match({ team_a: t2.id, team_b: t3.id, score_a: 1, score_b: 1, winner_id: t2.id }),
+      match({ team_a: t1.id, team_b: t2.id, score_a: 2, score_b: 0, winner_id: t1.id }),
+      match({ team_a: t3.id, team_b: t1.id, score_a: 2, score_b: 1, winner_id: t3.id }),
+      match({ team_a: t2.id, team_b: t3.id, score_a: 2, score_b: 1, winner_id: t2.id }),
     ];
     const groupA = computeGroupStandings(members, matches, teams).find(
       (g) => g.label === "A"
     )!;
-    // All tied on 2 round wins → order falls back to seed 1,2,3.
+    // t1 and t3 both finish on 3 round wins; t3 won the match between them, so
+    // it takes the group despite the worse seed.
+    expect(groupA.teams.map((r) => [r.team.name, r.roundWins])).toEqual([
+      ["T3", 3],
+      ["T1", 3],
+      ["T2", 2],
+    ]);
+  });
+
+  it("breaks equal round wins by seed and still ranks 1,2,3", () => {
+    const groupA = computeGroupStandings(members, allLevel, teams).find(
+      (g) => g.label === "A"
+    )!;
+    // All tied on 2 round wins → order falls back to seed 1,2,3. Ranks stay
+    // positional so the group always has one winner and one runner-up.
     expect(groupA.teams.map((r) => r.team.name)).toEqual(["T1", "T2", "T3"]);
-    expect(groupA.teams.every((r) => r.rank === 1)).toBe(true);
+    expect(groupA.teams.map((r) => r.rank)).toEqual([1, 2, 3]);
+  });
+
+  it("puts a solo top-3 team ahead of a level team with a better seed", () => {
+    const groupA = computeGroupStandings(
+      members,
+      allLevel,
+      teams,
+      new Set([t3.id])
+    ).find((g) => g.label === "A")!;
+    // t3 is seeded last but carries the priority marker, so it takes the group.
+    expect(groupA.teams.map((r) => r.team.name)).toEqual(["T3", "T1", "T2"]);
+  });
+
+  it("does not let priority override round wins", () => {
+    const matches = [
+      match({ team_a: t1.id, team_b: t2.id, score_a: 2, score_b: 0, winner_id: t1.id }),
+      match({ team_a: t1.id, team_b: t3.id, score_a: 2, score_b: 0, winner_id: t1.id }),
+      match({ team_a: t2.id, team_b: t3.id, score_a: 2, score_b: 1, winner_id: t2.id }),
+    ];
+    const groupA = computeGroupStandings(
+      members,
+      matches,
+      teams,
+      new Set([t3.id])
+    ).find((g) => g.label === "A")!;
+    expect(groupA.teams.map((r) => r.team.name)).toEqual(["T1", "T2", "T3"]);
   });
 
   it("excludes tiebreaker matches from round-win totals", () => {
@@ -157,10 +203,7 @@ describe("computeQualifiers", () => {
         }))
         .sort((x, y) => y.roundWins - x.roundWins || x.seed - y.seed);
       withWins.forEach((r, i) => {
-        r.rank =
-          i > 0 && r.roundWins === withWins[i - 1].roundWins
-            ? withWins[i - 1].rank
-            : i + 1;
+        r.rank = i + 1;
       });
       return { label, teams: withWins };
     });
@@ -177,6 +220,30 @@ describe("computeQualifiers", () => {
     // Best 2nd place is a2 (3 wins).
     expect(q.wildcard?.team.name).toBe("T2");
     expect(q.wildcardTie).toHaveLength(0);
+  });
+
+  it("counts a team that finished level at the top of its group as its runner-up", () => {
+    const standings = buildStandings({
+      [a1.id]: 4, [a2.id]: 4, [a3.id]: 0, // a1 takes group A on the tiebreak
+      [b1.id]: 4, [b2.id]: 2, [b3.id]: 0,
+      [c1.id]: 4, [c2.id]: 1, [c3.id]: 0,
+    });
+    const q = computeQualifiers(standings);
+    // a2 has the most round wins of any runner-up, so it takes the wildcard —
+    // finishing level with its group winner must not remove it from the race.
+    expect(q.secondPlace.map((t) => t.team.name)).toEqual(["T2", "T5", "T8"]);
+    expect(q.wildcard?.team.name).toBe("T2");
+  });
+
+  it("does not let solo priority beat a runner-up with more round wins", () => {
+    const standings = buildStandings({
+      [a1.id]: 4, [a2.id]: 3, [a3.id]: 0,
+      [b1.id]: 4, [b2.id]: 4, [b3.id]: 0, // most round wins of the runners-up
+      [c1.id]: 4, [c2.id]: 1, [c3.id]: 0,
+    });
+    const q = computeQualifiers(standings, new Set([a2.id]));
+    expect(q.wildcard?.team.name).toBe("T5");
+    expect(q.wildcardByPriority).toBe(false);
   });
 
   it("leaves the wildcard undecided when the top two 2nd-place teams tie", () => {

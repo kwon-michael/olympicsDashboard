@@ -4,8 +4,8 @@
 -- Teams and players live here as plain data — NOT tied to auth accounts.
 -- Only admins (authenticated users with role='admin') can edit; everyone can
 -- read. Scores are simple manual point entries attached to a team and,
--- optionally, an individual player. Player points roll up into their team's
--- total; individual totals also drive an MVP leaderboard.
+-- optionally, an individual player. Attribution is for the record only — every
+-- score counts toward its team, and the standings are team-level throughout.
 --
 -- Safe to run more than once: tables use IF NOT EXISTS, policies are dropped
 -- and recreated, and the seed only inserts when the tables are empty.

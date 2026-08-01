@@ -9,7 +9,15 @@
 // written as ordinary roster_scores rows, so they feed the leaderboard exactly
 // like manually-entered points.
 
-import { teamEvents, type EventRule } from "@/lib/events";
+import {
+  teamEvents,
+  computeTeamComponentValue,
+  formatDbValue,
+  type EventRule,
+  type TeamScoreComponent,
+} from "@/lib/events";
+import { ordinal } from "@/lib/utils";
+import type { RosterScore, RosterTeam } from "@/lib/types";
 
 /**
  * Team events recorded here. Tug of War and Dodgeball are excluded — they run as
@@ -101,4 +109,125 @@ export function computeRelayStandings(
     });
   });
   return standings;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Reading recorded results back out (leaderboard)                    */
+/* ------------------------------------------------------------------ */
+
+/** One recorded component of a team's result, ready to render in a cell. */
+export interface TeamEventComponentCell {
+  key: string;
+  label: string;
+  group?: string;
+  /** What the admin recorded, formatted — "2nd", "4", or "—" when blank. */
+  display: string;
+  /** Points this single component contributed to the team's total. */
+  points: number;
+}
+
+export interface TeamEventRow {
+  team: RosterTeam;
+  /** Place within this event alone (ties share a place). */
+  rank: number;
+  /** Points the team earned in this event — the value stored on its score row. */
+  points: number;
+  /** rank-by-time events: the recorded time, formatted. Null otherwise. */
+  time: string | null;
+  /** components events: one cell per component, in declaration order. */
+  components: TeamEventComponentCell[];
+}
+
+function metaRaw(row: RosterScore, key: string): string {
+  const v = row.metadata?.[key];
+  return v === undefined || v === null ? "" : String(v).trim();
+}
+
+/** Break one saved result into per-component cells for the breakdown columns. */
+function componentCells(
+  components: TeamScoreComponent[],
+  row: RosterScore
+): TeamEventComponentCell[] {
+  return components.map((c) => {
+    const raw = metaRaw(row, c.key);
+    const n = parseInt(raw, 10);
+    const recorded = raw !== "" && !isNaN(n);
+    return {
+      key: c.key,
+      label: c.label,
+      group: c.group,
+      display: !recorded
+        ? "—"
+        : c.kind === "placement"
+          ? ordinal(n)
+          : String(n),
+      points: computeTeamComponentValue([c], { [c.key]: raw }),
+    };
+  });
+}
+
+/**
+ * Per-event standings for a recorder-managed team game (Tail Grab or the
+ * Conditional Relay), read back out of the roster_scores rows the recorder
+ * writes. Only teams with a recorded result appear, matching how the solo
+ * per-event board behaves.
+ *
+ * Points come from the stored row rather than being recomputed, so this board
+ * can never disagree with the team total the same row feeds. Places are derived
+ * here because they aren't stored: fastest-first for a timed event, most points
+ * first otherwise, with ties sharing a place and the place(s) below skipped.
+ */
+export function computeTeamEventStandings(
+  event: EventRule,
+  teams: RosterTeam[],
+  scores: RosterScore[]
+): TeamEventRow[] {
+  // One recorder-owned row per team, matched by the event-name label — the same
+  // convention TeamEventRecorder writes under. Manual scores use other labels.
+  const label = recorderScoreLabel(event);
+  const savedByTeam = new Map<string, RosterScore>();
+  for (const s of scores) {
+    if (s.label === label && !savedByTeam.has(s.team_id)) {
+      savedByTeam.set(s.team_id, s);
+    }
+  }
+
+  const method = event.teamScoring?.method;
+  const timeCsByTeam = new Map<string, number>();
+  const rows: TeamEventRow[] = [];
+
+  for (const team of teams) {
+    const saved = savedByTeam.get(team.id);
+    if (!saved) continue;
+    const timeCs = Number(saved.metadata?.timeCs);
+    if (method === "rank-by-time" && Number.isFinite(timeCs)) {
+      timeCsByTeam.set(team.id, timeCs);
+    }
+    rows.push({
+      team,
+      rank: 0,
+      points: saved.points,
+      time:
+        method === "rank-by-time" && Number.isFinite(timeCs)
+          ? formatDbValue(timeCs, "time")
+          : null,
+      components:
+        method === "components"
+          ? componentCells(event.teamScoring?.components ?? [], saved)
+          : [],
+    });
+  }
+
+  // A missing/unparseable time sorts to the back rather than to the front.
+  const timeOf = (r: TeamEventRow) =>
+    timeCsByTeam.get(r.team.id) ?? Number.MAX_SAFE_INTEGER;
+  const key = method === "rank-by-time" ? timeOf : (r: TeamEventRow) => -r.points;
+
+  rows.sort((a, b) => key(a) - key(b) || a.team.sort_order - b.team.sort_order);
+  rows.forEach((row, i) => {
+    row.rank =
+      i > 0 && key(row) === key(rows[i - 1]) ? rows[i - 1].rank : i + 1;
+  });
+
+  return rows;
 }

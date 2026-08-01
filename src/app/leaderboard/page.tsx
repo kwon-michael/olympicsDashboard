@@ -8,14 +8,11 @@ import { SkeletonList } from "@/components/ui/skeleton";
 import { SegmentedTabs, type TabItem } from "@/components/ui/segmented-tabs";
 import { RankBadge } from "@/components/ui/rank-badge";
 import { StandingsRow } from "@/components/leaderboard/standings-row";
+import { TableCard, Th, TeamCell } from "@/components/leaderboard/table-card";
+import { TeamEventBoard } from "@/components/leaderboard/team-event-board";
 import { EventChips } from "@/components/ui/event-chips";
 import { cn, ordinal } from "@/lib/utils";
-import {
-  fetchRosterData,
-  computePlayerStandings,
-  activeTeamSizes,
-  type RosterData,
-} from "@/lib/roster";
+import { fetchRosterData, activeTeamSizes, type RosterData } from "@/lib/roster";
 import {
   fetchSoloResults,
   computeEventStandings,
@@ -26,8 +23,17 @@ import {
   EMPTY_STANDINGS,
   type ResolvedTeamStanding,
 } from "@/lib/standings";
-import { soloEvents, getScoringInputBySlug, getUnitLabel } from "@/lib/events";
-import { readableTextColor } from "@/lib/colors";
+import {
+  recorderTeamEvents,
+  computeTeamEventStandings,
+  type TeamEventRow,
+} from "@/lib/teamEvents";
+import {
+  soloEvents,
+  getScoringInputBySlug,
+  getUnitLabel,
+  type EventRule,
+} from "@/lib/events";
 import { fetchTugData, type TugData } from "@/lib/tug";
 import { fetchDodgeballData, type DodgeballData } from "@/lib/dodgeball";
 import { fetchTiebreaks, type Tiebreak } from "@/lib/tiebreak";
@@ -37,15 +43,27 @@ import { TournamentGroups } from "@/components/tournament/tournament-groups";
 import { TournamentBracket } from "@/components/tournament/tournament-bracket";
 import type { SoloResult } from "@/lib/types";
 
-type Tab = "teams" | "solo" | "events" | "players" | "tug" | "dodgeball";
+type Tab =
+  | "teams"
+  | "solo"
+  | "events"
+  | "tug"
+  | "dodgeball"
+  | "tail-grab"
+  | "conditioned-relay";
 
+// The four team games sit in the order they're played on the day (see
+// TEAM_EVENT_DAY_ORDER). Tug of War and Dodgeball draw brackets; Tail Grab and
+// the Relay are a single recorded result per team, so they get a breakdown
+// board instead.
 const TABS = [
   { value: "teams", label: "Teams" },
   { value: "solo", label: "Solo" },
   { value: "events", label: "Events" },
-  { value: "players", label: "Players" },
   { value: "tug", label: "Tug of War" },
   { value: "dodgeball", label: "Dodgeball" },
+  { value: "tail-grab", label: "Tail Grab" },
+  { value: "conditioned-relay", label: "Relay" },
 ] as const satisfies readonly TabItem<Tab>[];
 
 function initialTab(): Tab {
@@ -112,13 +130,19 @@ export default function LeaderboardPage() {
     () => soloPriorityTeamIds(soloStandings),
     [soloStandings]
   );
-  const playerStandings = useMemo(
-    () =>
-      data
-        ? computePlayerStandings(data.teams, data.players, data.scores)
-        : [],
-    [data]
-  );
+  // slug → per-event board for Tail Grab and the Relay, read back out of the
+  // roster_scores rows the team-event recorder writes.
+  const teamEventRows = useMemo(() => {
+    const bySlug = new Map<string, TeamEventRow[]>();
+    if (!data) return bySlug;
+    for (const event of recorderTeamEvents) {
+      bySlug.set(
+        event.slug,
+        computeTeamEventStandings(event, data.teams, data.scores)
+      );
+    }
+    return bySlug;
+  }, [data]);
   const eventRows = useMemo(
     () =>
       data ? computeEventStandings(eventSlug, solo, data.teams, data.players) : [],
@@ -362,59 +386,11 @@ export default function LeaderboardPage() {
             }
             bracket={<TournamentBracket teams={data?.teams ?? []} data={dodge!} />}
           />
-        ) : playerStandings.length > 0 ? (
-          <TableCard>
-            <thead>
-              <tr className="border-b border-border">
-                <Th className="w-16">Rank</Th>
-                <Th>Player</Th>
-                <Th>Team</Th>
-                <Th align="right">Points</Th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {playerStandings.map((p) => (
-                <tr
-                  key={p.player.id}
-                  className="transition-colors hover:bg-foreground/[0.02]"
-                >
-                  <td className="px-4 py-3">
-                    <RankBadge rank={p.rank} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        aria-hidden
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[11px] font-bold"
-                        style={{
-                          backgroundColor: p.teamColor,
-                          color: readableTextColor(p.teamColor),
-                        }}
-                      >
-                        {p.player.name.charAt(0).toUpperCase()}
-                      </span>
-                      <span
-                        className={cn(
-                          "font-medium",
-                          !p.player.is_active && "text-muted line-through"
-                        )}
-                      >
-                        {p.player.name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <TeamCell name={p.teamName} color={p.teamColor} />
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-[15px] font-semibold tabular-nums">
-                    {p.totalPoints.toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </TableCard>
         ) : (
-          <EmptyState />
+          <TeamEventTab
+            event={recorderTeamEvents.find((e) => e.slug === tab)}
+            rows={teamEventRows.get(tab) ?? []}
+          />
         )}
       </div>
     </PageTransition>
@@ -508,50 +484,36 @@ function StandingsList({ children }: { children: React.ReactNode }) {
   );
 }
 
-function TableCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">{children}</table>
-      </div>
-    </div>
-  );
-}
-
-function Th({
-  children,
-  align = "left",
-  className,
+/**
+ * Tail Grab and the Conditional Relay. Both are scored from a single recorded
+ * result per team rather than a bracket, so the tab is the event's own scoring
+ * rule plus a board showing how each team's points were made up.
+ */
+function TeamEventTab({
+  event,
+  rows,
 }: {
-  children: React.ReactNode;
-  align?: "left" | "right";
-  className?: string;
+  event: EventRule | undefined;
+  rows: TeamEventRow[];
 }) {
-  return (
-    <th
-      scope="col"
-      className={cn(
-        "px-4 py-3 text-[11px] font-semibold tracking-wider text-muted uppercase",
-        align === "right" ? "text-right" : "text-left",
-        className
-      )}
-    >
-      {children}
-    </th>
-  );
-}
-
-/** Team name preceded by its colour — the colour is the team's identity here. */
-function TeamCell({ name, color }: { name: string; color: string }) {
-  return (
-    <span className="flex items-center gap-2">
-      <span
-        aria-hidden
-        className="h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: color }}
+  if (!event) return <EmptyState />;
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        label="Not played yet"
+        hint={`${event.name} results show up here as soon as they're recorded.`}
       />
-      <span className="truncate font-medium">{name}</span>
-    </span>
+    );
+  }
+  return (
+    <section>
+      {event.scoring && <Note>{event.scoring}</Note>}
+      <TeamEventBoard event={event} rows={rows} />
+      <p className="mt-4 text-xs leading-relaxed text-muted">
+        These points are already part of each team&rsquo;s total on the Teams
+        board.
+      </p>
+    </section>
   );
 }
 

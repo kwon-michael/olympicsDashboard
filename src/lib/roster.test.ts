@@ -1,10 +1,6 @@
 import { describe, it, expect } from "vitest";
-import {
-  computeTeamStandings,
-  computePlayerStandings,
-  playerPointsMap,
-} from "@/lib/roster";
-import { team, player, score } from "@/lib/test-fixtures";
+import { computeTeamStandings, playerPointsMap } from "@/lib/roster";
+import { team, score } from "@/lib/test-fixtures";
 
 describe("computeTeamStandings", () => {
   const a = team({ name: "A", sort_order: 0 });
@@ -65,49 +61,6 @@ describe("computeTeamStandings", () => {
     const standings = computeTeamStandings(teams, []);
     expect(standings).toHaveLength(3);
     expect(standings.every((s) => s.totalPoints === 0 && s.rank >= 1)).toBe(true);
-  });
-});
-
-describe("computePlayerStandings", () => {
-  const a = team({ name: "A", color: "#111111", sort_order: 0 });
-  const teams = [a];
-  const p1 = player({ team_id: a.id, name: "P1" });
-  const p2 = player({ team_id: a.id, name: "P2" });
-  const p3 = player({ team_id: a.id, name: "P3" });
-  const players = [p1, p2, p3];
-
-  it("sums only player-attributed scores and includes team metadata", () => {
-    const scores = [
-      score({ team_id: a.id, player_id: p1.id, points: 6 }),
-      score({ team_id: a.id, player_id: p1.id, points: 4 }),
-      score({ team_id: a.id, player_id: p2.id, points: 3 }),
-      score({ team_id: a.id, player_id: null, points: 100 }), // team-only, ignored
-    ];
-    const standings = computePlayerStandings(teams, players, scores);
-    expect(standings.map((s) => [s.player.name, s.totalPoints])).toEqual([
-      ["P1", 10],
-      ["P2", 3],
-    ]);
-    expect(standings[0].teamName).toBe("A");
-    expect(standings[0].teamColor).toBe("#111111");
-  });
-
-  it("excludes players with no scored points entirely", () => {
-    const scores = [score({ team_id: a.id, player_id: p1.id, points: 5 })];
-    const standings = computePlayerStandings(teams, players, scores);
-    expect(standings.map((s) => s.player.name)).toEqual(["P1"]); // P2, P3 absent
-  });
-
-  it("shares a rank on tied totals", () => {
-    const scores = [
-      score({ team_id: a.id, player_id: p1.id, points: 5 }),
-      score({ team_id: a.id, player_id: p2.id, points: 5 }),
-      score({ team_id: a.id, player_id: p3.id, points: 2 }),
-    ];
-    const ranks = computePlayerStandings(teams, players, scores).map(
-      (s) => s.rank
-    );
-    expect(ranks).toEqual([1, 1, 3]);
   });
 });
 

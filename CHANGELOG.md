@@ -4,6 +4,24 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.20 — Every team game on the leaderboard, Players board removed
+
+### All four team games now have a leaderboard tab
+- Added **Tail Grab** and **Relay** tabs to `/leaderboard`, so all four team games are on the board rather than only the two bracketed ones — the tab order now follows the order the games are played on the day: Teams · Solo · Events · Tug of War · Dodgeball · Tail Grab · Relay
+- Both deep-link like the existing tabs: `?tab=tail-grab` and `?tab=conditioned-relay`
+- Unlike Tug of War and Dodgeball there's no bracket to draw — each is a single recorded result per team — so the tabs show **how each total was made up**: Tail Grab breaks down by round (placement + tails, with round-2 tails shown at their doubled value), and the Relay shows each team's finishing time
+- New `computeTeamEventStandings` (`src/lib/teamEvents.ts`) reads those results back out of the `roster_scores` rows the `/admin/team-events` recorder writes. Points come from the stored row rather than being recomputed, so a team-game board can never disagree with the team total the same row feeds; places are derived (fastest-first for the Relay, most points first for Tail Grab, ties sharing a place and the place below skipped)
+- Board columns are generated from the event's own `teamScoring` config, so a change to the scoring rules reshapes the board without a per-event layout
+- Added `TeamEventBoard` and a shared `TableCard`/`Th`/`TeamCell` module under `src/components/leaderboard/`, now used by both the solo per-event table and the new boards
+- 5 new unit tests covering ranking, the per-component breakdown, tie handling, and the stored-points guarantee
+
+### Players leaderboard removed
+- Dropped the **Players** tab and the individual/MVP standings behind it — the Casualympics scores teams, and an individual board on the same page invited it to be read as a competing ranking
+- Removed `computePlayerStandings` and `PlayerStanding` from `src/lib/roster.ts`, along with their tests
+- Scores can still be attributed to a player in the admin recorders, and a team's page still shows its per-player breakdown (`playerPointsMap`) — attribution is now for the record only
+
+---
+
 ## Unreleased (working changes since v1.04)
 
 ### Signup

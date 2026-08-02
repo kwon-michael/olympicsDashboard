@@ -1,13 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { PageTransition } from "@/components/ui/page-transition";
 import { SkeletonList } from "@/components/ui/skeleton";
 import { SegmentedTabs, type TabItem } from "@/components/ui/segmented-tabs";
 import { RankBadge } from "@/components/ui/rank-badge";
-import { StandingsRow } from "@/components/leaderboard/standings-row";
 import { TableCard, Th, TeamCell } from "@/components/leaderboard/table-card";
 import { TeamEventBoard } from "@/components/leaderboard/team-event-board";
 import { EventChips } from "@/components/ui/event-chips";
@@ -18,11 +16,7 @@ import {
   computeEventStandings,
   soloPriorityTeamIds,
 } from "@/lib/solo";
-import {
-  computeStandings,
-  EMPTY_STANDINGS,
-  type ResolvedTeamStanding,
-} from "@/lib/standings";
+import { computeStandings, EMPTY_STANDINGS } from "@/lib/standings";
 import {
   recorderTeamEvents,
   computeTeamEventStandings,
@@ -150,8 +144,6 @@ export default function LeaderboardPage() {
   );
 
   const totalPoints = teamStandings.reduce((sum, s) => sum + s.totalPoints, 0);
-  const teamLead = Math.max(...teamStandings.map((s) => s.totalPoints), 1);
-  const soloLead = Math.max(...soloStandings.map((s) => s.totalPoints), 1);
 
   return (
     <PageTransition>
@@ -208,38 +200,46 @@ export default function LeaderboardPage() {
                 themselves as they&rsquo;re played: 1 point per round won, 1 per
                 dodgeball elimination, and 5/3/2/1 for finishing 1st–4th.
               </Note>
-              <StandingsList>
-                <AnimatePresence initial={false} mode="popLayout">
+              <TableCard>
+                <thead>
+                  <tr className="border-b border-border">
+                    <Th className="w-16">Place</Th>
+                    <Th>Team</Th>
+                    <Th align="right" className="w-20">
+                      Pts
+                    </Th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
                   {teamStandings.map((s) => (
-                    <StandingsRow
+                    <tr
                       key={s.team.id}
-                      // The solo-aware position, so the board reads 1..N even
-                      // when several teams are level on points.
-                      rank={s.position}
-                      name={s.team.name}
-                      color={s.team.color}
-                      points={s.totalPoints}
-                      pointsLabel="pts"
-                      meta={teamMeta(s)}
-                      note={
-                        s.bonusPoints > 0
-                          ? `+${s.bonusPoints} solo bonus`
-                          : undefined
-                      }
-                      share={s.totalPoints / teamLead}
-                      tiebreak={s.tiebreak}
-                      levelOnPoints={s.levelOnPoints}
-                      // Only worth naming when the team actually scored in the
-                      // solo events; otherwise it explains nothing.
-                      orderedBy={
-                        s.levelOnPoints && !s.tiebreak && s.soloPoints > 0
-                          ? `Solo ${ordinal(s.soloRank)}`
-                          : undefined
-                      }
-                    />
+                      className="transition-colors hover:bg-foreground/[0.02]"
+                    >
+                      <td className="px-4 py-3">
+                        {/* The solo-aware position, so the board reads 1..N
+                            even when several teams are level on points. */}
+                        <RankBadge rank={s.position} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <TeamCell name={s.team.name} color={s.team.color} />
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-[15px] font-semibold tabular-nums">
+                        {s.levelOnPoints && (
+                          <span
+                            title="Level on points with at least one other team"
+                            className="mr-1.5 font-medium text-muted/70"
+                          >
+                            <span aria-hidden>=</span>
+                            <span className="sr-only">Level on points —</span>
+                          </span>
+                        )}
+                        {s.totalPoints}
+                      </td>
+                    </tr>
                   ))}
-                </AnimatePresence>
-              </StandingsList>
+                </tbody>
+              </TableCard>
               {teamStandings.some((s) => s.levelOnPoints) && (
                 <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed text-muted">
                   <span
@@ -250,14 +250,11 @@ export default function LeaderboardPage() {
                   </span>
                   <span>
                     Level on points. Places are ordered by the solo events until
-                    team-event results separate them.
+                    team-event results separate them — the team board is never
+                    settled by a tiebreaker game.
                   </span>
                 </p>
               )}
-              <TiebreakLegend
-                board="teams"
-                show={teamStandings.some((s) => s.tiebreak)}
-              />
             </section>
           ) : (
             <EmptyState />
@@ -274,26 +271,61 @@ export default function LeaderboardPage() {
                 </span>{" "}
                 and playoff priority.
               </Note>
-              <StandingsList>
-                {soloStandings.map((s) => (
-                  <StandingsRow
-                    key={s.team.id}
-                    rank={s.rank}
-                    name={s.team.name}
-                    color={s.team.color}
-                    points={s.totalPoints}
-                    pointsLabel="solo pts"
-                    meta={`${s.eventsEntered} event${s.eventsEntered !== 1 ? "s" : ""}`}
-                    note={s.isTop3 ? "Bonus + playoff priority" : undefined}
-                    share={s.totalPoints / soloLead}
-                    tiebreak={s.tiebreak}
-                  />
-                ))}
-              </StandingsList>
-              <TiebreakLegend
-                board="solo"
-                show={soloStandings.some((s) => s.tiebreak)}
-              />
+              <TableCard>
+                <thead>
+                  <tr className="border-b border-border">
+                    <Th className="w-16">Place</Th>
+                    <Th>Team</Th>
+                    <Th align="right">Events</Th>
+                    <Th align="right" className="w-20">
+                      Pts
+                    </Th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {soloStandings.map((s) => (
+                    <tr
+                      key={s.team.id}
+                      className="transition-colors hover:bg-foreground/[0.02]"
+                    >
+                      <td className="px-4 py-3">
+                        <RankBadge rank={s.rank} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <TeamCell name={s.team.name} color={s.team.color} />
+                          {/* The two things that make a solo place matter, kept
+                              beside the name rather than in columns of their
+                              own — they apply to three rows out of nine. */}
+                          {s.isTop3 && (
+                            <span
+                              title="Top 3 — earns the +1 team-event point and playoff priority"
+                              className="shrink-0 rounded-full border border-gold/40 bg-gold/10 px-1.5 py-px text-[10px] font-semibold tracking-wide text-gold uppercase"
+                            >
+                              Bonus
+                            </span>
+                          )}
+                          {s.tiebreak && (
+                            <span
+                              title={`Tied on points — placed ${ordinal(s.tiebreak.position)} of ${s.tiebreak.of} in a tiebreaker game`}
+                              className="shrink-0 rounded-full border border-info/40 bg-info/10 px-1.5 py-px text-[10px] font-semibold tracking-wide text-info uppercase"
+                            >
+                              TB {s.tiebreak.position}/{s.tiebreak.of}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono tabular-nums text-muted">
+                        {s.eventsEntered}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-[15px] font-semibold tabular-nums">
+                        {s.totalPoints}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </TableCard>
+              <TiebreakLegend show={soloStandings.some((s) => s.tiebreak)} />
             </section>
           ) : (
             <EmptyState label="No solo results yet" />
@@ -397,20 +429,6 @@ export default function LeaderboardPage() {
   );
 }
 
-/**
- * The sub-line under a team's name: how many scores it has, then what each
- * tournament has paid out so far. A tournament is named only once it's actually
- * worth something — every team appears in the match table the moment groups are
- * locked, so listing a run of zeroes would say nothing.
- */
-function teamMeta(s: ResolvedTeamStanding): string {
-  const parts = [`${s.scoreCount} score${s.scoreCount !== 1 ? "s" : ""}`];
-  if (s.tug && s.tug.total > 0) parts.push(`Tug ${s.tug.total}`);
-  if (s.dodgeball && s.dodgeball.total > 0)
-    parts.push(`Dodgeball ${s.dodgeball.total}`);
-  return parts.join(" · ");
-}
-
 function HeaderStat({
   value,
   label,
@@ -438,17 +456,12 @@ function HeaderStat({
 }
 
 /**
- * Explains the TB pill when any row on the board carries one. The point is to
- * make clear the standings themselves haven't been altered — the teams really
- * are level, and only the listed order came from elsewhere.
+ * Explains the TB pill when any solo row carries one. The point is to make clear
+ * the standings themselves haven't been altered — the teams really are level,
+ * and only the listed order came from elsewhere. Solo-only: the team board is
+ * never played off, so no row there can carry a pill.
  */
-function TiebreakLegend({
-  show,
-  board,
-}: {
-  show: boolean;
-  board: "teams" | "solo";
-}) {
+function TiebreakLegend({ show }: { show: boolean }) {
   if (!show) return null;
   return (
     <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed text-muted">
@@ -457,10 +470,8 @@ function TiebreakLegend({
       </span>
       <span>
         These teams are level on points — the totals shown are unchanged. Their
-        order was decided by a tiebreaker game played outside the app
-        {board === "solo"
-          ? ", and only the settled top 3 earn the +1 team-event point and playoff priority."
-          : "."}
+        order was decided by a tiebreaker game played outside the app, and only
+        the settled top 3 earn the +1 team-event point and playoff priority.
       </span>
     </p>
   );
@@ -472,15 +483,6 @@ function Note({ children }: { children: React.ReactNode }) {
     <p className="mb-4 border-l-2 border-border pl-3 text-xs leading-relaxed text-muted">
       {children}
     </p>
-  );
-}
-
-/** The shared surface for standings rows: one card, hairline-divided rows. */
-function StandingsList({ children }: { children: React.ReactNode }) {
-  return (
-    <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-      {children}
-    </ul>
   );
 }
 

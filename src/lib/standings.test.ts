@@ -17,7 +17,7 @@ const teams = [a, b, c, d];
 const EVENT = "standing-long-jump";
 
 function tiebreak(
-  board: "teams" | "solo",
+  board: "solo",
   orderedIds: string[],
   note: string | null = null
 ): Tiebreak {
@@ -255,28 +255,17 @@ describe("computeStandings — solo-aware ordering of the team board", () => {
     expect(s.teams[0].rank).toBe(1);
   });
 
-  it("lets a recorded external tiebreaker override the solo ordering", () => {
-    const s = computeStandings(teams, [], soloOrdered, [
-      // Solo order was A, B, C; the external game said C, A, B.
-      tiebreak("teams", [c.id, a.id, b.id], "Rock-paper-scissors"),
-    ]);
-    expect(s.teams.slice(0, 3).map((r) => [r.team.name, r.position, r.rank])).toEqual([
-      ["C", 1, 1],
-      ["A", 2, 2],
-      ["B", 3, 3],
-    ]);
-    // Points are still level, and the rows carry the tiebreak mark.
+  it("is never overridden by a leftover teams-board resolution", () => {
+    // The tiebreaks table still accepts board='teams' from when the main
+    // standings were played off. Such a row must not touch the team board: solo
+    // order (A, B, C) stands even though this one says C, A, B.
+    const legacy = {
+      ...tiebreak("solo", [c.id, a.id, b.id], "Rock-paper-scissors"),
+      board: "teams" as unknown as Tiebreak["board"],
+    };
+    const s = computeStandings(teams, [], soloOrdered, [legacy]);
+    expect(s.teams.slice(0, 3).map((r) => r.team.name)).toEqual(["A", "B", "C"]);
     expect(s.teams.slice(0, 3).every((r) => r.levelOnPoints)).toBe(true);
-    expect(s.teams[0].tiebreak).toMatchObject({ position: 1, of: 3 });
-  });
-
-  it("keeps position and rank in step once a tiebreak splits the group", () => {
-    const s = computeStandings(teams, [], soloOrdered, [
-      tiebreak("teams", [c.id, a.id, b.id]),
-    ]);
-    for (const row of s.teams) {
-      expect(row.position).toBe(row.rank);
-    }
   });
 
   it("exposes the solo place and points used for ordering", () => {
@@ -287,22 +276,23 @@ describe("computeStandings — solo-aware ordering of the team board", () => {
   });
 });
 
-describe("computeStandings — team board tiebreaks", () => {
-  it("orders a team tie without changing any total", () => {
+describe("computeStandings — the team board is never played off", () => {
+  it("leaves teams level on points sharing a rank, ordered by sort_order", () => {
+    // A and B are level on 12 with no solo results to separate them. Nothing
+    // reorders or splits them: they keep the shared competition rank.
     const scores = [
       score({ team_id: a.id, points: 12 }),
       score({ team_id: b.id, points: 12 }),
       score({ team_id: c.id, points: 4 }),
     ];
-    const s = computeStandings(teams, scores, [], [
-      tiebreak("teams", [b.id, a.id], "Sudden-death race"),
-    ]);
-    expect(s.teams.slice(0, 2).map((r) => [r.team.name, r.rank])).toEqual([
+    const s = computeStandings(teams, scores, [], []);
+    expect(s.teams.slice(0, 3).map((r) => [r.team.name, r.rank])).toEqual([
+      ["A", 1],
       ["B", 1],
-      ["A", 2],
+      ["C", 3],
     ]);
     expect(s.teams.slice(0, 2).map((r) => r.totalPoints)).toEqual([12, 12]);
-    expect(s.teams[0].tiebreak).toMatchObject({ position: 1, of: 2 });
+    expect(s.teams.slice(0, 2).every((r) => r.levelOnPoints)).toBe(true);
   });
 });
 

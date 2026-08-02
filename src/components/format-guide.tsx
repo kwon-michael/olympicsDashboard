@@ -11,11 +11,13 @@ import {
   Clock,
   BookOpen,
   ArrowRight,
+  ChevronsUp,
 } from "lucide-react";
 import { StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
 import {
   soloEvents,
   teamEvents,
+  getEventBySlug,
   getSoloPlacementPoints,
   getRelayPlacementPoints,
 } from "@/lib/events";
@@ -30,6 +32,21 @@ const soloScale = [1, 2, 3, 4, 5].map(getSoloPlacementPoints); // 7 / 5 / 3 / 2 
 const relayScale = Array.from({ length: NUM_TEAMS }, (_, i) =>
   getRelayPlacementPoints(i + 1)
 ); // 15 / 12 / 10 / 8 / 6 / 5 / 3 / 2 / 1
+// What finishing 1st–4th in a tournament bracket pays. Tug of War and Dodgeball
+// use the same scale, so either one stands for both.
+const bracketScale =
+  getEventBySlug("tug-of-war")?.teamScoring?.components?.find(
+    (c) => c.key === "placement"
+  )?.placementPoints ?? []; // 5 / 3 / 2 / 1
+
+// What a grabbed tail pays in each Tail Grab round. Read from the scoring config
+// so the guide can't drift from what the recorder actually awards.
+const tailPoints = (key: string) =>
+  getEventBySlug("tail-grab")?.teamScoring?.components?.find(
+    (c) => c.key === key
+  )?.pointsEach ?? 0;
+const r1TailPoints = tailPoints("r1Tails"); // 1
+const r2TailPoints = tailPoints("r2Tails"); // 2
 
 function PlacementChips({ scale, color }: { scale: number[]; color: string }) {
   return (
@@ -73,8 +90,11 @@ const faqs: { q: string; a: React.ReactNode }[] = [
         Not directly. Solo events have their own <strong>Solo leaderboard</strong>.
         But the <strong>top 3 solo teams</strong> each earn{" "}
         <strong>+{SOLO_BONUS_POINTS} point</strong> on the main team board and{" "}
-        <strong>playoff priority</strong> — a tiebreak edge in the Tug of War and
-        Dodgeball brackets. So solo events still matter for the overall title.
+        <a href="#playoff-priority" className="text-coral hover:underline">
+          playoff priority
+        </a>{" "}
+        — a tiebreak edge in the Tug of War and Dodgeball brackets. So solo
+        events still matter for the overall title.
       </>
     ),
   },
@@ -95,17 +115,6 @@ const faqs: { q: string; a: React.ReactNode }[] = [
         It&apos;s the ultimate team test, so it pays out the biggest placement
         points — up to <strong>+{relayScale[0]}</strong> for first. A strong (or
         weak) relay can swing the whole standings.
-      </>
-    ),
-  },
-  {
-    q: "What happens on a tie?",
-    a: (
-      <>
-        Solo and timed events use standard competition ranking: tied teams share
-        the higher placement and its points, and the placement directly below is
-        skipped. In the Tug of War and Dodgeball brackets, ties break toward the
-        team with solo priority first, then a judge&apos;s call.
       </>
     ),
   },
@@ -219,8 +228,11 @@ export function FormatGuide() {
               contribute to team points, the{" "}
               <strong>top 3 teams in the solo events</strong> each carry{" "}
               <strong>+{SOLO_BONUS_POINTS} point</strong> onto the main team
-              leaderboard and gain <strong>playoff priority</strong> for the Tug
-              of War and Dodgeball brackets.
+              leaderboard and gain{" "}
+              <a href="#playoff-priority" className="underline hover:no-underline">
+                <strong>playoff priority</strong>
+              </a>{" "}
+              for the Tug of War and Dodgeball brackets.
             </p>
           </div>
           <p className="text-xs text-muted">
@@ -275,11 +287,121 @@ export function FormatGuide() {
             );
           })}
         </StaggerContainer>
-        <div className="mt-4 rounded-xl border border-coral/30 bg-coral/5 p-4 text-sm text-foreground/90">
-          <strong>Watch the relay.</strong> The Conditional Relay hands out by
-          far the biggest placement points ({relayScale[0]} down to{" "}
-          {relayScale[relayScale.length - 1]}), so it&apos;s often where the
-          title is decided.
+        <div className="mt-4 space-y-3">
+          <div className="rounded-xl border border-coral/30 bg-coral/5 p-4 text-sm text-foreground/90">
+            <strong>Watch the relay.</strong> The Conditional Relay hands out by
+            far the biggest placement points ({relayScale[0]} down to{" "}
+            {relayScale[relayScale.length - 1]}), so it&apos;s often where the
+            title is decided.
+          </div>
+          <div className="rounded-xl border border-gold/30 bg-gold/5 p-4 text-sm text-foreground/90">
+            <strong>
+              Tail Grab round 2 pays {r2TailPoints / r1TailPoints}× on
+              eliminations.
+            </strong>{" "}
+            A tail pulled in round 1 is worth {r1TailPoints} point; the same tail
+            in round 2 is worth <strong>{r2TailPoints}</strong>. Placement is
+            scored separately each round and doesn&apos;t double — so a team that
+            gets picked apart in round 1 can still claw it back by hunting tails
+            in round 2.
+          </div>
+        </div>
+      </section>
+
+      {/* Playoff priority */}
+      <section id="playoff-priority" className="scroll-mt-24">
+        <SectionHeader
+          icon={<ChevronsUp className="w-5 h-5 text-info" />}
+          tint="bg-info/10"
+          title="PLAYOFF PRIORITY"
+          subtitle="What the solo top 3 carry into the brackets"
+        />
+        <div className="bg-card rounded-2xl border border-border p-6 space-y-5 text-sm text-foreground/90 leading-relaxed">
+          <p>
+            Finishing in the <strong>top 3 of the Solo leaderboard</strong> earns
+            your team <strong>playoff priority</strong> — a marker carried into
+            both the Tug of War and Dodgeball tournaments. It is worth{" "}
+            <strong>no points at all</strong>. It does one thing:{" "}
+            <strong>when teams are level, it breaks the tie your way.</strong>
+          </p>
+
+          <div className="space-y-4">
+            <PriorityCase
+              n={1}
+              title="Inside your group"
+              body={
+                <>
+                  Every group has exactly one winner and one runner-up, even when
+                  teams finish level on round wins — the winner goes straight to
+                  the bracket, the runner-up only makes the wildcard race. Those
+                  positions are settled on paper, in this order, and{" "}
+                  <strong>never by an extra game</strong>:
+                </>
+              }
+              after={<TieChain />}
+            />
+            <PriorityCase
+              n={2}
+              title="The wildcard spot"
+              body={
+                <>
+                  The three group runners-up compete for the{" "}
+                  <strong>fourth and final bracket place</strong>, measured on
+                  round wins. This is the{" "}
+                  <strong>
+                    only place inside a tournament where a tiebreaker game is
+                    played
+                  </strong>
+                  , and priority decides whether one happens at all:
+                </>
+              }
+              after={<WildcardOutcomes />}
+            />
+          </div>
+
+          <div className="flex gap-3 rounded-xl border border-info/30 bg-info/5 p-4">
+            <ChevronsUp className="w-5 h-5 text-info shrink-0 mt-0.5" />
+            <p>
+              <strong>Why it&apos;s worth chasing:</strong> two runners-up can
+              finish dead level and one walks straight into the playoff bracket
+              while the other has to win an extra game to get there — or misses
+              out. Priority decides which one you are, in{" "}
+              <strong>both tournaments</strong>. That&apos;s the real prize in the
+              solo events: the{" "}
+              <strong>+{SOLO_BONUS_POINTS} point</strong> is small, but reaching
+              a bracket is worth {bracketScale[bracketScale.length - 1]}–
+              {bracketScale[0]} placement points per tournament, plus every round
+              you win on the way through.
+            </p>
+          </div>
+
+          <div className="space-y-2 text-xs text-muted">
+            <p>
+              <strong className="text-foreground">Only the settled top 3.</strong>{" "}
+              The Solo board runs its own tiebreaker, separately from the
+              tournaments — but only when the game would decide{" "}
+              <em>who holds priority</em>. A tie for 3rd is played off, because
+              one of them takes the last spot and the other doesn&apos;t. A tie
+              for 1st isn&apos;t: both teams are inside the top 3 whichever way
+              it lands, so there&apos;s nothing to settle.
+            </p>
+            <p>
+              <strong className="text-foreground">
+                The team standings are never played off.
+              </strong>{" "}
+              Teams level on points there are ordered by their solo placement.
+              The only tiebreaker games all day are the Solo top-3 boundary and
+              the wildcard.
+            </p>
+            <p>
+              <strong className="text-foreground">
+                Priority beats no priority, never another priority.
+              </strong>{" "}
+              It lifts a marked team above the unmarked ones, but two marked
+              teams are still level with each other — and that is what gets
+              played off.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -352,6 +474,119 @@ function SectionHeader({
         <p className="text-sm text-muted">{subtitle}</p>
       </div>
     </div>
+  );
+}
+
+/** One numbered situation where playoff priority applies. */
+function PriorityCase({
+  n,
+  title,
+  body,
+  after,
+}: {
+  n: number;
+  title: string;
+  body: React.ReactNode;
+  after?: React.ReactNode;
+}) {
+  return (
+    <div className="flex gap-3">
+      <span className="mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-info/10 font-mono text-xs font-bold text-info">
+        {n}
+      </span>
+      <div className="min-w-0 space-y-2">
+        <p>
+          <strong className="text-foreground">{title}.</strong> {body}
+        </p>
+        {after}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The order a group table uses to separate teams level on round wins. Mirrors
+ * the sort in `computeGroupStandings` — keep the two in step if that chain
+ * changes. Priority is the highlighted link because it's the one step a team
+ * can actually influence, and it's earned back in the solo events.
+ *
+ * It ends at seed because a group is always resolved on paper: no group tie is
+ * ever played off. Tiebreaker games belong solely to the wildcard race — see
+ * `WildcardOutcomes` and `computeQualifiers`.
+ */
+function TieChain() {
+  const steps = ["Round wins", "Head-to-head", "Priority", "Seed"];
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {steps.map((step, i) => {
+        const isPriority = step === "Priority";
+        return (
+          <span key={step} className="flex items-center gap-1.5">
+            {i > 0 && (
+              <ArrowRight aria-hidden className="h-3 w-3 shrink-0 text-muted/60" />
+            )}
+            <span
+              className={
+                isPriority
+                  ? "rounded-full border border-info/40 bg-info/10 px-2.5 py-1 text-xs font-bold text-info"
+                  : "rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted"
+              }
+            >
+              {step}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * What happens when the runners-up are level on round wins. Mirrors the branch
+ * in `computeQualifiers`: the tied set narrows to the priority-holders when
+ * there are any, and only a set of more than one is played off.
+ */
+function WildcardOutcomes() {
+  const outcomes: { when: string; then: string; game: boolean }[] = [
+    {
+      when: "One of them has priority",
+      then: "That team takes the wildcard outright",
+      game: false,
+    },
+    {
+      when: "Two or more have priority",
+      then: "They play a tiebreaker game for it",
+      game: true,
+    },
+    {
+      when: "None of them has priority",
+      then: "All the tied teams play it off",
+      game: true,
+    },
+  ];
+  return (
+    <ul className="space-y-1.5">
+      {outcomes.map((o) => (
+        <li
+          key={o.when}
+          className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5"
+        >
+          <span
+            className={
+              o.game
+                ? "rounded-full border border-border bg-background px-2 py-0.5 text-xs font-semibold text-muted"
+                : "rounded-full border border-info/40 bg-info/10 px-2 py-0.5 text-xs font-semibold text-info"
+            }
+          >
+            {o.when}
+          </span>
+          <span className="text-xs text-muted">
+            {o.then}
+            {o.game ? "" : " — no game"}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

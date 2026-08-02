@@ -1,10 +1,18 @@
 -- ============================================
 -- Tiebreaks — external tiebreaker game results
 -- ============================================
--- When two or more teams finish level on a leaderboard, the tie is settled by a
--- game played *outside* the app (a race, rock-paper-scissors, whatever). The
--- admin records the finishing order here and the app applies it as a placement
--- order only.
+-- When two or more teams finish level on the solo leaderboard, the tie is
+-- settled by a game played *outside* the app (a race, rock-paper-scissors,
+-- whatever). The admin records the finishing order here and the app applies it
+-- as a placement order only.
+--
+-- Solo only, and only when it matters. The solo board is played off just when
+-- the result would change who holds playoff priority — the tied group has to
+-- straddle the top 3, so some of them land inside it and some outside. The main
+-- team standings are never played off at all: teams level on points are ordered
+-- by their solo placement. `board` still accepts 'teams' so rows written before
+-- that rule changed still load; the app ignores them and lists them as inactive
+-- so they can be cleared out.
 --
 -- Deliberately NOT a points adjustment: nothing in this table touches
 -- roster_scores or solo_results, so a team's point total is exactly what it was
@@ -34,7 +42,8 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.tiebreaks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  -- Which leaderboard the tie was on: the main team standings or the solo board.
+  -- Which leaderboard the tie was on. Only 'solo' is written now; 'teams' is
+  -- still accepted so pre-existing rows load (see the header).
   board TEXT NOT NULL CHECK (board IN ('teams', 'solo')),
   -- Sorted team-id list, comma separated. Identifies *which* tie this settles.
   team_key TEXT NOT NULL,

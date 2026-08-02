@@ -8,17 +8,48 @@
 // gets listed first among teams already level, and marks those rows so the
 // public page can say why.
 //
-// A tie is only surfaced for resolution when it actually changes an outcome:
-// inside the top 3, and only once the teams have scored (otherwise every team
-// sitting on 0 before the first event reads as a nine-way tie for 1st).
+// A tie is only surfaced for resolution when it actually changes an outcome, and
+// only once the teams have scored (otherwise every team sitting on 0 before the
+// first event reads as a nine-way tie for 1st). What counts as "changes an
+// outcome" differs by board — see `isConsequential`.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RosterTeam } from "@/lib/types";
+import { SOLO_BONUS_PLACES } from "@/lib/solo";
 
-export type TiebreakBoard = "teams" | "solo";
+/**
+ * Only the solo board is ever played off.
+ *
+ * The `tiebreaks` table still carries a `board` column that accepts 'teams' (see
+ * supabase/tiebreaks.sql), because the main standings used to be settled this
+ * way too. They aren't any more: teams level on points on the team board are
+ * ordered by their solo standing and no game is played. Any leftover 'teams'
+ * row is ignored — it can never match a live tie, so the admin panel lists it as
+ * inactive and it can be cleared out.
+ */
+export type TiebreakBoard = "solo";
 
-/** Ties at 4th or below don't decide anything, so they're left alone. */
-export const CONSEQUENTIAL_MAX_RANK = 3;
+/**
+ * Is this tie worth pulling teams off the field to play off?
+ *
+ * The solo board hands out one thing: the top 3 each take the bonus and playoff
+ * priority. Nothing else about solo order is worth a game. So a game is only
+ * played when it would decide *who holds priority* — which means the tied group
+ * has to straddle the line, some members landing inside the top 3 and some
+ * outside it. A tie sitting wholly inside the top 3 gives every member priority
+ * whichever way it lands, and a tie wholly outside gives none, so neither is
+ * worth playing:
+ *
+ *     2 tied for 1st  (ranks 1-2)  → both take priority       → no game
+ *     3 tied for 1st  (ranks 1-3)  → all three take priority  → no game
+ *     3 tied for 2nd  (ranks 2-4)  → one misses out           → play it off
+ *     2 tied for 3rd  (ranks 3-4)  → one misses out           → play it off
+ *     2 tied for 4th  (ranks 4-5)  → neither was in line      → no game
+ */
+function isConsequential(rank: number, size: number): boolean {
+  const last = rank + size - 1; // the lowest place this tie reaches
+  return rank <= SOLO_BONUS_PLACES && last > SOLO_BONUS_PLACES;
+}
 
 export interface Tiebreak {
   id: string;
@@ -122,7 +153,8 @@ export function findTieGroups<T extends RankedTeam>(
   return rankGroups(standings)
     .filter(
       (group) =>
-        group[0].totalPoints > 0 && group[0].rank <= CONSEQUENTIAL_MAX_RANK
+        group[0].totalPoints > 0 &&
+        isConsequential(group[0].rank, group.length)
     )
     .map((group) => {
       const teamKey = teamKeyOf(group.map((r) => r.team.id));

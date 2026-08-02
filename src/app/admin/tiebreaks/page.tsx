@@ -30,7 +30,6 @@ import { ordinal } from "@/lib/utils";
 import type { RosterTeam, SoloResult } from "@/lib/types";
 
 const BOARD_LABEL: Record<TiebreakBoard, string> = {
-  teams: "Team standings",
   solo: "Solo standings",
 };
 
@@ -69,11 +68,13 @@ export default function AdminTiebreaksPage() {
     return () => window.removeEventListener("scores-updated", handler);
   }, [load]);
 
-  // Ties are detected on the raw standings: once a resolution is applied the
-  // tied rows no longer share a rank.
+  // Ties are detected on the raw solo board: once a resolution is applied the
+  // tied rows no longer share a rank. The team standings are never played off —
+  // teams level on points are ordered by their solo placement instead — so only
+  // the solo board is searched.
   const groups = useMemo<TieGroup[]>(() => {
     if (!data) return [];
-    const { rawTeams, rawSolo } = computeStandings(
+    const { rawSolo } = computeStandings(
       data.teams,
       data.scores,
       solo,
@@ -84,10 +85,7 @@ export default function AdminTiebreaksPage() {
         teamSizes: activeTeamSizes(data.players),
       }
     );
-    return [
-      ...findTieGroups(rawTeams, "teams", tiebreaks),
-      ...findTieGroups(rawSolo, "solo", tiebreaks),
-    ];
+    return findTieGroups(rawSolo, "solo", tiebreaks);
   }, [data, solo, tiebreaks, tug, dodge]);
 
   const unresolved = groups.filter((g) => g.resolution === null);

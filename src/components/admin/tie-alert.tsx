@@ -42,11 +42,12 @@ export function TieAlert({ className }: { className?: string }) {
       fetchTugData(supabase),
       fetchDodgeballData(supabase),
     ]);
-    // Detection runs on the raw boards: once a resolution is applied the tied
-    // rows no longer share a rank. Both tournaments are loaded because their
-    // points are part of the team totals — a tie has to be spotted on the same
-    // numbers the leaderboard shows, or the alert fires on the wrong teams.
-    const { rawTeams, rawSolo } = computeStandings(
+    // Detection runs on the raw solo board: once a resolution is applied the
+    // tied rows no longer share a rank. Only the solo board is played off — the
+    // team standings settle level teams by solo placement instead — but the
+    // tournaments are still loaded, because computeStandings needs them to
+    // produce the same numbers the leaderboard shows.
+    const { rawSolo } = computeStandings(
       roster.teams,
       roster.scores,
       solo,
@@ -57,10 +58,7 @@ export function TieAlert({ className }: { className?: string }) {
         teamSizes: activeTeamSizes(roster.players),
       }
     );
-    setGroups([
-      ...unresolvedTieGroups(rawTeams, "teams", tiebreaks),
-      ...unresolvedTieGroups(rawSolo, "solo", tiebreaks),
-    ]);
+    setGroups(unresolvedTieGroups(rawSolo, "solo", tiebreaks));
   }, [enabled]);
 
   useEffect(() => {
@@ -90,8 +88,8 @@ export function TieAlert({ className }: { className?: string }) {
               <span className="font-medium text-foreground">
                 {g.teams.map((t) => t.name).join(", ")}
               </span>{" "}
-              are level on {g.points} pts for {ordinal(g.rank)} in the{" "}
-              {g.board === "teams" ? "team" : "solo"} standings
+              are level on {g.points} pts for {ordinal(g.rank)} in the solo
+              standings — the winner takes playoff priority
             </li>
           ))}
         </ul>

@@ -32,7 +32,7 @@ export default function RuleDetailPage() {
     const base = getEventBySlug(slug);
     if (!base) return;
     const supabase = createClient();
-    fetchRuleOverrides(supabase).then((overrides) => {
+    fetchRuleOverrides(supabase).then(({ overrides }) => {
       setEvent(applyRuleOverride(base, overrides[slug]));
     });
   }, [slug]);

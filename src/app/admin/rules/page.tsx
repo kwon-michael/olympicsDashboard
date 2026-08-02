@@ -184,6 +184,10 @@ export default function AdminRulesPage() {
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Set when the event_rules table can't be read at all (usually the migration
+  // in supabase/migrate_event_rules.sql hasn't been run). Saving is impossible
+  // until it's fixed, so say so instead of letting every save fail silently.
+  const [storageError, setStorageError] = useState<string | null>(null);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [form, setForm] = useState<RuleForm | null>(null);
   const [feedback, setFeedback] = useState<{
@@ -197,8 +201,9 @@ export default function AdminRulesPage() {
   }, []);
 
   async function load() {
-    const map = await fetchRuleOverrides(supabase);
+    const { overrides: map, error } = await fetchRuleOverrides(supabase);
     setOverrides(map);
+    setStorageError(error);
     setLoading(false);
   }
 
@@ -333,6 +338,21 @@ export default function AdminRulesPage() {
             </p>
           </div>
         </div>
+
+        {storageError && (
+          <div className="mb-6 p-4 rounded-xl bg-danger/10 text-danger flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium">
+                Rule edits can&apos;t be saved — the storage table is missing.
+              </p>
+              <p className="mt-1 opacity-80">
+                Run <code>supabase/migrate_event_rules.sql</code> in the Supabase
+                SQL editor, then reload this page. ({storageError})
+              </p>
+            </div>
+          </div>
+        )}
 
         {feedback && (
           <motion.div
@@ -493,9 +513,29 @@ export default function AdminRulesPage() {
                     <RotateCcw className="w-3.5 h-3.5" />
                     Revert to defaults
                   </button>
-                  <Button onClick={handleSave} disabled={saving} size="sm">
-                    {saving ? "Saving…" : "Save rules"}
-                  </Button>
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Repeated next to the button — the banner at the top of
+                        the page scrolls out of view on this long form. */}
+                    {feedback && (
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-xs font-medium text-right ${
+                          feedback.type === "success"
+                            ? "text-success"
+                            : "text-danger"
+                        }`}
+                      >
+                        {feedback.type === "success" ? (
+                          <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        )}
+                        {feedback.message}
+                      </span>
+                    )}
+                    <Button onClick={handleSave} disabled={saving} size="sm">
+                      {saving ? "Saving…" : "Save rules"}
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-[11px] text-muted leading-relaxed">
                   Clearing a field restores its built-in default. Icon, color and

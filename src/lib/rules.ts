@@ -70,16 +70,19 @@ export function applyRuleOverride(
 }
 
 /**
- * Load every override, keyed by slug. Returns an empty map if the table is
- * empty or unavailable (e.g. migration not yet run) so callers can safely fall
- * back to the static defaults.
+ * Load every override, keyed by slug. `overrides` is always a usable map — it
+ * comes back empty when the table is missing (migration not yet run) so the
+ * public pages silently fall back to the static defaults. `error` carries the
+ * reason so the admin editor can say why saving won't work instead of failing
+ * quietly.
  */
-export async function fetchRuleOverrides(
-  supabase: SupabaseClient
-): Promise<Record<string, EventRuleOverride>> {
+export async function fetchRuleOverrides(supabase: SupabaseClient): Promise<{
+  overrides: Record<string, EventRuleOverride>;
+  error: string | null;
+}> {
   const { data, error } = await supabase.from("event_rules").select("*");
-  if (error || !data) return {};
+  if (error || !data) return { overrides: {}, error: error?.message ?? null };
   const map: Record<string, EventRuleOverride> = {};
   for (const row of data as EventRuleOverride[]) map[row.slug] = row;
-  return map;
+  return { overrides: map, error: null };
 }

@@ -87,7 +87,7 @@ export default function RulesPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    fetchRuleOverrides(supabase).then((overrides) => {
+    fetchRuleOverrides(supabase).then(({ overrides }) => {
       setSolo(soloEvents.map((e) => applyRuleOverride(e, overrides[e.slug])));
       setTeam(teamEvents.map((e) => applyRuleOverride(e, overrides[e.slug])));
     });

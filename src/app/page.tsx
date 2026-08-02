@@ -11,10 +11,12 @@ import {
   Flame,
   Calendar,
   AlertTriangle,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
 import { soloEvents, teamEvents } from "@/lib/events";
+import { cn } from "@/lib/utils";
 
 const EVENT_TIME = new Date("2026-08-08T10:00:00").getTime();
 
@@ -155,19 +157,26 @@ export default function HomePage() {
       {/* Quick Links Strip */}
       <section className="bg-card border-b border-border">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-border">
             {[
               { icon: Trophy, label: "Leaderboard", href: "/leaderboard", color: "#F5A623" },
               { icon: Users, label: "Teams", href: "/teams", color: "#E94560" },
               { icon: Calendar, label: "Schedule", href: "/schedule", color: "#3B82F6" },
               { icon: BookOpen, label: "Rules", href: "/rules", color: "#22C55E" },
+              // Odd one out of a 2-column phone grid, so it takes the full width
+              // rather than sitting next to a gap — which suits the one link
+              // people actually need on the morning of.
+              { icon: MapPin, label: "Venue", href: "/venue", color: "#A855F7", wide: true },
             ].map((link) => {
               const Icon = link.icon;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="flex items-center justify-center gap-1.5 sm:gap-2 py-4 sm:py-5 bg-card hover:bg-background transition-colors group"
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 sm:gap-2 py-4 sm:py-5 bg-card hover:bg-background transition-colors group",
+                    link.wide && "col-span-2 sm:col-span-1"
+                  )}
                 >
                   <Icon
                     className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110"

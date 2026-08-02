@@ -17,6 +17,7 @@ import {
   LogOut,
   ChevronDown,
   Coins,
+  MapPin,
 } from "lucide-react";
 import { RunnerMark } from "@/components/ui/runner-mark";
 import { cn, getInitials } from "@/lib/utils";
@@ -30,6 +31,7 @@ const publicLinks = [
   { href: "/rules", label: "Rules", icon: BookOpen },
   { href: "/format", label: "Format", icon: Info },
   { href: "/schedule", label: "Schedule", icon: Clock },
+  { href: "/venue", label: "Venue", icon: MapPin },
 ];
 
 export function Navbar() {

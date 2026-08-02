@@ -11,11 +11,15 @@
 //      tiebreak for 3rd drops out and earns nothing.
 //   4. Score the two tournaments (round wins, eliminations, bracket placement).
 //   5. Compute the team board using that bonus and those tournament points.
-//   6. Apply team tiebreaks.
 //
 // Step 3 is why this can't be done ad hoc: the bonus depends on the *settled*
 // solo order, and the team board depends on the bonus. Deriving the bonus from
 // the pre-tiebreak board would hand a +1 to every team tied for 3rd.
+//
+// The team board has no step of its own for tiebreaks: it is never played off.
+// Teams level on points are ordered by their solo standing, which is what the
+// secondary sort below does. Only the solo board is settled by a game, and only
+// when that game would change who holds playoff priority (see lib/tiebreak.ts).
 //
 // Step 4 is derived, never stored: the tournament tables are the source of truth
 // for those points, so the board moves as matches are recorded and no one has to
@@ -50,7 +54,6 @@ export type ResolvedSoloStanding = SoloTeamStanding & {
 };
 
 export type ResolvedTeamStanding = TeamStanding & {
-  tiebreak?: TiebreakMark;
   /**
    * Sequential 1..N place after solo-aware ordering — the numeral the board
    * shows. Distinct from `rank`, which stays the strict competition rank and is
@@ -89,14 +92,15 @@ export interface TournamentInput {
 export interface Standings {
   /** Solo board with tiebreaks applied and the top 3 settled. */
   solo: ResolvedSoloStanding[];
-  /** Team board built on the settled bonus, with tiebreaks applied. */
+  /** Team board built on the settled bonus. Never played off; see the header. */
   teams: ResolvedTeamStanding[];
   /**
-   * The same two boards *before* tiebreaks. Tie detection needs these: once a
-   * resolution is applied the tied rows no longer share a rank, so they'd stop
-   * being detectable.
+   * The solo board *before* tiebreaks. Tie detection needs it: once a resolution
+   * is applied the tied rows no longer share a rank, so they'd stop being
+   * detectable.
    */
   rawSolo: SoloTeamStanding[];
+  /** The team board before the solo-aware ordering pass. */
   rawTeams: TeamStanding[];
   /** teamId → +1 bonus, after the solo top 3 is settled. */
   bonusByTeam: Map<string, number>;
@@ -128,24 +132,22 @@ export function computeStandings(
   });
   const tournamentByTeam = totalsByTeam(tugByTeam, dodgeballByTeam);
 
-  // Order teams level on points by how they did in the solo events. `rank` is a
-  // function of points alone, so re-sorting on a secondary key never changes it —
-  // and because points stays the primary key, teams sharing a rank remain
-  // contiguous, which is what applyTiebreaks needs.
-  const rawTeams = [
-    ...computeTeamStandings(teams, scores, bonusByTeam, tournamentByTeam),
-  ].sort(
+  // Order teams level on points by how they did in the solo events — this is the
+  // team board's tiebreak, and the only one it gets. `rank` is a function of
+  // points alone, so re-sorting on a secondary key never changes it.
+  const rawTeams = computeTeamStandings(
+    teams,
+    scores,
+    bonusByTeam,
+    tournamentByTeam
+  );
+  const settled = [...rawTeams].sort(
     (a, b) =>
       b.totalPoints - a.totalPoints ||
       (soloRankById.get(a.team.id) ?? Number.MAX_SAFE_INTEGER) -
         (soloRankById.get(b.team.id) ?? Number.MAX_SAFE_INTEGER) ||
       a.team.sort_order - b.team.sort_order
   );
-
-  // A recorded external tiebreaker outranks the solo ordering: it's an explicit
-  // decision from a game actually played, so it reorders the group and splits
-  // the shared rank.
-  const settled = applyTiebreaks(rawTeams, "teams", tiebreaks);
 
   const teamsAtPoints = new Map<number, number>();
   for (const row of settled) {

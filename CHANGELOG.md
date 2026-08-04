@@ -4,6 +4,44 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.21 — Registration desk & point deductions
+
+### Volunteers can check people in as they arrive
+- New **Check-In** tool at `/admin/check-in`, open to volunteers as well as admins — the first tool on the day, and the first card on the admin dashboard
+- One tap per person: tap a name to mark them arrived, tap it again to undo. Rows are phone-sized targets, the arrival time is shown next to each checked-in name, and the whole list updates optimistically so a queue doesn't wait on the network
+- Filter by **team** (colour chips, same control as the event picker) and by **status** (All / Waiting / Arrived), plus a name search. A sticky header keeps the search box, the filters and an **arrived / expected** progress meter in reach while the list scrolls — the meter follows the team filter but deliberately ignores the search box, so typing a name doesn't make progress jump around
+- Each team section carries its own `arrived / total`, counted against the real roster rather than whatever the filters are currently showing
+- Several volunteers work the door at once, so the page subscribes to `roster_checkins` over realtime — a name checked in on one phone greys out on the others instead of being tapped twice
+- Crossed-out players are left off the list (nobody should be waiting on someone who was replaced) unless they've somehow been checked in, in which case they stay visible and undoable with a "crossed out" note
+- Failed writes roll the row back and say so, rather than leaving a check mark the database never accepted; a check-in that can't be *read* is reported instead of rendering as an empty desk
+
+### Point deductions
+- **Totals can now go negative.** No schema change was needed — `roster_scores.points` was already a plain integer and the standings just sum it — but the deduction path around it is new, and the captain wager panel now clamps "points available to wager" at zero rather than showing a team in the red a negative allowance
+- **Score Management** takes deductions directly: an explicit **Award / Deduct** toggle next to the points field, rather than relying on someone typing a minus sign. The field takes a magnitude and the toggle supplies the sign, so a mistyped `-` can't quietly turn a penalty into a reward; the button, the running preview and the entry in Recent Scores all turn red for a deduction
+- Rejected writes on that form are now reported. They used to end in a silent `if (!error)` with the filled-in form still sitting there looking saved
+- **One-click attendance sweep** on `/admin/check-in`: reads the list the desk has been tapping all morning and charges every player who was late or never turned up **−2 points to their team**. Late is measured against an editable cutoff (defaults to the 10:00 opening ceremony), so a day that starts behind schedule doesn't punish everyone
+- The sweep writes one `roster_scores` row per player, so each charge is attributable, shows up on the team's page, and can be lifted individually in Score Management — or all at once with **Remove all**
+- Re-running it is safe: rows are tagged `metadata.kind = "attendance_penalty"` and anyone already carrying one is skipped, so a second click can't double-charge. Crossed-out players are never charged — a team shouldn't pay for someone it already replaced
+- The whole thing is **admin-only**. Volunteers work the door but don't decide what absence costs, so the panel is hidden from them (and from an admin using "view as volunteer")
+
+### Admin dashboard
+- Removed the **Wager History** card. The page itself is untouched and still works at `/admin/wagers`, it just isn't linked from the dashboard any more
+
+### Schema — two files to run, once each
+- **`supabase/checkins.sql`** — `roster_checkins` holds one row per player who has arrived (`player_id` PK, `checked_in_at`, `checked_in_by`). Presence *is* the state: no row means not here yet, so checking someone out is a delete and there's nothing to reconcile
+  - Deliberately a separate table rather than a column on `roster_players`: RLS can't grant write access to individual columns, so a check-in column would have handed volunteers the whole roster. This table is the only thing they can write, and the roster itself stays admin-only
+  - Unlike scores and rosters it is **not** publicly readable — who has and hasn't turned up is attendance data about named individuals, and nothing on the public site needs it. Reads and writes are both limited to admins and volunteers via the existing `is_event_recorder()` helper
+- **`supabase/migrate_admin_only_deductions.sql`** — adds `public.is_admin()` and splits the blanket volunteer write policy on `roster_scores` into per-command policies gated on the sign: volunteers may only insert rows worth 0 or more, may not turn a row negative or edit one that is, and may not delete a negative row. So the admin-only rule holds at the database, not just at the route — a volunteer poking the API directly gets refused
+  - Nothing legitimate is lost: team-event scores are all placements and tallies, so the recorder only ever writes positive rows, and the wager escrow's `-1` stakes go through `SECURITY DEFINER` functions that bypass RLS
+- Both check-ins and penalty sweeps are written to the audit log, non-revertibly — they're a record of who worked the door and what it cost, and both are undoable in one click on the page itself
+
+### Tests
+- 15 new unit tests in `src/lib/checkin.test.ts` covering roster ordering, the crossed-out rules, each filter and the combination of them, and the per-team and overall tallies
+- 17 new unit tests in `src/lib/penalties.test.ts` covering late vs absent classification, the cutoff boundary (arriving exactly on it counts as on time), re-run safety, crossed-out players, the summary totals, and the sign/validation rules for manual entries
+- Suite is now 190 tests
+
+---
+
 ## v1.20 — Every team game on the leaderboard, Players board removed
 
 ### All four team games now have a leaderboard tab

@@ -15,10 +15,11 @@ export function isCaptain(role: UserRole | null | undefined): boolean {
   return role === "captain";
 }
 
-// Admin tools a volunteer is allowed to open. Volunteers help run these three
-// live events; everything else under /admin (scores, roster, schedule, players,
-// logs) stays admin-only.
+// Admin tools a volunteer is allowed to open. Volunteers work the registration
+// desk and help run the live events; everything else under /admin (scores,
+// roster, schedule, players, logs) stays admin-only.
 export const VOLUNTEER_ADMIN_PATHS = [
+  "/admin/check-in",
   "/admin/solo",
   "/admin/team-events",
   "/admin/tug-of-war",
@@ -26,8 +27,8 @@ export const VOLUNTEER_ADMIN_PATHS = [
 ];
 
 // Whether a role may open a given /admin path. Admins get everything; the
-// volunteer landing page (/admin itself) plus the three event tools are the
-// only paths open to volunteers.
+// volunteer landing page (/admin itself) plus the tools above are the only
+// paths open to volunteers.
 export function canAccessAdminPath(
   role: UserRole | null | undefined,
   pathname: string

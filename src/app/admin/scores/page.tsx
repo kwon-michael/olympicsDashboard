@@ -3,7 +3,7 @@ import { SkeletonList } from "@/components/ui/skeleton";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trophy, Trash2, Plus } from "lucide-react";
+import { ArrowLeft, Trophy, Trash2, Plus, Minus, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,10 @@ import { Field } from "@/components/ui/field";
 import { TieAlert } from "@/components/admin/tie-alert";
 import { logAudit } from "@/lib/audit";
 import { fetchRosterData, type RosterData } from "@/lib/roster";
+import { signedPoints } from "@/lib/penalties";
 import type { RosterScore } from "@/lib/types";
+
+type Direction = "award" | "deduct";
 
 export default function AdminScoresPage() {
   const [data, setData] = useState<RosterData | null>(null);
@@ -23,7 +26,12 @@ export default function AdminScoresPage() {
   const [teamId, setTeamId] = useState("");
   const [playerId, setPlayerId] = useState(""); // "" = whole team
   const [label, setLabel] = useState("");
+  // A magnitude only — the sign comes from `direction`. Asking for "how many"
+  // and "which way" separately means a mistyped minus can't quietly turn a
+  // penalty into a reward.
   const [points, setPoints] = useState("");
+  const [direction, setDirection] = useState<Direction>("award");
+  const [formError, setFormError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -61,8 +69,20 @@ export default function AdminScoresPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const pts = parseInt(points, 10);
-    if (!teamId || !label.trim() || Number.isNaN(pts)) return;
+    const pts = signedPoints(points, direction);
+    if (!teamId) {
+      setFormError("Pick a team first.");
+      return;
+    }
+    if (!label.trim()) {
+      setFormError("Give the entry a label so the leaderboard can explain it.");
+      return;
+    }
+    if (pts === null) {
+      setFormError("Points must be a whole number above zero.");
+      return;
+    }
+    setFormError(null);
 
     setSaving(true);
     const supabase = createClient();
@@ -105,6 +125,11 @@ export default function AdminScoresPage() {
       setPlayerId("");
       window.dispatchEvent(new Event("scores-updated"));
       await load();
+    } else {
+      // A rejected write used to end here silently, leaving the admin looking
+      // at a filled-in form they thought had saved. A deduction refused by RLS
+      // is the likely case now.
+      setFormError(error.message);
     }
     setSaving(false);
   }
@@ -159,7 +184,7 @@ export default function AdminScoresPage() {
             SCORE MANAGEMENT
           </h1>
           <p className="text-sm text-muted">
-            Award points to a team or an individual player
+            Award or deduct points for a team or an individual player
           </p>
         </div>
       </div>
@@ -214,21 +239,69 @@ export default function AdminScoresPage() {
               </Field>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_140px]">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto_120px]">
               <Field label="Label" htmlFor="score-label">
                 <Input
                   id="score-label"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
-                  placeholder="e.g. 100m Dash, Tug of War win"
+                  placeholder={
+                    direction === "deduct"
+                      ? "e.g. Late arrival, unsporting conduct"
+                      : "e.g. 100m Dash, Tug of War win"
+                  }
                   required
                 />
               </Field>
+
+              {/* Not a <Field>: its label points at a single control, and this
+                  is a group of two. The group carries its own aria-label. */}
+              <div>
+                <span className="mb-1.5 block text-[11px] font-medium tracking-wide text-muted uppercase">
+                  Award or deduct
+                </span>
+                <div
+                  role="radiogroup"
+                  aria-label="Award or deduct"
+                  className="flex h-[42px] items-center gap-1 rounded-xl border border-border bg-card p-1"
+                >
+                  {(
+                    [
+                      { value: "award", label: "Award", icon: Plus },
+                      { value: "deduct", label: "Deduct", icon: Minus },
+                    ] as const
+                  ).map(({ value, label: text, icon: Icon }) => {
+                    const active = direction === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        onClick={() => setDirection(value)}
+                        className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          active
+                            ? value === "deduct"
+                              ? "bg-danger text-white"
+                              : "bg-success text-white"
+                            : "text-muted hover:text-foreground"
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {text}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <Field label="Points" htmlFor="score-points">
                 <Input
                   id="score-points"
                   type="number"
                   inputMode="numeric"
+                  min={1}
+                  step={1}
                   value={points}
                   onChange={(e) => setPoints(e.target.value)}
                   placeholder="0"
@@ -237,10 +310,35 @@ export default function AdminScoresPage() {
               </Field>
             </div>
 
-            <div className="flex justify-end">
-              <Button type="submit" loading={saving}>
-                <Plus className="w-4 h-4" />
-                Add Score
+            {formError && (
+              <p className="flex items-center gap-1.5 text-xs text-danger">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                {formError}
+              </p>
+            )}
+
+            <div className="flex items-center justify-end gap-3">
+              {points.trim() && (
+                <span
+                  className={`font-mono text-sm font-semibold tabular-nums ${
+                    direction === "deduct" ? "text-danger" : "text-success"
+                  }`}
+                >
+                  {direction === "deduct" ? "−" : "+"}
+                  {points.trim()} pts
+                </span>
+              )}
+              <Button
+                type="submit"
+                loading={saving}
+                variant={direction === "deduct" ? "danger" : "primary"}
+              >
+                {direction === "deduct" ? (
+                  <Minus className="w-4 h-4" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                {direction === "deduct" ? "Deduct Points" : "Award Points"}
               </Button>
             </div>
           </form>
@@ -278,7 +376,11 @@ export default function AdminScoresPage() {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="font-mono text-lg font-semibold tabular-nums">
+                    <span
+                      className={`font-mono text-lg font-semibold tabular-nums ${
+                        score.points < 0 ? "text-danger" : ""
+                      }`}
+                    >
                       {score.points > 0 ? "+" : ""}
                       {score.points}
                     </span>

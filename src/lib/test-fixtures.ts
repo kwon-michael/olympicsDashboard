@@ -5,6 +5,7 @@
 import type {
   RosterTeam,
   RosterPlayer,
+  RosterCheckin,
   RosterScore,
   SoloResult,
   Wager,
@@ -52,6 +53,17 @@ export function score(overrides: Partial<RosterScore> = {}): RosterScore {
     points: 0,
     created_by: null,
     created_at: "2026-07-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+export function checkin(
+  overrides: Partial<RosterCheckin> = {}
+): RosterCheckin {
+  return {
+    player_id: "player-x",
+    checked_in_at: "2026-08-08T09:00:00Z",
+    checked_in_by: null,
     ...overrides,
   };
 }

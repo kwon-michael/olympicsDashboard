@@ -76,6 +76,15 @@ export interface RosterPlayer {
   created_at: string;
 }
 
+// ---- Arrival check-in (registration desk) ----
+// A row exists only for players who have arrived; checking someone back out
+// deletes it. See supabase/checkins.sql.
+export interface RosterCheckin {
+  player_id: string;
+  checked_in_at: string;
+  checked_in_by: string | null;
+}
+
 export interface RosterScore {
   id: string;
   team_id: string;
@@ -305,6 +314,12 @@ export interface Database {
         Row: RosterPlayer;
         Insert: Omit<RosterPlayer, "id" | "created_at">;
         Update: Partial<Omit<RosterPlayer, "id" | "created_at">>;
+      };
+      roster_checkins: {
+        Row: RosterCheckin;
+        Insert: Omit<RosterCheckin, "checked_in_at"> &
+          Partial<Pick<RosterCheckin, "checked_in_at">>;
+        Update: Partial<Omit<RosterCheckin, "player_id">>;
       };
       roster_scores: {
         Row: RosterScore;

@@ -28,7 +28,11 @@
       "PowerShell(npx tsc --noEmit)",
       "PowerShell(npx vitest run 2>&1 | Select-Object -Last 60)",
       "PowerShell(npx eslint src 2>&1 | Select-Object -Last 40)",
-      "WebFetch(domain:hodannalayeh-ss.yrdsb.ca)"
+      "WebFetch(domain:hodannalayeh-ss.yrdsb.ca)",
+      "PowerShell(npx vitest run src/lib/checkin.test.ts 2>&1 | Select-Object -Last 30)",
+      "PowerShell(npx vitest run src/lib/checkin.test.ts 2>&1 | Select-Object -Last 12)",
+      "PowerShell(npx eslint src/app/admin/check-in/page.tsx src/lib/checkin.ts src/lib/checkin.test.ts src/lib/auth.ts src/app/admin/page.tsx src/lib/test-fixtures.ts 2>&1 | Select-Object -Last 25)",
+      "PowerShell(git *)"
     ]
   }
 }

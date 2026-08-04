@@ -12,6 +12,7 @@ import {
   Activity,
   ChevronRight,
   UserX,
+  UserCheck,
   ScrollText,
   Swords,
   Medal,
@@ -36,6 +37,13 @@ interface AdminStats {
 
 // Links shown to every admin.
 const adminLinks = [
+  {
+    href: "/admin/check-in",
+    label: "Check-In",
+    description: "Mark players as they arrive at the registration desk",
+    icon: UserCheck,
+    color: "#14B8A6",
+  },
   {
     href: "/admin/scores",
     label: "Score Management",
@@ -84,13 +92,6 @@ const adminLinks = [
     description: "Edit the public rulebook text for each event",
     icon: BookOpen,
     color: "#0EA5E9",
-  },
-  {
-    href: "/admin/wagers",
-    label: "Wager History",
-    description: "Captain playoff bets and the team points won or lost",
-    icon: Coins,
-    color: "#EAB308",
   },
   {
     href: "/admin/tiebreaks",

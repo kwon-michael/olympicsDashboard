@@ -107,9 +107,15 @@ export async function fetchWagerData(
       .from("roster_scores")
       .select("points")
       .eq("team_id", myTeam.id);
-    wagerablePoints = (data ?? []).reduce(
-      (sum, r) => sum + ((r as { points: number }).points ?? 0),
-      0
+    // Clamped at zero: deductions can push a team's total negative, and
+    // "-4 points available to wager" is nonsense to show a captain. place_wager
+    // refuses anything under 1 point anyway, so this only affects the display.
+    wagerablePoints = Math.max(
+      0,
+      (data ?? []).reduce(
+        (sum, r) => sum + ((r as { points: number }).points ?? 0),
+        0
+      )
     );
   }
 

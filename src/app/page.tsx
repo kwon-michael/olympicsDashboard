@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -15,46 +14,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
+import { Countdown } from "@/components/countdown";
 import { soloEvents, teamEvents } from "@/lib/events";
 import { cn } from "@/lib/utils";
 
-const EVENT_TIME = new Date("2026-08-08T10:00:00").getTime();
-
-function useCountdown() {
-  // Start from a deterministic value so the server render and the first client
-  // render match (avoids hydration mismatch). Begin ticking only after mount.
-  const [now, setNow] = useState(EVENT_TIME);
-  useEffect(() => {
-    setNow(Date.now());
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const diff = Math.max(0, EVENT_TIME - now);
-  const days = Math.floor(diff / 86_400_000);
-  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
-  const minutes = Math.floor((diff % 3_600_000) / 60_000);
-  const seconds = Math.floor((diff % 60_000) / 1_000);
-
-  return { days, hours, minutes, seconds, isOver: diff === 0 };
-}
-
-function CountdownUnit({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="text-center">
-      <p className="font-mono text-2xl sm:text-4xl font-bold text-white tabular-nums">
-        {String(value).padStart(2, "0")}
-      </p>
-      <p className="text-[9px] sm:text-[10px] text-white/40 uppercase tracking-widest mt-1">
-        {label}
-      </p>
-    </div>
-  );
-}
-
 export default function HomePage() {
-  const countdown = useCountdown();
-
   return (
     <div className="overflow-hidden">
       {/* Hero */}
@@ -118,21 +82,7 @@ export default function HomePage() {
             transition={{ delay: 0.6 }}
             className="mt-12 sm:mt-16"
           >
-            {countdown.isOver ? (
-              <p className="text-sm font-semibold text-gold uppercase tracking-widest">
-                Game Day is Here!
-              </p>
-            ) : (
-              <div className="inline-flex max-w-full items-center gap-2.5 sm:gap-8 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 px-4 sm:px-8 py-4 sm:py-5">
-                <CountdownUnit value={countdown.days} label="Days" />
-                <span className="text-white/20 text-lg sm:text-2xl font-light">:</span>
-                <CountdownUnit value={countdown.hours} label="Hours" />
-                <span className="text-white/20 text-lg sm:text-2xl font-light">:</span>
-                <CountdownUnit value={countdown.minutes} label="Min" />
-                <span className="text-white/20 text-lg sm:text-2xl font-light">:</span>
-                <CountdownUnit value={countdown.seconds} label="Sec" />
-              </div>
-            )}
+            <Countdown />
           </motion.div>
         </div>
       </section>

@@ -6,6 +6,19 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ## v1.21 — Registration desk & point deductions
 
+### The home page countdown gets louder as the day approaches
+- The hero clock now **escalates in tiers** instead of looking identical a year out and an hour out. Over a week away it's the calm white clock it always was; inside a week it turns **gold** with a headline counting the days; inside 24 hours it turns **coral**, drops the empty Days slot and grows; inside the final hour it's just **minutes and seconds**, at the size the days used to be
+- A glow behind the clock breathes in time with the tier — slow at a week, urgent in the last hour — and every digit **rolls up into place** as it changes, so the seconds visibly tick
+- **Game day** replaces the clock with "GAME DAY IS HERE" at hero scale
+- Fixed a flash of "Game Day is Here!" on first paint: the old clock seeded itself with the event time, so the server rendered a finished countdown for a moment on every visit no matter how far out it was. It now renders dashes until the first real tick
+- Accessibility: the ticking digits are `aria-hidden` (a number that rewrites itself every second is unusable read aloud) with a plain "2 days until the Casualympics" behind them, and `prefers-reduced-motion` drops the rolling and the glow while keeping the colour and size changes, which carry the meaning
+
+### Dodgeball eliminations are a group-stage point only
+- Once Dodgeball reaches the **playoff bracket**, eliminations stop paying. The semis, final and 3rd-place match score on **round wins and final placement** alone, so a knockout game is won by winning the round rather than by running up the count in a game already decided
+- The group stage is unchanged: 1 point per opponent eliminated, derived from the survivor counts as before. Tiebreaker games never paid eliminations and still don't
+- The recorder follows the rule — the **Survivors** tally no longer appears on bracket matches, so nobody is counting a number that can't score. Survivor counts already saved against a bracket match are simply not scored
+- Public copy updated to match: the leaderboard note, the Dodgeball scoring line in the format guide and rules, and the admin bracket header
+
 ### Volunteers can check people in as they arrive
 - New **Check-In** tool at `/admin/check-in`, open to volunteers as well as admins — the first tool on the day, and the first card on the admin dashboard
 - One tap per person: tap a name to mark them arrived, tap it again to undo. Rows are phone-sized targets, the arrival time is shown next to each checked-in name, and the whole list updates optimistically so a queue doesn't wait on the network
@@ -38,7 +51,8 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 ### Tests
 - 15 new unit tests in `src/lib/checkin.test.ts` covering roster ordering, the crossed-out rules, each filter and the combination of them, and the per-team and overall tallies
 - 17 new unit tests in `src/lib/penalties.test.ts` covering late vs absent classification, the cutoff boundary (arriving exactly on it counts as on time), re-run safety, crossed-out players, the summary totals, and the sign/validation rules for manual entries
-- Suite is now 190 tests
+- 2 new tests in `src/lib/tournamentPoints.test.ts` pinning the group-stage-only elimination rule across all three bracket stages
+- Suite is now 192 tests
 
 ---
 

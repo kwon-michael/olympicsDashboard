@@ -206,6 +206,37 @@ describe("computeTournamentPoints — eliminations", () => {
     );
     expect(points.get(A)!.eliminations).toBe(0);
   });
+
+  it("pays nothing for eliminations in the playoff bracket", () => {
+    for (const stage of ["semi", "final", "third"] as const) {
+      const points = computeTournamentPoints(
+        [played(A, B, 1, 0, { stage, group_label: null, survivors_b: [0] })],
+        { eliminations: true }
+      );
+      // The round win (and any placement) still pays; the six players A put out
+      // do not.
+      expect(points.get(A)).toMatchObject({
+        eliminations: 0,
+        eliminationPoints: 0,
+        roundWins: 1,
+      });
+      expect(points.get(A)!.total).toBe(
+        1 + points.get(A)!.placementPoints
+      );
+    }
+  });
+
+  it("keeps group-stage eliminations when the same team also plays the bracket", () => {
+    const points = computeTournamentPoints(
+      [
+        played(A, B, 2, 0, { survivors_b: [2, 3] }),
+        played(A, C, 1, 0, { stage: "semi", group_label: null, survivors_b: [0] }),
+      ],
+      { eliminations: true }
+    );
+    // Only the group match's (6-2) + (6-3) = 7 counts.
+    expect(points.get(A)!.eliminations).toBe(7);
+  });
 });
 
 describe("computeTournamentPoints — teams with no result", () => {

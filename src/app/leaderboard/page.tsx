@@ -198,7 +198,8 @@ export default function LeaderboardPage() {
                 <span className="font-medium text-gold">+1 bonus</span> for each
                 of the top-3 solo teams. Tug of War and Dodgeball score
                 themselves as they&rsquo;re played: 1 point per round won, 1 per
-                dodgeball elimination, and 5/3/2/1 for finishing 1st–4th.
+                dodgeball elimination in the group stage, and 5/3/2/1 for
+                finishing 1st–4th.
               </Note>
               <TableCard>
                 <thead>

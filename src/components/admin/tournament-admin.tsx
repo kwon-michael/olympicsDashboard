@@ -788,7 +788,11 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
                 step={3}
                 accent={accent}
                 title="Playoff Bracket"
-                subtitle="Randomize the four qualifiers, then record results"
+                subtitle={
+                  eliminations
+                    ? "Randomize the four qualifiers, then record results — round wins and placement only, no elimination tally"
+                    : "Randomize the four qualifiers, then record results"
+                }
               />
               {!bracketSeeded ? (
                 <div className="bg-card rounded-2xl border border-border p-6 flex flex-col items-center gap-3">

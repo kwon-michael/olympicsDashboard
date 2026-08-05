@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown, Loader2, Trophy } from "lucide-react";
 import type { RosterTeam } from "@/lib/types";
 import type { TournamentMatch } from "@/lib/tournament";
-import { DEFAULT_TEAM_SIZE } from "@/lib/tournamentPoints";
+import { DEFAULT_TEAM_SIZE, scoresEliminations } from "@/lib/tournamentPoints";
 
 const FALLBACK_COLOR = "#94A3B8";
 
@@ -81,6 +81,10 @@ interface MatchResultPickerProps {
    * Supplied for Dodgeball only. Its presence adds the survivor tally under the
    * result, since eliminations are worth a point each there and nothing at all
    * in Tug of War. Both arrays are sent whole, one entry per round.
+   *
+   * The tally still only appears on matches whose eliminations score — the group
+   * stage (see `scoresEliminations`). In the bracket it's a point the referee
+   * would be counting for nothing.
    */
   onSaveSurvivors?: (
     match: TournamentMatch,
@@ -175,7 +179,7 @@ export function MatchResultPicker({
         disabled={busy || !teamsKnown}
       />
 
-      {onSaveSurvivors && teamsKnown && (
+      {onSaveSurvivors && teamsKnown && scoresEliminations(match) && (
         <SurvivorTally
           match={match}
           teamA={teamA}

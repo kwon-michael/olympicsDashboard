@@ -23,6 +23,11 @@
 // Tug of War has no equivalent, so it's opt-in per tournament rather than
 // assumed.
 //
+// Eliminations are a *group-stage* point only. Once Dodgeball reaches the
+// playoff bracket the four qualifiers score on round wins and placement alone,
+// so the semis, final and 3rd-place match are decided by winning rounds rather
+// than by running up the body count in a game already won.
+//
 // Tiebreaker matches are skipped throughout. They're extra games played only to
 // separate teams that finished level, and this codebase holds the line that a
 // tiebreak decides placement without ever moving points (see src/lib/tiebreak.ts
@@ -46,7 +51,7 @@ export const POINTS_PER_ELIMINATION = 1;
 export const DEFAULT_TEAM_SIZE = 6;
 
 export interface TournamentPointsOptions {
-  /** Score a point per opponent eliminated (Dodgeball). */
+  /** Score a point per opponent eliminated in the group stage (Dodgeball). */
   eliminations?: boolean;
   /** teamId → players it starts each round with. Missing teams use the default. */
   teamSizes?: Map<string, number>;
@@ -70,10 +75,22 @@ function eliminatedFrom(
   return total;
 }
 
+/**
+ * Whether a match's eliminations are worth points: the group stage only, and
+ * never a tiebreaker. Bracket matches (semi / final / third) are played for the
+ * win, not the tally.
+ *
+ * Exported so the recorder can hide the survivor tally on the matches it can't
+ * pay out for, rather than collecting counts that quietly go nowhere.
+ */
+export function scoresEliminations(match: TournamentMatch): boolean {
+  return match.stage === "group" && !match.is_tiebreaker;
+}
+
 export interface TournamentPoints {
   roundWins: number;
   roundWinPoints: number;
-  /** Opponents eliminated (Dodgeball only; 0 elsewhere). */
+  /** Opponents eliminated in the group stage (Dodgeball only; 0 elsewhere). */
   eliminations: number;
   eliminationPoints: number;
   /** Final bracket placement 1-4, or null while the bracket is unfinished. */
@@ -121,10 +138,10 @@ export function tournamentPlacements(
  * haven't played anything are absent rather than zero-filled, so callers can
  * tell "no result" from "played and scored nothing".
  *
- * `eliminations` opts a tournament into the per-elimination point (Dodgeball).
- * Survivor counts are read whether or not the match has a winner recorded —
- * they're an observation of what happened on court, not a consequence of the
- * result.
+ * `eliminations` opts a tournament into the per-elimination point (Dodgeball),
+ * which applies to group matches only — see `scoresEliminations`. Survivor
+ * counts are read whether or not the match has a winner recorded — they're an
+ * observation of what happened on court, not a consequence of the result.
  */
 export function computeTournamentPoints(
   matches: TournamentMatch[],
@@ -147,6 +164,7 @@ export function computeTournamentPoints(
   };
 
   for (const m of scoring) {
+    const elimsCount = countElims && scoresEliminations(m);
     // A team's eliminations come from its *opponent's* survivor counts: the
     // players it put out are the ones missing from the other side of the court.
     for (const [teamId, rounds, opponentId, opponentSurvivors] of [
@@ -160,7 +178,7 @@ export function computeTournamentPoints(
       if (m.winner_id != null && rounds != null && rounds > 0) {
         row.roundWins += rounds;
       }
-      if (countElims) {
+      if (elimsCount) {
         row.eliminations += eliminatedFrom(
           opponentSurvivors,
           sizeOf(opponentId)

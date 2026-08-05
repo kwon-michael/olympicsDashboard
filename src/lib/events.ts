@@ -482,6 +482,9 @@ export const teamEvents: EventRule[] = [
       "Headshots do not count; hits must be from the neck downwards",
       "Catching a thrown ball eliminates the thrower and allows one eliminated teammate to return on your side",
       "The team with more players remaining wins the round",
+      "Pool play is best of 3 rounds; the playoffs (semifinals, 3rd-place match and final) are a single sudden-death round",
+      "Eliminations only earn points in pool play. In the playoffs the only points are for winning the round and for your final placement — so a knockout game is about winning it, not running up the count",
+      "Referees count the players left standing at the end of each pool round, not hits as they happen: a player brought back by a catch is alive again",
     ],
     setup: [
       "Mark the centerline and side boundaries clearly",
@@ -489,7 +492,7 @@ export const teamEvents: EventRule[] = [
       "Assign referees to monitor eliminations and boundary violations",
     ],
     scoring:
-      "Recalculated pools of 3 (based on Tug of War), each match is 3 rounds; after pool play, matches are 1-round sudden death. Opponent elimination = 1 point. Round win = 1 point. Final placement: 1st = 5, 2nd = 3, 3rd = 2, 4th = 1.",
+      "Recalculated pools of 3 (based on Tug of War), each match is 3 rounds; after pool play, matches are 1-round sudden death. In pool play: opponent elimination = 1 point, round win = 1 point. In the playoffs, only round wins score — eliminations are pool play only. Final placement: 1st = 5, 2nd = 3, 3rd = 2, 4th = 1.",
     teamScoring: {
       method: "components",
       components: [
@@ -500,7 +503,12 @@ export const teamEvents: EventRule[] = [
           placementPoints: [5, 3, 2, 1],
         },
         { key: "roundWins", label: "Round Wins", kind: "tally", pointsEach: 1 },
-        { key: "eliminations", label: "Eliminations", kind: "tally", pointsEach: 1 },
+        {
+          key: "eliminations",
+          label: "Eliminations (pool play)",
+          kind: "tally",
+          pointsEach: 1,
+        },
       ],
     },
   },

@@ -99,3 +99,5 @@ yarn-error.log*
 # Claude Code
 # ========================
 .claude/worktrees/
+# Per-machine tool permissions — local to whoever is working, not shared.
+.claude/settings.local.json

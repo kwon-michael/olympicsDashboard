@@ -15,6 +15,7 @@ import { MapLegend } from "@/components/venue/map-legend";
 import {
   PRIMARY_VENUE,
   BACKUP_VENUE,
+  OVERFLOW_VENUE,
   SITE_MAP,
   MAP_KEY,
   PARKING_NOTES,
@@ -119,6 +120,7 @@ export default function VenuePage() {
             emptyLabel="Parking details coming shortly"
             emptyHint="Where to park will be confirmed and posted here before game day."
             emptyIcon={<Car className="h-6 w-6 text-muted" />}
+            footer={<NearbyAddress venue={OVERFLOW_VENUE} />}
           />
         </section>
 
@@ -135,6 +137,7 @@ export default function VenuePage() {
             emptyLabel="Bathroom locations coming shortly"
             emptyHint="The nearest bathrooms will be confirmed and posted here before game day."
             emptyIcon={<Toilet className="h-6 w-6 text-muted" />}
+            footer={<NearbyAddress venue={OVERFLOW_VENUE} />}
           />
         </section>
 
@@ -213,33 +216,70 @@ function VenueCard({ venue, muted }: { venue: Venue; muted?: boolean }) {
   );
 }
 
-/** A list of on-site notes, or an honest placeholder when we don't have them. */
+/**
+ * A list of on-site notes, or an honest placeholder when we don't have them.
+ * `footer` hangs a related address off the bottom of the card — the notes name
+ * Dufferin Clark, so the card should also say where it is.
+ */
 function NoteList({
   notes,
   emptyLabel,
   emptyHint,
   emptyIcon,
+  footer,
 }: {
   notes: string[];
   emptyLabel: string;
   emptyHint: string;
   emptyIcon: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   if (notes.length === 0) {
     return <Placeholder icon={emptyIcon} label={emptyLabel} hint={emptyHint} />;
   }
   return (
-    <ul className="space-y-3 rounded-2xl border border-border bg-card p-6 text-sm leading-relaxed text-foreground/90">
-      {notes.map((note) => (
-        <li key={note} className="flex gap-3">
-          <span
-            aria-hidden
-            className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-coral"
-          />
-          <span>{note}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      <ul className="space-y-3 p-6 text-sm leading-relaxed text-foreground/90">
+        {notes.map((note) => (
+          <li key={note} className="flex gap-3">
+            <span
+              aria-hidden
+              className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-coral"
+            />
+            <span>{note}</span>
+          </li>
+        ))}
+      </ul>
+      {footer}
+    </div>
+  );
+}
+
+/**
+ * A nearby address with a way to get to it. Lighter than VenueCard — no map,
+ * no display type — because it's a landmark, not somewhere to show up at.
+ */
+function NearbyAddress({ venue }: { venue: Venue }) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-border bg-background/40 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-foreground">{venue.name}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-muted">
+          {fullAddress(venue)}
+        </p>
+      </div>
+      <a
+        href={directionsUrl(venue)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="shrink-0"
+      >
+        <Button variant="outline" size="sm">
+          <Navigation className="h-4 w-4" />
+          Directions
+        </Button>
+      </a>
+    </div>
   );
 }
 

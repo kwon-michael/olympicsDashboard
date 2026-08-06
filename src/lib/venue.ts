@@ -36,6 +36,19 @@ export const BACKUP_VENUE: Venue = {
   postalCode: "L4J 6J5",
 };
 
+/**
+ * Dufferin Clark Community Centre — not a venue, but the answer to both
+ * on-site questions: the overflow lot when the school lot is fenced off, and
+ * the bathrooms that stay open all day. A City of Vaughan facility one block
+ * east of Hodan Nalayeh, close enough to share its postal code.
+ */
+export const OVERFLOW_VENUE: Venue = {
+  name: "Dufferin Clark Community Centre",
+  street: "1441 Clark Ave. W.",
+  city: "Thornhill, ON",
+  postalCode: "L4J 7R4",
+};
+
 /** "1401 Clark Ave. W., Thornhill, ON L4J 7R4" */
 export function fullAddress(venue: Venue): string {
   return `${venue.street}, ${venue.city} ${venue.postalCode}`;
@@ -185,10 +198,20 @@ export const MAP_KEY: MapKeyGroup[] = [
 ];
 
 /**
- * On-site directions. Empty arrays render as "to be confirmed" rather than
- * being guessed at — sending ninety people to the wrong door is worse than
- * telling them the detail isn't posted yet. Neither is marked on the site map.
+ * On-site directions. Neither is marked on the site map, so these carry it.
+ * An empty array renders as "to be confirmed" rather than being guessed at —
+ * sending ninety people to the wrong door is worse than telling them the
+ * detail isn't posted yet.
+ *
+ * Dufferin Clark Community Centre backs onto the school, which is why it
+ * answers both questions: the overflow lot and the open bathrooms.
  */
-export const PARKING_NOTES: string[] = [];
+export const PARKING_NOTES: string[] = [
+  "Park in the school lot at Hodan Nalayeh if it's open — it's the closest spot to the field.",
+  "If the school lot is fenced off, park at Dufferin Clark Community Centre, a short walk away.",
+  "Otherwise, there's street parking across the street from the school.",
+];
 
-export const BATHROOM_NOTES: string[] = [];
+export const BATHROOM_NOTES: string[] = [
+  "Dufferin Clark Community Centre has bathrooms open inside the building, a short walk from the field.",
+];

@@ -4,6 +4,27 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v1.22 — Hiding the leaderboard
+
+### The standings can be taken off the public site
+- New **Public leaderboard** switch on the admin dashboard. Hidden, `/leaderboard` shows a *"the leaderboard is hidden"* message in place of every tab, and the team pages drop their point totals — so the finish can be a reveal instead of a running commentary
+- **Scoring is untouched.** Points keep being awarded, deducted, recomputed and audited exactly as before while the board is hidden; the switch only decides what the public pages render. The copy says so in both places, because "hidden" and "paused" are easy to confuse when someone else is working the score desk
+- **Admins keep seeing the live board**, with a gold banner on every affected page saying the public can't. Without it, it's very easy to flip the switch, look at your own screen, see the standings and assume it didn't take
+- Volunteers see the hidden version like everyone else. They record results all day, and a phone left open on the desk is exactly how a hidden board leaks back into the room
+- The hide covers everywhere the standings surface, not just the leaderboard: the header stat strip (it gives away the running team-point total), the `X pts` on each card in **All Teams**, the total and per-player points on a **team's page**, and that page's whole **Scores** breakdown, which is the standings in longhand
+- **All Teams** also falls back to **alphabetical order** while hidden — its cards are normally in leaderboard order, which hands over the ranking even with the numbers stripped off
+- The Tug of War panel on All Teams is hidden along with them, matching the leaderboard's own Tug tab
+- Flipping the switch reaches **every open page over realtime**, so the reveal lands on every phone in the room at once without anyone being told to refresh
+- Pages hold their skeleton until both the data and the switch have resolved — rendering the board first and hiding it a moment later would flash exactly what the switch exists to hide
+- If the settings row can't be read the board stays **visible**: a settings hiccup shouldn't take the leaderboard down mid-event
+
+### Schema — one file to run, once
+- **`supabase/app_settings.sql`** — a single-row `app_settings` table (`id` pinned to 1) for admin-controlled site switches, holding `leaderboard_hidden` plus who last changed it. Publicly readable, because every visitor's browser has to know whether the board is hidden before it can decide what to render; **admin-only** to write, so the timing of the reveal stays with the organiser
+  - It's a presentation switch, **not** a security boundary. The underlying score rows stay publicly readable — the whole app is built on anonymous reads, and locking them down would also take them from the rules and schedule pages that legitimately use them — so someone querying the API directly could still add the points up themselves
+  - Added to the realtime publication; every flip is written to the audit log
+
+---
+
 ## v1.21 — Registration desk & point deductions
 
 ### The home page countdown gets louder as the day approaches

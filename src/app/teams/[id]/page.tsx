@@ -23,6 +23,11 @@ import { fetchTiebreaks, type Tiebreak } from "@/lib/tiebreak";
 import { fetchTugData, type TugData } from "@/lib/tug";
 import { fetchDodgeballData, type DodgeballData } from "@/lib/dodgeball";
 import { readableTextColor } from "@/lib/colors";
+import { useLeaderboardVisibility } from "@/lib/useLeaderboardVisibility";
+import {
+  LeaderboardHiddenLine,
+  LeaderboardHiddenBanner,
+} from "@/components/leaderboard/hidden-notice";
 import type { RosterTeam, SoloResult } from "@/lib/types";
 
 export default function TeamProfilePage() {
@@ -38,6 +43,10 @@ export default function TeamProfilePage() {
   const [tug, setTug] = useState<TugData | null>(null);
   const [dodge, setDodge] = useState<DodgeballData | null>(null);
   const [loading, setLoading] = useState(true);
+  // The admin switch that takes the standings off the public site. Here it
+  // covers the team total, the per-player points and the score breakdown — the
+  // roster itself stays up. See src/lib/settings.ts.
+  const visibility = useLeaderboardVisibility();
 
   useEffect(() => {
     const load = async () => {
@@ -89,7 +98,9 @@ export default function TeamProfilePage() {
     return map;
   }, [data]);
 
-  if (loading) {
+  const showPoints = visibility.canView;
+
+  if (loading || visibility.loading) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center">
         <SkeletonList rows={6} />
@@ -127,6 +138,8 @@ export default function TeamProfilePage() {
         Back to Teams
       </Link>
 
+      {visibility.isAdminPreview && <LeaderboardHiddenBanner className="mb-6" />}
+
       {/* Team Header */}
       <div
         className="relative rounded-2xl overflow-hidden mb-8"
@@ -157,10 +170,12 @@ export default function TeamProfilePage() {
                   <Users className="w-4 h-4" />
                   {players.length} members
                 </span>
-                <span className="flex items-center gap-1 text-sm text-muted">
-                  <Trophy className="w-4 h-4" />
-                  {totalPoints} points
-                </span>
+                {showPoints && (
+                  <span className="flex items-center gap-1 text-sm text-muted">
+                    <Trophy className="w-4 h-4" />
+                    {totalPoints} points
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -202,7 +217,7 @@ export default function TeamProfilePage() {
                     >
                       {player.name}
                     </p>
-                    {pts > 0 && (
+                    {showPoints && pts > 0 && (
                       <span
                         className="font-mono text-sm font-bold shrink-0"
                         style={{ color: team.color }}
@@ -228,7 +243,16 @@ export default function TeamProfilePage() {
             <Trophy className="w-5 h-5 text-gold" />
             SCORES
           </h2>
-          {teamScores.length > 0 ? (
+          {!showPoints ? (
+            // The breakdown is the standings in longhand — one row per point
+            // awarded — so it goes with them.
+            <div className="py-12">
+              <LeaderboardHiddenLine className="justify-center text-center">
+                Scores are hidden while the leaderboard is under wraps. Results
+                are still being recorded.
+              </LeaderboardHiddenLine>
+            </div>
+          ) : teamScores.length > 0 ? (
             <div className="space-y-3">
               {teamScores.map((score) => (
                 <div

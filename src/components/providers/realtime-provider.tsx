@@ -43,10 +43,24 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       )
       .subscribe();
 
+    // Admin site switches — hiding or revealing the leaderboard should land on
+    // every phone in the room at once, without anyone being told to refresh.
+    const settingsChannel = supabase
+      .channel("app-settings")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "app_settings" },
+        () => {
+          window.dispatchEvent(new CustomEvent("settings-updated"));
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(scoresChannel);
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(scheduleChannel);
+      supabase.removeChannel(settingsChannel);
     };
   }, []);
 

@@ -6,6 +6,13 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ## v1.22 — Hiding the leaderboard
 
+### Tug of War is drawn from the solo board
+- The Tug of War groups are now seeded off the **solo leaderboard** rather than the team board. It's the first team event, so there is nothing else to seed on, and the solo results are what earned the seeding — the draw is a function of the solo scores alone, and nothing scored in a team event can move it
+- Dodgeball is unchanged and still seeds off the **team** board. Which board a tournament draws from is now an explicit `seedFrom` setting rather than an assumption, and the seeding logic works off the minimum a board has to carry (`SeedStanding`), so both fit the same engine
+- Tug of War takes the **settled** solo order, tiebreaks applied, so a played-off tie decides the draw the same way it decides the top-3 bonus
+- **Locking now warns about half-scored solo events.** Locking is irreversible, so an event with results still to enter would quietly seed the wrong groups. The admin panel and the lock dialog both name the events that aren't fully scored, and the warning says what's at stake — for Tug of War the groups *are* the solo order, while for Dodgeball it's the top-3 bonus and the wildcard priority marker
+- It stays a warning, never a block: a team that genuinely sat an event out would leave it listed as incomplete forever
+
 ### The attendance sweep now cuts both ways
 - Being late or absent costs a team **−1 point** per player, down from −2
 - New **full-team bonus**: a team whose players all made the cutoff earns **+1**. Awarded once to the team rather than per player, so a big roster isn't worth more than a small one — it's a flat reward for the same achievement

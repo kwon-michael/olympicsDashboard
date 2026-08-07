@@ -7,13 +7,13 @@
 // {1,6,7}/{2,5,8}/{3,4,9} group seeding.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { TeamStanding } from "@/lib/roster";
 import {
   fetchTournamentData,
   assignGroupsSnake,
   type TournamentTables,
   type TournamentData,
   type GroupAssignment,
+  type SeedStanding,
 } from "@/lib/tournament";
 
 export const DODGEBALL_TABLES: TournamentTables = {
@@ -31,7 +31,7 @@ export function fetchDodgeballData(
 }
 
 /** Split the standings into groups by rank {1,6,7}/{2,5,8}/{3,4,9} (snake). */
-export function assignGroups(standings: TeamStanding[]): GroupAssignment[] {
+export function assignGroups(standings: SeedStanding[]): GroupAssignment[] {
   return assignGroupsSnake(standings);
 }
 

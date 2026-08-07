@@ -6,13 +6,13 @@
 // of War table names and its interleaved {1,4,7}/{2,5,8}/{3,6,9} group seeding.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { TeamStanding } from "@/lib/roster";
 import {
   fetchTournamentData,
   assignGroupsInterleaved,
   type TournamentTables,
   type TournamentData,
   type GroupAssignment,
+  type SeedStanding,
 } from "@/lib/tournament";
 
 export const TUG_TABLES: TournamentTables = {
@@ -28,7 +28,7 @@ export function fetchTugData(supabase: SupabaseClient): Promise<TugData> {
 }
 
 /** Split the solo standings into groups by rank {1,4,7}/{2,5,8}/{3,6,9}. */
-export function assignGroups(standings: TeamStanding[]): GroupAssignment[] {
+export function assignGroups(standings: SeedStanding[]): GroupAssignment[] {
   return assignGroupsInterleaved(standings);
 }
 

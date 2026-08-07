@@ -159,6 +159,50 @@ export function flagSoloTop3<T extends SoloTeamStanding>(standings: T[]): T[] {
   }));
 }
 
+export interface SoloEventCoverage {
+  slug: string;
+  name: string;
+  /** Teams with a result recorded for this event. */
+  recorded: number;
+  /** Teams that should have one — the whole roster. */
+  expected: number;
+}
+
+/**
+ * The solo events that aren't fully scored yet, with how far along each is.
+ *
+ * This is a *warning* signal, not a rule: it exists because the tournament
+ * groups are seeded off the solo board and locking is irreversible, so a
+ * half-entered event silently seeds the wrong groups. A team that genuinely
+ * didn't compete in an event will leave it listed here forever, which is why
+ * nothing blocks on it.
+ */
+export function soloEventsIncomplete(
+  results: SoloResult[],
+  teams: RosterTeam[]
+): SoloEventCoverage[] {
+  const teamIds = new Set(teams.map((t) => t.id));
+  const coverage: SoloEventCoverage[] = [];
+
+  for (const ev of soloEvents) {
+    const recorded = new Set(
+      results
+        .filter((r) => r.event_slug === ev.slug && teamIds.has(r.team_id))
+        .map((r) => r.team_id)
+    ).size;
+    if (recorded < teamIds.size) {
+      coverage.push({
+        slug: ev.slug,
+        name: ev.name,
+        recorded,
+        expected: teamIds.size,
+      });
+    }
+  }
+
+  return coverage;
+}
+
 /** teamId → +1 bonus for each top-3 solo team (for computeTeamStandings). */
 export function soloBonusByTeam(
   standings: SoloTeamStanding[]

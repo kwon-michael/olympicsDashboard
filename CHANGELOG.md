@@ -6,6 +6,14 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ## v1.22 — Hiding the leaderboard
 
+### The attendance sweep now cuts both ways
+- Being late or absent costs a team **−1 point** per player, down from −2
+- New **full-team bonus**: a team whose players all made the cutoff earns **+1**. Awarded once to the team rather than per player, so a big roster isn't worth more than a small one — it's a flat reward for the same achievement
+- The carrot and the stick are **one operation**: decided off the same cutoff, applied by the same button, and undone together by **Remove all**, so the two can't end up reflecting different ideas about who was on time
+- Both passes are defined in terms of a single "on time" test, so they can never disagree about the same player — the bonus is exactly *"nobody on this team was charged"*, true by construction. An unreadable arrival stamp still counts as on time, failing in the player's favour
+- A team that already had someone charged by an earlier sweep can't qualify for the bonus now just because that player is skipped this time round; re-running remains safe in both directions, and an empty team earns nothing
+- The panel shows the two sides side by side with a running **net points** figure, and the confirm line spells out both before anything is written
+
 ### The standings can be taken off the public site
 - New **Public leaderboard** switch on the admin dashboard. Hidden, `/leaderboard` shows a *"the leaderboard is hidden"* message in place of every tab, and the team pages drop their point totals — so the finish can be a reveal instead of a running commentary
 - **Scoring is untouched.** Points keep being awarded, deducted, recomputed and audited exactly as before while the board is hidden; the switch only decides what the public pages render. The copy says so in both places, because "hidden" and "paused" are easy to confuse when someone else is working the score desk

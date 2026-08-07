@@ -5,6 +5,7 @@ import {
   computeSoloTeamStandings,
   soloBonusByTeam,
   soloPriorityTeamIds,
+  soloEventsIncomplete,
   SOLO_BONUS_POINTS,
 } from "@/lib/solo";
 import { soloEvents } from "@/lib/events";
@@ -195,6 +196,59 @@ describe("soloBonusByTeam / soloPriorityTeamIds", () => {
     expect(ids.has(a.id)).toBe(true);
     expect(ids.has(d.id)).toBe(false);
     expect(ids.size).toBe(3);
+  });
+});
+
+describe("soloEventsIncomplete", () => {
+  const a = team({ name: "A", sort_order: 0 });
+  const b = team({ name: "B", sort_order: 1 });
+  const teams = [a, b];
+
+  /** A result for every team in every solo event — the fully scored case. */
+  const everything = soloEvents.flatMap((ev, i) =>
+    teams.map((t, j) =>
+      solo({ event_slug: ev.slug, team_id: t.id, value: 1000 + i * 10 + j })
+    )
+  );
+
+  it("lists every solo event when nothing has been recorded", () => {
+    const gaps = soloEventsIncomplete([], teams);
+    expect(gaps).toHaveLength(soloEvents.length);
+    expect(gaps.every((g) => g.recorded === 0 && g.expected === 2)).toBe(true);
+  });
+
+  it("is empty once every team has a result in every event", () => {
+    expect(soloEventsIncomplete(everything, teams)).toEqual([]);
+  });
+
+  it("flags a half-entered event and reports how far along it is", () => {
+    const partial = everything.filter(
+      (r) => !(r.event_slug === "100m" && r.team_id === b.id)
+    );
+    const gaps = soloEventsIncomplete(partial, teams);
+    expect(gaps.map((g) => g.slug)).toEqual(["100m"]);
+    expect(gaps[0]).toMatchObject({ recorded: 1, expected: 2 });
+  });
+
+  it("ignores results belonging to teams that aren't on the roster", () => {
+    const stranger = team({ name: "Stranger", sort_order: 9 });
+    const withStranger = [
+      ...everything.filter((r) => r.event_slug !== "100m"),
+      solo({ event_slug: "100m", team_id: a.id, value: 1200 }),
+      solo({ event_slug: "100m", team_id: stranger.id, value: 1100 }),
+    ];
+    const gaps = soloEventsIncomplete(withStranger, teams);
+    // The stranger's result must not count towards the roster's coverage.
+    expect(gaps.map((g) => g.slug)).toEqual(["100m"]);
+    expect(gaps[0].recorded).toBe(1);
+  });
+
+  it("counts a team once even if it has duplicate results for an event", () => {
+    const duplicated = [
+      ...everything,
+      solo({ event_slug: "100m", team_id: a.id, value: 1150 }),
+    ];
+    expect(soloEventsIncomplete(duplicated, teams)).toEqual([]);
   });
 });
 

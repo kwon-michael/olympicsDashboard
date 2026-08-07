@@ -1,13 +1,14 @@
 "use client";
 
-import { Lock } from "lucide-react";
+import { AlertTriangle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import type { TeamStanding } from "@/lib/roster";
+import type { SoloEventCoverage } from "@/lib/solo";
 import {
   GROUP_LABELS,
   groupRoundRobin,
   type GroupAssignment,
+  type SeedStanding,
 } from "@/lib/tournament";
 
 /** Header/label colours, keyed so Tailwind sees whole class names. */
@@ -26,9 +27,11 @@ interface LockGroupsDialogProps {
   accent: keyof typeof ACCENTS;
   /** One-line description of the seeding pattern. */
   rule: string;
-  standings: TeamStanding[];
+  standings: SeedStanding[];
   /** The split this tournament would produce — the page's own `assignGroups`. */
   assignments: GroupAssignment[];
+  /** Solo events still missing results, repeated here as a last warning. */
+  soloGaps: SoloEventCoverage[];
 }
 
 /**
@@ -47,6 +50,7 @@ export function LockGroupsDialog({
   rule,
   standings,
   assignments,
+  soloGaps,
 }: LockGroupsDialogProps) {
   const standingById = new Map(standings.map((s) => [s.team.id, s]));
   const groups = GROUP_LABELS.map((label) => ({
@@ -88,6 +92,23 @@ export function LockGroupsDialog({
         </>
       }
     >
+      {soloGaps.length > 0 && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/[0.07] p-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <p className="text-xs leading-relaxed text-foreground">
+            <span className="font-semibold">
+              {soloGaps.length} solo{" "}
+              {soloGaps.length === 1 ? "event isn't" : "events aren't"} fully
+              scored
+            </span>{" "}
+            <span className="text-muted">
+              ({soloGaps.map((g) => g.name).join(", ")}). The seeding below was
+              drawn from those results as they stand.
+            </span>
+          </p>
+        </div>
+      )}
+
       <dl className="grid grid-cols-3 gap-2">
         <Stat label="Teams" value={assignments.length} />
         <Stat label="Groups" value={groups.length} />

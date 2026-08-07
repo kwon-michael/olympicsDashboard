@@ -76,6 +76,15 @@ export interface RosterPlayer {
   created_at: string;
 }
 
+// ---- App settings (single admin-controlled row, see supabase/app_settings.sql) ----
+export interface AppSettings {
+  id: number;
+  /** Replaces the public standings with a "hidden" message. Scoring is unaffected. */
+  leaderboard_hidden: boolean;
+  updated_at: string;
+  updated_by: string | null;
+}
+
 // ---- Arrival check-in (registration desk) ----
 // A row exists only for players who have arrived; checking someone back out
 // deletes it. See supabase/checkins.sql.
@@ -363,6 +372,11 @@ export interface Database {
         Insert: Omit<DodgeballMatch, "id" | "created_at" | "updated_at"> &
           Partial<Pick<DodgeballMatch, "id">>;
         Update: Partial<Omit<DodgeballMatch, "id" | "created_at">>;
+      };
+      app_settings: {
+        Row: AppSettings;
+        Insert: Partial<AppSettings> & { id: number };
+        Update: Partial<Omit<AppSettings, "id">>;
       };
       wagers: {
         // Rows are only created via the place_wager RPC and mutated by triggers,

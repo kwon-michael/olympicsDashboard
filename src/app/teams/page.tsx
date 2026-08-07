@@ -19,6 +19,11 @@ import { computeStandings } from "@/lib/standings";
 import { fetchTiebreaks, type Tiebreak } from "@/lib/tiebreak";
 import { TugGroups } from "@/components/tug/tug-groups";
 import { TugBracket } from "@/components/tug/tug-bracket";
+import { useLeaderboardVisibility } from "@/lib/useLeaderboardVisibility";
+import {
+  LeaderboardHiddenLine,
+  LeaderboardHiddenBanner,
+} from "@/components/leaderboard/hidden-notice";
 import type { RosterPlayer, SoloResult } from "@/lib/types";
 
 export default function TeamsPage() {
@@ -33,6 +38,10 @@ export default function TeamsPage() {
   const [search, setSearch] = useState("");
   const [tugOpen, setTugOpen] = useState(true);
   const [copied, setCopied] = useState(false);
+  // Whether this viewer may see the standings at all — an admin can hide them
+  // from the public mid-event (see src/lib/settings.ts). The rosters stay up
+  // either way; it's only the points that go.
+  const visibility = useLeaderboardVisibility();
 
   useEffect(() => {
     const load = async () => {
@@ -69,7 +78,7 @@ export default function TeamsPage() {
       teamSizes: activeTeamSizes(data.players),
     });
   }, [data, solo, tiebreaks, tug, dodge]);
-  const standings = resolved?.teams ?? [];
+  const standings = useMemo(() => resolved?.teams ?? [], [resolved]);
   // Only used to order teams left level on round wins inside a tug group,
   // matching how the wildcard is drawn.
   const priorityTeamIds = useMemo(
@@ -95,9 +104,20 @@ export default function TeamsPage() {
     return map;
   }, [data]);
 
-  const filtered = standings.filter((s) =>
-    s.team.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const showPoints = visibility.canView;
+  const busy = loading || visibility.loading;
+
+  const filtered = useMemo(() => {
+    const matches = standings.filter((s) =>
+      s.team.name.toLowerCase().includes(search.toLowerCase())
+    );
+    // `standings` comes back in leaderboard order, which is itself the thing
+    // being hidden — leaving the cards in it would hand the ranking over even
+    // with the numbers stripped off. Fall back to alphabetical.
+    return showPoints
+      ? matches
+      : [...matches].sort((a, b) => a.team.name.localeCompare(b.team.name));
+  }, [standings, search, showPoints]);
 
   const totalPlayers = data?.players.length ?? 0;
 
@@ -174,8 +194,16 @@ export default function TeamsPage() {
         </div>
       </div>
 
-      {/* Tug of War groups + bracket */}
-      {!loading && tugLocked && tug && (
+      {/* Why the point totals are missing, and — for admins — the reminder that
+          everyone else is seeing this page without them. */}
+      {!busy && !showPoints && <LeaderboardHiddenLine className="mb-6" />}
+      {!busy && visibility.isAdminPreview && (
+        <LeaderboardHiddenBanner className="mb-6" />
+      )}
+
+      {/* Tug of War groups + bracket. Goes with the standings: the group tables
+          are results, and the leaderboard's own Tug tab is hidden too. */}
+      {!busy && showPoints && tugLocked && tug && (
         <div className="mb-8 bg-card/50 rounded-2xl border border-border overflow-hidden">
           <button
             onClick={() => setTugOpen((v) => !v)}
@@ -211,7 +239,7 @@ export default function TeamsPage() {
         </div>
       )}
 
-      {loading ? (
+      {busy ? (
         <div className="flex items-center justify-center py-20">
           <SkeletonList rows={6} />
         </div>
@@ -272,13 +300,15 @@ export default function TeamsPage() {
                         {(playerCounts.get(s.team.id) ?? 0) !== 1 ? "s" : ""}
                       </span>
                     </div>
-                    <div
-                      className="flex items-center gap-1.5 font-mono font-bold"
-                      style={{ color: s.team.color }}
-                    >
-                      <Trophy className="w-4 h-4" />
-                      {s.totalPoints} pts
-                    </div>
+                    {showPoints && (
+                      <div
+                        className="flex items-center gap-1.5 font-mono font-bold"
+                        style={{ color: s.team.color }}
+                      >
+                        <Trophy className="w-4 h-4" />
+                        {s.totalPoints} pts
+                      </div>
+                    )}
                   </div>
                 </div>
               </Link>

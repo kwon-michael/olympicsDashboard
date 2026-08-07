@@ -27,6 +27,7 @@ import { useAppStore } from "@/lib/store";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/ui/page-transition";
 import { SkeletonList } from "@/components/ui/skeleton";
 import { TieAlert } from "@/components/admin/tie-alert";
+import { LeaderboardVisibilityCard } from "@/components/admin/leaderboard-visibility";
 
 interface AdminStats {
   totalTeams: number;
@@ -244,6 +245,10 @@ export default function AdminDashboardPage() {
         {/* Tie notification — renders only for admins, and only when a tie
             actually needs settling. */}
         <TieAlert className="mb-6" />
+
+        {/* The public-leaderboard switch. Admin-only and self-gating, so it
+            disappears in the volunteer view. */}
+        <LeaderboardVisibilityCard className="mb-6" />
 
         {/* Stats Grid */}
         <StaggerContainer className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">

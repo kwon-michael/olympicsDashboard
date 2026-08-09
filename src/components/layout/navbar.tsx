@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  ArrowLeft,
   Trophy,
   Users,
   Info,
@@ -46,20 +47,42 @@ export function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-9 h-9 bg-coral rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                <RunnerMark className="w-5 h-5 text-white" />
-              </div>
-              <div className="hidden sm:block">
-                <span className="font-display text-lg font-bold tracking-wide">
-                  <span className="text-white">CASUAL</span>
-                  <span className="text-coral">YMPICS</span>
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* The way out of the 2026 site. It sits *outside* the logo and
+                  points left, because it leaves this site rather than
+                  navigating within it — the logo next to it stays the 2026
+                  home. Icon-only on a phone, where the navbar has no room to
+                  spare and the arrow carries the meaning. */}
+              <Link
+                href="/"
+                aria-label="Go to the next Casualympics"
+                title="The next Casualympics"
+                className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2 py-2 text-white/60 transition-colors hover:border-white/25 hover:bg-white/5 hover:text-white sm:px-3"
+              >
+                <ArrowLeft className="w-4 h-4 shrink-0" />
+                <span className="hidden text-xs font-semibold uppercase tracking-wide sm:inline">
+                  The next one
                 </span>
-                <span className="text-[10px] text-gold align-super font-semibold">
-                  TM
-                </span>
-              </div>
-            </Link>
+              </Link>
+
+              {/* The 2026 site's own home, not `/` — that's the next event's
+                  front door now, and clicking the logo shouldn't leave the site
+                  you're browsing. */}
+              <Link href="/2026" className="flex items-center gap-2 group">
+                <div className="w-9 h-9 bg-coral rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <RunnerMark className="w-5 h-5 text-white" />
+                </div>
+                <div className="hidden sm:block">
+                  <span className="font-display text-lg font-bold tracking-wide">
+                    <span className="text-white">CASUAL</span>
+                    <span className="text-coral">YMPICS</span>
+                  </span>
+                  <span className="text-[10px] text-gold align-super font-semibold">
+                    TM
+                  </span>
+                </div>
+              </Link>
+            </div>
 
             {/* Desktop Navigation */}
             <div className="hidden xl:flex items-center gap-1">
@@ -169,7 +192,7 @@ function ProfileDropdown({ user }: { user: User }) {
     setUser(null);
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/");
+    router.push("/2026");
     router.refresh();
   };
 
@@ -294,7 +317,7 @@ function AnimatedSidebar({
     setUser(null);
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/");
+    router.push("/2026");
     router.refresh();
   };
 

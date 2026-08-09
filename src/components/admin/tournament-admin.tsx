@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -25,7 +26,6 @@ import { LockGroupsDialog } from "@/components/admin/lock-groups-dialog";
 import { MatchResultPicker } from "@/components/admin/match-result-picker";
 import { logAudit } from "@/lib/audit";
 import { fetchRosterData, activeTeamSizes, type RosterData } from "@/lib/roster";
-import type { TeamStanding } from "@/lib/roster";
 import {
   fetchTournamentData,
   assignGroupsInterleaved,
@@ -42,13 +42,20 @@ import {
   type TournamentTables,
   type TournamentData,
   type TournamentMatch,
+  type TournamentStage,
   type GroupAssignment,
   type Qualifiers,
   type GroupTeamStanding,
+  type SeedStanding,
 } from "@/lib/tournament";
 import { TUG_TABLES } from "@/lib/tug";
 import { DODGEBALL_TABLES } from "@/lib/dodgeball";
-import { fetchSoloResults, soloPriorityTeamIds } from "@/lib/solo";
+import {
+  fetchSoloResults,
+  soloPriorityTeamIds,
+  soloEventsIncomplete,
+  type SoloEventCoverage,
+} from "@/lib/solo";
 import { computeStandings, EMPTY_STANDINGS } from "@/lib/standings";
 import { fetchTiebreaks, type Tiebreak } from "@/lib/tiebreak";
 import type { RosterTeam, SoloResult } from "@/lib/types";
@@ -68,6 +75,9 @@ import type { RosterTeam, SoloResult } from "@/lib/types";
 
 const EPOCH = "1970-01-01";
 
+/** Everything past the group stage — the rows a bracket reset clears. */
+const BRACKET_STAGES: TournamentStage[] = ["semi", "final", "third"];
+
 /** Kept as whole class names so Tailwind can see them. */
 const ACCENTS = {
   indigo: { tile: "bg-indigo-500/10", icon: "text-indigo-500" },
@@ -85,11 +95,21 @@ interface TournamentConfig {
   tables: TournamentTables;
   /** Prefix for audit entity types: `<prefix>_tournament` / `<prefix>_match`. */
   auditEntity: string;
-  assignGroups: (standings: TeamStanding[]) => GroupAssignment[];
+  /**
+   * Which board the groups are drawn from. Tug of War is seeded purely on the
+   * solo points leaderboard — it is the first team event, so there is nothing
+   * else to seed on and the solo results are what earned the seeding. Dodgeball
+   * runs afterwards and seeds on the full team board, which by then includes the
+   * Tug of War points.
+   */
+  seedFrom: "solo" | "team";
+  assignGroups: (standings: SeedStanding[]) => GroupAssignment[];
   /** One-line seeding description, shown on the lock card and in the dialog. */
   seedingRule: string;
   /** Heading over the pre-lock standings list. */
   standingsHeading: string;
+  /** Unit shown against each team's total on the lock card. */
+  pointsLabel: string;
   /** Dodgeball scores a point per elimination; Tug of War has no equivalent. */
   eliminations: boolean;
 }
@@ -99,14 +119,17 @@ const TOURNAMENTS: Record<TournamentId, TournamentConfig> = {
     name: "Tug of War",
     heading: "TUG OF WAR",
     subtitle:
-      "Lock groups from the standings, record round wins, then seed the playoff bracket",
+      "Lock groups from the solo leaderboard, record round wins, then seed the playoff bracket",
     icon: Swords,
     accent: "indigo",
     tables: TUG_TABLES,
     auditEntity: "tug",
+    seedFrom: "solo",
     assignGroups: assignGroupsInterleaved,
-    seedingRule: "by rank — {1,4,7} → A, {2,5,8} → B, {3,6,9} → C.",
-    standingsHeading: "TEAM STANDINGS",
+    seedingRule:
+      "by solo rank — {1,4,7} → A, {2,5,8} → B, {3,6,9} → C.",
+    standingsHeading: "SOLO POINTS LEADERBOARD",
+    pointsLabel: "solo pts",
     eliminations: false,
   },
   dodgeball: {
@@ -118,9 +141,11 @@ const TOURNAMENTS: Record<TournamentId, TournamentConfig> = {
     accent: "orange",
     tables: DODGEBALL_TABLES,
     auditEntity: "dodgeball",
+    seedFrom: "team",
     assignGroups: assignGroupsSnake,
     seedingRule: "by rank (snake) — {1,6,7} → A, {2,5,8} → B, {3,4,9} → C.",
     standingsHeading: "TEAM STANDINGS",
+    pointsLabel: "pts",
     eliminations: true,
   },
 };
@@ -172,8 +197,9 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
 
   const [roster, setRoster] = useState<RosterData | null>(null);
   // Both tournaments are loaded on either screen: their points are part of the
-  // team standings these groups are seeded from, so the numbers here have to be
-  // the ones on the leaderboard.
+  // team standings Dodgeball is seeded from, so the numbers here have to be the
+  // ones on the leaderboard. (Tug of War seeds off the solo board instead, which
+  // no tournament result can move — see `seedFrom`.)
   const [tug, setTug] = useState<TournamentData | null>(null);
   const [dodge, setDodge] = useState<TournamentData | null>(null);
   const [solo, setSolo] = useState<SoloResult[]>([]);
@@ -260,7 +286,21 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
     () => soloPriorityTeamIds(resolved.solo),
     [resolved]
   );
-  const standings = resolved.teams;
+
+  // The board the groups are drawn from. Tug of War takes the *settled* solo
+  // leaderboard — tiebreaks applied — so the draw is the solo result and nothing
+  // else; Dodgeball takes the team board, which by then carries the Tug of War
+  // points. Both are already sorted best-first by `computeStandings`.
+  const standings: SeedStanding[] =
+    config.seedFrom === "solo" ? resolved.solo : resolved.teams;
+
+  // Locking is irreversible, so a half-entered solo event would quietly seed the
+  // wrong groups. Warn rather than block: a team that genuinely sat an event out
+  // would otherwise leave the tournament unlockable.
+  const soloGaps = useMemo(
+    () => soloEventsIncomplete(solo, teams),
+    [solo, teams]
+  );
 
   const groupStandings = useMemo(
     () =>
@@ -293,6 +333,15 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
     groupsLocked &&
     (data?.groupMembers.length ?? 0) > 0 &&
     !(data?.matches ?? []).some((m) => m.stage === "group");
+
+  // A seeded flag with no bracket rows behind it is the same broken shape as
+  // `matchesMissing`: either the insert failed after the flag went through, or a
+  // reset deleted the matches and then couldn't clear the flag. Reading the rows
+  // rather than the flag means that state offers the draw again instead of
+  // rendering an empty bracket.
+  const bracketDrawn =
+    bracketSeeded &&
+    (data?.matches ?? []).some((m) => BRACKET_STAGES.includes(m.stage));
 
   const qualifiers = useMemo(
     () => computeQualifiers(groupStandings, priorityTeamIds),
@@ -402,6 +451,66 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
     if (!failed("reset the tournament", res)) {
       await logAudit(supabase, "delete", `${auditEntity}_tournament`, "1", {
         action: "reset",
+      });
+    }
+    await load();
+    setBusy(false);
+  }
+
+  /**
+   * Delete the playoff bracket and un-seed it, leaving the group stage alone.
+   *
+   * The bracket is the one stage that can be redrawn on its own: its pairings
+   * are random, so a bracket drawn too early — or drawn on a wildcard since
+   * corrected — is fixed by drawing it again, not by resetting the tournament
+   * and replaying nine group matches.
+   *
+   * The qualifiers survive, because they're group-stage outcomes: re-seeding
+   * pairs the same four teams differently. To change *who* is in the bracket,
+   * pick a different wildcard above first — that choice stays editable while a
+   * 2nd-place tie is open — and then draw again.
+   *
+   * Deleting the rows unwinds everything derived from them: the placement
+   * points go with the final and 3rd-place results, and the captains' wagers on
+   * these matches are refunded and voided by the `*_void_wagers` triggers in
+   * supabase/wagers.sql, so nobody is left staked on a match that no longer
+   * exists.
+   */
+  async function resetBracket() {
+    if (
+      !confirm(
+        `Reset the ${name.toLowerCase()} playoff bracket? The semifinals, final and 3rd-place match are deleted along with any results recorded in them, and wagers on those matches are refunded. The group stage and the qualifiers are kept, so you can draw the bracket again.`
+      )
+    )
+      return;
+    setBusy(true);
+    const supabase = createClient();
+    const del = await supabase
+      .from(tables.matches)
+      .delete()
+      .in("stage", BRACKET_STAGES)
+      .select("id");
+    // The flag drops only once the rows are actually gone. The other order
+    // would leave an un-seeded state over a live bracket, and drawing again
+    // would insert a second one alongside it.
+    if (failed("reset the bracket", del)) {
+      setBusy(false);
+      await load();
+      return;
+    }
+
+    const stateRes = await supabase
+      .from(tables.state)
+      .upsert({
+        id: 1,
+        bracket_seeded: false,
+        updated_at: new Date().toISOString(),
+      })
+      .select("id");
+    if (!failed("reset the bracket", stateRes)) {
+      await logAudit(supabase, "delete", `${auditEntity}_tournament`, "1", {
+        action: "reset_bracket",
+        matches: del.data?.length ?? 0,
       });
     }
     await load();
@@ -623,7 +732,7 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
             onClick={resetTournament}
             disabled={busy}
           >
-            <RotateCcw className="w-4 h-4" /> Reset
+            <RotateCcw className="w-4 h-4" /> Reset tournament
           </Button>
         )}
       </div>
@@ -655,6 +764,9 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
           preview={groupPreview}
           heading={config.standingsHeading}
           rule={config.seedingRule}
+          pointsLabel={config.pointsLabel}
+          soloGaps={soloGaps}
+          seedFrom={config.seedFrom}
           onLock={() => setConfirmLock(true)}
           busy={busy}
         />
@@ -793,8 +905,20 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
                     ? "Randomize the four qualifiers, then record results — round wins and placement only, no elimination tally"
                     : "Randomize the four qualifiers, then record results"
                 }
+                action={
+                  bracketDrawn && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={resetBracket}
+                      disabled={busy}
+                    >
+                      <RotateCcw className="w-4 h-4" /> Reset bracket
+                    </Button>
+                  )
+                }
               />
-              {!bracketSeeded ? (
+              {!bracketDrawn ? (
                 <div className="bg-card rounded-2xl border border-border p-6 flex flex-col items-center gap-3">
                   <p className="text-sm text-muted text-center">
                     {four
@@ -860,6 +984,7 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
         rule={config.seedingRule}
         standings={standings}
         assignments={groupPreview}
+        soloGaps={soloGaps}
       />
     </PageTransition>
   );
@@ -873,11 +998,14 @@ function SectionTitle({
   title,
   subtitle,
   accent,
+  action,
 }: {
   step: number;
   title: string;
   subtitle: string;
   accent: keyof typeof ACCENTS;
+  /** Optional control for this stage, aligned to the end of the header row. */
+  action?: ReactNode;
 }) {
   const colors = ACCENTS[accent];
   return (
@@ -893,6 +1021,7 @@ function SectionTitle({
         </h2>
         <p className="text-xs text-muted">{subtitle}</p>
       </div>
+      {action && <div className="ml-auto">{action}</div>}
     </div>
   );
 }
@@ -902,14 +1031,21 @@ function LockGroupsSection({
   preview,
   heading,
   rule,
+  pointsLabel,
+  soloGaps,
+  seedFrom,
   onLock,
   busy,
 }: {
-  standings: TeamStanding[];
+  standings: SeedStanding[];
   /** The group each team would land in. */
   preview: GroupAssignment[];
   heading: string;
   rule: string;
+  pointsLabel: string;
+  /** Solo events still missing results — a warning, never a block. */
+  soloGaps: SoloEventCoverage[];
+  seedFrom: TournamentConfig["seedFrom"];
   onLock: () => void;
   busy: boolean;
 }) {
@@ -924,6 +1060,11 @@ function LockGroupsSection({
           <Lock className="w-4 h-4" /> Lock &amp; generate groups
         </Button>
       </div>
+      {soloGaps.length > 0 && (
+        <div className="border-b border-border bg-warning/[0.07] px-5 py-4">
+          <SoloGapWarning gaps={soloGaps} seedFrom={seedFrom} />
+        </div>
+      )}
       <div className="divide-y divide-border">
         {standings.map((s, i) => (
           <div key={s.team.id} className="flex items-center gap-3 px-5 py-2.5">
@@ -938,11 +1079,54 @@ function LockGroupsSection({
             <span className="text-xs text-muted">
               → Group {preview[i]?.group_label}
             </span>
-            <span className="font-mono text-sm font-bold w-14 text-right">
-              {s.totalPoints} pts
+            <span className="font-mono text-sm font-bold w-20 text-right">
+              {s.totalPoints} {pointsLabel}
             </span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Names the solo events that aren't fully scored yet, because the groups about
+ * to be locked depend on those results and locking can only be undone by
+ * resetting the whole tournament. How much they depend on them differs: a
+ * solo-seeded draw *is* the solo order, while a team-seeded one only carries the
+ * top-3 bonus and the wildcard priority marker.
+ */
+function SoloGapWarning({
+  gaps,
+  seedFrom,
+}: {
+  gaps: SoloEventCoverage[];
+  seedFrom: TournamentConfig["seedFrom"];
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-foreground">
+          {gaps.length} solo{" "}
+          {gaps.length === 1 ? "event isn't" : "events aren't"} fully scored yet
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          {seedFrom === "solo"
+            ? "These groups are seeded straight off the solo results, so entering the missing scores first will change who lands where."
+            : "The solo top-3 bonus and the wildcard priority marker both come out of these results, so entering the missing scores first can change the seeding."}{" "}
+          You can still lock now if a team sat an event out.
+        </p>
+        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          {gaps.map((g) => (
+            <li key={g.slug} className="text-xs text-muted">
+              <span className="font-medium text-foreground">{g.name}</span>{" "}
+              <span className="font-mono">
+                {g.recorded}/{g.expected}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

@@ -72,7 +72,9 @@ export function NavigationProgress() {
       {active && (
         <motion.div
           key="nav-progress"
-          className="fixed top-0 left-0 right-0 z-[60] h-0.5 bg-coral origin-left shadow-[0_0_10px_rgba(233,69,96,0.7)]"
+          // Colour and glow come from `.nav-progress` in globals.css, which
+          // follows whichever site is on screen.
+          className="nav-progress fixed top-0 left-0 right-0 z-[60] h-0.5 origin-left"
           initial={{ scaleX: 0, opacity: 1 }}
           animate={{ scaleX: 0.9 }}
           exit={{ scaleX: 1, opacity: 0 }}

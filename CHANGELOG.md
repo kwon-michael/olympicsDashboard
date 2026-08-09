@@ -4,6 +4,33 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v2.0 — The next one
+
+### A new front door, on the opposite palette
+- `/` is now the front door for the **next** Casualympics. The 2026 site hasn't gone anywhere — it moved one door down to **`/2026`** — and every other URL it had is exactly where it was: `/leaderboard`, `/teams`, `/rules`, `/format`, `/schedule`, `/venue`, `/admin`, `/dashboard`, the lot. Links people shared on the day still work
+- **The palette is the 2026 palette inverted**, and inverted literally: every colour is the exact RGB complement (255 − channel) of the one it replaces. Near-white paper becomes near-black `void`, navy ink becomes `bone`, coral becomes a teal `signal`, gold becomes an electric-blue `beacon`. It's a rule rather than a mood, which is why the two sites can sit next to each other without looking like a theme toggle
+- Inverting flips lightness along with hue, so the old *light* shades come back dark and the *dark* shades come back bright. They're renamed for what they now do (`signal-bright`, `signal-deep`) instead of where they came from
+- These are **additional** tokens, not overrides. The 2026 site keeps asking for `bg-background` / `text-foreground` and renders exactly as it always did; nothing about the new palette can leak into it
+- **The scrollbar follows the theme** — a teal thumb on a near-black track, the same design as the 2026 bar (accent thumb on the site's own chrome) with the palette swapped, instead of a coral stripe left over down the edge of a black page. Scoped in CSS with `:has` off a marker class on the layout, because the viewport's scrollbar belongs to `<html>` and can't be reached from a nested layout; the 2026 bar is untouched. Styled for both the standard `scrollbar-color` path and the older `-webkit-` one
+- The two sites are **route groups** (`(v1)` and `(v2)`) with a layout each, so the chrome belongs to the site instead of to the document. The root layout is now just the `<html>` element, the fonts and the providers both sites share. Route groups don't appear in URLs — this is a structural change with no visible one
+
+### The countdown is now a board that won't tell you
+- The 2026 hero had a clock ticking down to a known date. The next event doesn't have a date yet, and the new home page is built around **not having one** rather than apologising for it
+- A **split-flap board** — the mechanical clatter of an old departure board — shuffles continuously, settles for a couple of seconds on something unhelpful (`SOON`, `NOT YET`, `ANY DAY NOW`, `TBA`), and breaks up again. You can tell an event is coming. You can't tell when
+- Underneath it, a second board is shaped **exactly like a date** — two digits, a three-letter month, a four-digit year — and is given no phrases at all, so it never settles on anything. It's the most specific-looking thing on the page and says the least
+- Both boards are the same component: settling is just what a board does when you give it words, and the date board is the same machine handed an empty list
+- Cells flip on their **own cadence**, so the board rattles unevenly the way a real one does instead of strobing in lockstep. The flip is CSS, replayed by the character changing, so nothing has to keep animation state in sync across a couple of dozen cells
+- **It stops when nobody's looking** — a hidden tab doesn't clatter — and it holds completely still for anyone who's asked for reduced motion, showing a legible phrase rather than a frozen scramble. The flaps are hidden from screen readers, which get one plain sentence: the date hasn't been announced
+- Server-rendered as a still frame of itself, so there's no hydration mismatch and no flash of nothing
+
+### Getting back to 2026
+- A **Still live** widget on the new home page opens the 2026 site — the home page itself plus a direct link to each of its pages, including both tournament boards
+- Inside the 2026 site, the logo and the sign-out redirect now land on `/2026` rather than `/`, so clicking "home" doesn't quietly move you to a different site. Its footer carries a link the other way
+- **The 2026 clock knows it's over.** It had exactly one state past zero — "game day is here" — which it would have gone on announcing forever. There's now an `archived` tier that takes over once game day has run out, retiring the clock and pointing at the final standings instead
+- The countdown's arithmetic moved to `src/lib/countdown.ts` and is covered by tests, including the tier boundaries that used to be untested
+
+---
+
 ## v1.22 — Hiding the leaderboard
 
 ### The playoff bracket can be redrawn on its own

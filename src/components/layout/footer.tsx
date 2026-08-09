@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { RunnerMark } from "@/components/ui/runner-mark";
 
 export function Footer() {
@@ -24,6 +25,15 @@ export function Footer() {
               The digital command center for your community&apos;s greatest
               sporting event. Track scores, join teams, and celebrate together.
             </p>
+            {/* The way out of the archive and back to the front door. `/` is the
+                next Casualympics now; this site is the last one. */}
+            <Link
+              href="/"
+              className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-gold hover:text-gold-light transition-colors"
+            >
+              The next Casualympics
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
 
           {/* Quick Links */}

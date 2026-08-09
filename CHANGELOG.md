@@ -6,6 +6,14 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ## v1.22 — Hiding the leaderboard
 
+### The playoff bracket can be redrawn on its own
+- New **Reset bracket** button on the Playoff Bracket section of the Dodgeball and Tug of War admin screens. It deletes the semifinals, final and 3rd-place match and hands back the **Randomize seeding** button, so a bracket drawn too early — or drawn before a wildcard was corrected — is fixed by drawing it again
+- **The group stage is untouched.** Until now the only way out of a wrong bracket was the full tournament reset, which throws away all nine group matches; this keeps the groups, the results and the qualifiers exactly as they stand. The old reset is still there for starting over, and is now labelled **Reset tournament** to tell the two apart
+- Re-drawing pairs the **same four teams** differently. To change *who* is in the bracket, pick a different wildcard first — a 2nd-place tie stays editable above the bracket — then draw again
+- Everything derived from the deleted matches unwinds with them: the **placement points** disappear along with the final and 3rd-place results, and the captains' **wagers** on those matches are refunded and voided, so nobody is left staked on a match that no longer exists. The confirm spells all of that out before anything is deleted
+- The matches are deleted **before** the seeded flag drops, so a failure part-way can't leave an un-seeded tournament sitting on a live bracket that a second draw would duplicate. And a seeded flag with no bracket rows behind it is now read as un-seeded — the same repairable shape as the "groups locked but no matches" case — so it offers the draw again instead of rendering an empty bracket
+- No schema change: `supabase/wagers.sql` already voids a match's wagers when the row is deleted
+
 ### Tug of War is drawn from the solo board
 - The Tug of War groups are now seeded off the **solo leaderboard** rather than the team board. It's the first team event, so there is nothing else to seed on, and the solo results are what earned the seeding — the draw is a function of the solo scores alone, and nothing scored in a team event can move it
 - Dodgeball is unchanged and still seeds off the **team** board. Which board a tournament draws from is now an explicit `seedFrom` setting rather than an assumption, and the seeding logic works off the minimum a board has to carry (`SeedStanding`), so both fit the same engine

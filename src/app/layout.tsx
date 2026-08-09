@@ -4,9 +4,22 @@ import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { RealtimeProvider } from "@/components/providers/realtime-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
 import { NavigationProgress } from "@/components/layout/navigation-progress";
+
+// ============================================
+// Root layout — the document, and nothing else
+// ============================================
+// Two sites live in this app and they don't look anything alike:
+//
+//   (v1)  the 2026 Casualympics — the light site, its navy chrome, and every
+//         page that ran the event. Its URLs are unchanged; only its home page
+//         moved, to /2026.
+//   (v2)  the next Casualympics — the new front door at /, on the inverted
+//         palette (see globals.css).
+//
+// So the chrome belongs to each site's own layout, not here. This file owns the
+// things a *document* has exactly one of: the html/body element, the fonts, and
+// the providers (auth, realtime, query cache) that both sites share.
 
 const oswald = Oswald({
   variable: "--font-display",
@@ -27,7 +40,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Casualympics™ | Digital Command Center",
+  title: "Casualympics™",
   description:
     "The single hub for organizing, tracking, and celebrating your community-run Casualympics™ event.",
   keywords: ["casualympics", "community", "sports", "leaderboard"],
@@ -48,11 +61,7 @@ export default function RootLayout({
           <AuthProvider>
             <RealtimeProvider>
               <NavigationProgress />
-              <div className="flex flex-col min-h-screen">
-                <Navbar />
-                <main className="flex-1">{children}</main>
-                <Footer />
-              </div>
+              {children}
             </RealtimeProvider>
           </AuthProvider>
         </QueryProvider>

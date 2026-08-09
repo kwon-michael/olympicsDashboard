@@ -1,30 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  ALL_UNITS,
+  EVENT_TIME,
+  SECOND,
+  split,
+  spokenRemaining,
+  tierFor,
+  type Tier,
+  type UnitKey,
+} from "@/lib/countdown";
 
-/** The opening ceremony — the moment everything on this page counts down to. */
-export const EVENT_TIME = new Date("2026-08-08T10:00:00").getTime();
-
-const SECOND = 1_000;
-const MINUTE = 60 * SECOND;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
-
-/**
- * How close the event is, and therefore how loud the clock gets. The tiers are
- * deliberately coarse: the point is that the page looks *different* the week of
- * — a visitor should feel the change without reading a number — rather than
- * creeping up by an imperceptible amount every hour.
- *
- * Each step up drops the leading unit as it empties, so the numbers on screen
- * are always the ones that still matter. On the morning itself the clock is
- * minutes and seconds, at the size the days used to be.
- */
-type Tier = "far" | "week" | "day" | "hour" | "live";
-
-type UnitKey = "days" | "hours" | "minutes" | "seconds";
+// The arithmetic — how far off the event is and which tier that puts us in —
+// lives in src/lib/countdown.ts, where it can be tested without a DOM. This
+// file is the look of it: how loud each tier gets, and what the clock does when
+// there's nothing left to count.
+//
+// Each step up drops the leading unit as it empties, so the numbers on screen
+// are always the ones that still matter. On the morning itself the clock is
+// minutes and seconds, at the size the days used to be.
 
 interface TierStyle {
   /** Digits, border and glow all take this colour. */
@@ -43,9 +42,9 @@ const WHITE = "#FFFFFF";
 const GOLD = "var(--color-gold)";
 const CORAL = "var(--color-coral)";
 
-const ALL_UNITS: UnitKey[] = ["days", "hours", "minutes", "seconds"];
-
-const TIERS: Record<Exclude<Tier, "live">, TierStyle> = {
+// Only the tiers that render a clock. "live" and "archived" have nothing to
+// count, and say so in their own words.
+const TIERS: Record<Exclude<Tier, "live" | "archived">, TierStyle> = {
   far: {
     accent: WHITE,
     headline: () => "Save the date",
@@ -84,16 +83,9 @@ const UNIT_LABELS: Record<UnitKey, string> = {
   seconds: "Sec",
 };
 
-function tierFor(remaining: number): Tier {
-  if (remaining <= 0) return "live";
-  if (remaining <= HOUR) return "hour";
-  if (remaining <= DAY) return "day";
-  if (remaining <= 7 * DAY) return "week";
-  return "far";
-}
-
 /**
- * Milliseconds until the ceremony, or null before the first client tick.
+ * Milliseconds until the ceremony — negative once it's behind us — or null
+ * before the first client tick.
  *
  * Null rather than a guess: the server has no business rendering a clock, and
  * anything it *did* render would either mismatch on hydration or — since the
@@ -105,30 +97,16 @@ function useRemaining(): number | null {
   const [remaining, setRemaining] = useState<number | null>(null);
 
   useEffect(() => {
-    const tick = () => setRemaining(Math.max(0, EVENT_TIME - Date.now()));
+    // Unclamped: how far *past* the ceremony we are is what separates the day
+    // itself from the archive. Nothing downstream splits a negative into
+    // days/hours — the two past tiers both return before that point.
+    const tick = () => setRemaining(EVENT_TIME - Date.now());
     tick();
     const id = setInterval(tick, SECOND);
     return () => clearInterval(id);
   }, []);
 
   return remaining;
-}
-
-function split(remaining: number): Record<UnitKey, number> {
-  return {
-    days: Math.floor(remaining / DAY),
-    hours: Math.floor((remaining % DAY) / HOUR),
-    minutes: Math.floor((remaining % HOUR) / MINUTE),
-    seconds: Math.floor((remaining % MINUTE) / SECOND),
-  };
-}
-
-/** "3 days", "4 hours", "12 minutes" — the coarse version, for screen readers. */
-function spokenRemaining(parts: Record<UnitKey, number>): string {
-  const lead = ALL_UNITS.find((u) => parts[u] > 0) ?? "seconds";
-  const n = parts[lead];
-  const noun = lead === "minutes" ? "minute" : lead.replace(/s$/, "");
-  return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
 /**
@@ -149,6 +127,7 @@ export function Countdown() {
   const reduceMotion = useReducedMotion();
 
   const tier = remaining == null ? "far" : tierFor(remaining);
+  if (tier === "archived") return <Archived />;
   if (tier === "live") return <GameDay reduceMotion={Boolean(reduceMotion)} />;
 
   const style = TIERS[tier];
@@ -281,6 +260,39 @@ function Digit({
       <p className="mt-1.5 text-[9px] tracking-widest text-white/40 uppercase sm:text-[10px]">
         {label}
       </p>
+    </div>
+  );
+}
+
+/**
+ * The event is behind us. There is nothing left to count, so the clock stands
+ * down and points at the thing people actually come back for — the final
+ * standings. The countdown to the *next* Casualympics lives on the new front
+ * door at `/`, and is deliberately not a clock at all (see
+ * components/v2/split-flap.tsx).
+ */
+function Archived() {
+  const eventDate = new Date(EVENT_TIME).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  return (
+    <div className="inline-flex flex-col items-center gap-3">
+      <p className="text-[11px] font-bold tracking-[0.25em] text-white/40 uppercase sm:text-xs">
+        {eventDate}
+      </p>
+      <p className="font-display text-2xl font-bold tracking-tight text-gold uppercase sm:text-4xl">
+        That&apos;s a wrap
+      </p>
+      <Link
+        href="/leaderboard"
+        className="mt-1 inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+      >
+        Final standings
+        <ArrowRight className="h-4 w-4" />
+      </Link>
     </div>
   );
 }

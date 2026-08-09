@@ -401,3 +401,44 @@ describe("computeStandings — tournament points", () => {
     expect(row(s, a).tug).toBeNull();
   });
 });
+
+// The Tug of War draw is taken from `solo`, not `teams` — see the `seedFrom`
+// config in components/admin/tournament-admin.tsx. These pin the property that
+// choice buys: the draw is a function of the solo results alone, so nothing
+// scored in a team event can move it.
+describe("seeding source — solo board vs team board", () => {
+  const soloOrder = soloValues([
+    [a, 500],
+    [b, 400],
+    [c, 300],
+    [d, 200],
+  ]);
+
+  it("orders the solo board by solo points regardless of team-event points", () => {
+    // D wins a team event outright, jumping it to the top of the team board.
+    const scores = [score({ team_id: d.id, points: 20 })];
+    const s = computeStandings(teams, scores, soloOrder, []);
+
+    expect(s.solo.map((r) => r.team.name)).toEqual(["A", "B", "C", "D"]);
+    expect(s.teams[0].team.name).toBe("D");
+  });
+
+  it("keeps the solo board fixed once tournament results land", () => {
+    const won = match({
+      team_a: d.id,
+      team_b: a.id,
+      score_a: 2,
+      score_b: 0,
+      winner_id: d.id,
+    });
+    const withTug = computeStandings(teams, [], soloOrder, [], { tug: [won] });
+    expect(withTug.solo.map((r) => r.team.name)).toEqual(["A", "B", "C", "D"]);
+  });
+
+  it("agrees with the team board while solo points are the only points", () => {
+    const s = computeStandings(teams, [], soloOrder, []);
+    expect(s.teams.map((r) => r.team.name)).toEqual(
+      s.solo.map((r) => r.team.name)
+    );
+  });
+});

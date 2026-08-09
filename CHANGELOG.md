@@ -4,7 +4,57 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
+## v2.0 — The next one
+
+### A new front door, on the opposite palette
+- `/` is now the front door for the **next** Casualympics. The 2026 site hasn't gone anywhere — it moved one door down to **`/2026`** — and every other URL it had is exactly where it was: `/leaderboard`, `/teams`, `/rules`, `/format`, `/schedule`, `/venue`, `/admin`, `/dashboard`, the lot. Links people shared on the day still work
+- **The palette is the 2026 palette inverted**, and inverted literally: every colour is the exact RGB complement (255 − channel) of the one it replaces. Near-white paper becomes near-black `void`, navy ink becomes `bone`, coral becomes a teal `signal`, gold becomes an electric-blue `beacon`. It's a rule rather than a mood, which is why the two sites can sit next to each other without looking like a theme toggle
+- Inverting flips lightness along with hue, so the old *light* shades come back dark and the *dark* shades come back bright. They're renamed for what they now do (`signal-bright`, `signal-deep`) instead of where they came from
+- These are **additional** tokens, not overrides. The 2026 site keeps asking for `bg-background` / `text-foreground` and renders exactly as it always did; nothing about the new palette can leak into it
+- **The scrollbar follows the theme** — a teal thumb on a near-black track, the same design as the 2026 bar (accent thumb on the site's own chrome) with the palette swapped, instead of a coral stripe left over down the edge of a black page. Scoped in CSS with `:has` off a marker class on the layout, because the viewport's scrollbar belongs to `<html>` and can't be reached from a nested layout; the 2026 bar is untouched. Styled for both the standard `scrollbar-color` path and the older `-webkit-` one
+- The two sites are **route groups** (`(v1)` and `(v2)`) with a layout each, so the chrome belongs to the site instead of to the document. The root layout is now just the `<html>` element, the fonts and the providers both sites share. Route groups don't appear in URLs — this is a structural change with no visible one
+
+### The countdown is now a board that won't tell you
+- The 2026 hero had a clock ticking down to a known date. The next event doesn't have a date yet, and the new home page is built around **not having one** rather than apologising for it
+- A **split-flap board** — the mechanical clatter of an old departure board — shuffles continuously, settles for a couple of seconds on something unhelpful (`SOON`, `NOT YET`, `ANY DAY NOW`, `TBA`), and breaks up again. You can tell an event is coming. You can't tell when
+- Underneath it, a second board is shaped **exactly like a date** — two digits, a three-letter month, a four-digit year — and is given no phrases at all, so it never settles on anything. It's the most specific-looking thing on the page and says the least
+- Both boards are the same component: settling is just what a board does when you give it words, and the date board is the same machine handed an empty list
+- Cells flip on their **own cadence**, so the board rattles unevenly the way a real one does instead of strobing in lockstep. The flip is CSS, replayed by the character changing, so nothing has to keep animation state in sync across a couple of dozen cells
+- **It stops when nobody's looking** — a hidden tab doesn't clatter — and it holds completely still for anyone who's asked for reduced motion, showing a legible phrase rather than a frozen scramble. The flaps are hidden from screen readers, which get one plain sentence: the date hasn't been announced
+- Server-rendered as a still frame of itself, so there's no hydration mismatch and no flash of nothing
+
+### Getting back to 2026
+- A **Still live** widget on the new home page opens the 2026 site — the home page itself plus a direct link to each of its pages, including both tournament boards
+- Inside the 2026 site, the logo and the sign-out redirect now land on `/2026` rather than `/`, so clicking "home" doesn't quietly move you to a different site. Its footer carries a link the other way
+- **The 2026 clock knows it's over.** It had exactly one state past zero — "game day is here" — which it would have gone on announcing forever. There's now an `archived` tier that takes over once game day has run out, retiring the clock and pointing at the final standings instead
+- The countdown's arithmetic moved to `src/lib/countdown.ts` and is covered by tests, including the tier boundaries that used to be untested
+
+---
+
 ## v1.22 — Hiding the leaderboard
+
+### The playoff bracket can be redrawn on its own
+- New **Reset bracket** button on the Playoff Bracket section of the Dodgeball and Tug of War admin screens. It deletes the semifinals, final and 3rd-place match and hands back the **Randomize seeding** button, so a bracket drawn too early — or drawn before a wildcard was corrected — is fixed by drawing it again
+- **The group stage is untouched.** Until now the only way out of a wrong bracket was the full tournament reset, which throws away all nine group matches; this keeps the groups, the results and the qualifiers exactly as they stand. The old reset is still there for starting over, and is now labelled **Reset tournament** to tell the two apart
+- Re-drawing pairs the **same four teams** differently. To change *who* is in the bracket, pick a different wildcard first — a 2nd-place tie stays editable above the bracket — then draw again
+- Everything derived from the deleted matches unwinds with them: the **placement points** disappear along with the final and 3rd-place results, and the captains' **wagers** on those matches are refunded and voided, so nobody is left staked on a match that no longer exists. The confirm spells all of that out before anything is deleted
+- The matches are deleted **before** the seeded flag drops, so a failure part-way can't leave an un-seeded tournament sitting on a live bracket that a second draw would duplicate. And a seeded flag with no bracket rows behind it is now read as un-seeded — the same repairable shape as the "groups locked but no matches" case — so it offers the draw again instead of rendering an empty bracket
+- No schema change: `supabase/wagers.sql` already voids a match's wagers when the row is deleted
+
+### Tug of War is drawn from the solo board
+- The Tug of War groups are now seeded off the **solo leaderboard** rather than the team board. It's the first team event, so there is nothing else to seed on, and the solo results are what earned the seeding — the draw is a function of the solo scores alone, and nothing scored in a team event can move it
+- Dodgeball is unchanged and still seeds off the **team** board. Which board a tournament draws from is now an explicit `seedFrom` setting rather than an assumption, and the seeding logic works off the minimum a board has to carry (`SeedStanding`), so both fit the same engine
+- Tug of War takes the **settled** solo order, tiebreaks applied, so a played-off tie decides the draw the same way it decides the top-3 bonus
+- **Locking now warns about half-scored solo events.** Locking is irreversible, so an event with results still to enter would quietly seed the wrong groups. The admin panel and the lock dialog both name the events that aren't fully scored, and the warning says what's at stake — for Tug of War the groups *are* the solo order, while for Dodgeball it's the top-3 bonus and the wildcard priority marker
+- It stays a warning, never a block: a team that genuinely sat an event out would leave it listed as incomplete forever
+
+### The attendance sweep now cuts both ways
+- Being late or absent costs a team **−1 point** per player, down from −2
+- New **full-team bonus**: a team whose players all made the cutoff earns **+1**. Awarded once to the team rather than per player, so a big roster isn't worth more than a small one — it's a flat reward for the same achievement
+- The carrot and the stick are **one operation**: decided off the same cutoff, applied by the same button, and undone together by **Remove all**, so the two can't end up reflecting different ideas about who was on time
+- Both passes are defined in terms of a single "on time" test, so they can never disagree about the same player — the bonus is exactly *"nobody on this team was charged"*, true by construction. An unreadable arrival stamp still counts as on time, failing in the player's favour
+- A team that already had someone charged by an earlier sweep can't qualify for the bonus now just because that player is skipped this time round; re-running remains safe in both directions, and an empty team earns nothing
+- The panel shows the two sides side by side with a running **net points** figure, and the confirm line spells out both before anything is written
 
 ### The standings can be taken off the public site
 - New **Public leaderboard** switch on the admin dashboard. Hidden, `/leaderboard` shows a *"the leaderboard is hidden"* message in place of every tab, and the team pages drop their point totals — so the finish can be a reveal instead of a running commentary

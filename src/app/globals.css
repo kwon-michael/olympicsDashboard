@@ -30,6 +30,41 @@
   --color-danger: #EF4444;
   --color-celebration: #A855F7;
 
+  /* ------------------------------------------------------------------
+     The next Casualympics — the inverted palette
+     ------------------------------------------------------------------
+     The 2026 site above is a light site: near-white paper, navy ink, coral
+     and gold. The next one is its opposite, and "opposite" here is a rule
+     rather than a mood — every colour below is the exact RGB complement
+     (255 − channel) of the 2026 colour it replaces:
+
+       #FAFAFA paper   → #050505 void        (the page)
+       #16213E navy    → #E9DEC1 bone        (the ink)
+       #64748B muted   → #9B8B74 dust
+       #E2E8F0 border  → #1D1710 hairline
+       #FFFFFF card    → #000000 panel
+       #E94560 coral   → #16BA9F signal      (the primary accent)
+       #F5A623 gold    → #0A59DC beacon      (the secondary accent)
+
+     Inverting flips light and dark along with the hue, so the *-light shades
+     come back darker and the *-dark shades come back brighter — hence
+     `signal-bright` (from coral-dark) and `signal-deep` (from coral-light).
+     They're named for what they now do, not for where they came from.
+
+     These are additional tokens, not overrides: the 2026 site keeps using
+     `bg-background` / `text-foreground` and is untouched by anything here.
+     A v2 surface asks for `bg-void`, `text-bone`, `border-hairline`. */
+  --color-void: #050505;
+  --color-bone: #E9DEC1;
+  --color-dust: #9B8B74;
+  --color-hairline: #1D1710;
+  --color-panel: #000000;
+  --color-signal: #16BA9F;
+  --color-signal-bright: #38C5AD;
+  --color-signal-deep: #00947E;
+  --color-beacon: #0A59DC;
+  --color-beacon-bright: #2B6FF1;
+
   /* Fonts */
   --font-display: "Oswald", "Barlow Condensed", sans-serif;
   --font-body: "Plus Jakarta Sans", "Outfit", sans-serif;
@@ -67,7 +102,7 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: 0.02em;
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling — the 2026 site: accent thumb on the site's own chrome. */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -79,6 +114,74 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-thumb {
   background: var(--color-coral);
   border-radius: 4px;
+}
+
+/* ----------------------------------------------------------------------------
+   Scrollbar — the next site
+   ----------------------------------------------------------------------------
+   Same idea as above, opposite palette: the track is the site's own chrome
+   (near-black) and the thumb is the primary accent, which on this side of the
+   inversion is the teal signal rather than coral. A coral bar down the edge of
+   a black page was the last thing left over from the 2026 theme.
+
+   Scoped with `:has` — the marker class is on the (v2) layout's root element
+   (see app/(v2)/layout.tsx), and the two sites are never on screen at once, so
+   the document either contains it or doesn't. Pure CSS, no theme state to
+   thread through React and nothing to flash on first paint. `html:has(...)`
+   already styles the modal freeze further down, so this is the file's own idiom.
+
+   Both selector forms are needed, and the difference is easy to miss: the
+   *descendant* form styles scrollbars on elements inside the page, while the
+   viewport's own scrollbar belongs to `html`, which is not a descendant of
+   itself — that one needs the form with no space.
+
+   Belt and braces across engines, too. `scrollbar-color` is the standard
+   property (Firefox, and Chrome 121+, where it takes precedence and the
+   -webkit- rules are ignored entirely); the -webkit- rules carry older Safari
+   and Chrome. The colours are the same either way, so the only thing that
+   varies between the two paths is a couple of pixels of width and the corner
+   radius. */
+html:has(.theme-next) {
+  scrollbar-color: var(--color-signal) var(--color-panel);
+  scrollbar-width: thin;
+}
+
+html:has(.theme-next)::-webkit-scrollbar-track,
+html:has(.theme-next) ::-webkit-scrollbar-track {
+  background: var(--color-panel);
+}
+
+html:has(.theme-next)::-webkit-scrollbar-thumb,
+html:has(.theme-next) ::-webkit-scrollbar-thumb {
+  background: var(--color-signal);
+  border-radius: 4px;
+}
+
+html:has(.theme-next)::-webkit-scrollbar-thumb:hover,
+html:has(.theme-next) ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-signal-bright);
+}
+
+/* ----------------------------------------------------------------------------
+   Navigation progress bar (see components/layout/navigation-progress.tsx)
+   ----------------------------------------------------------------------------
+   The bar is rendered by the root layout, above both sites, so it can't take
+   its colour from either one's classes — it takes it from the document instead,
+   the same way the scrollbar above does. One variable carries the whole look:
+   the glow is mixed from it rather than being a second hard-coded rgb, so a
+   theme only has to name a colour.
+
+   While a navigation is in flight the bar shows the colour of the site you're
+   *leaving*, since the incoming layout hasn't committed yet. That's the right
+   way round — the bar belongs to the page that's still on screen. */
+.nav-progress {
+  --progress-color: var(--color-coral);
+  background: var(--progress-color);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--progress-color) 70%, transparent);
+}
+
+html:has(.theme-next) .nav-progress {
+  --progress-color: var(--color-signal);
 }
 
 /* Hide the scrollbar on horizontally scrollable strips (tab bars, chip rows)
@@ -153,6 +256,68 @@ h1, h2, h3, h4, h5, h6 {
 html:has(.app-modal[open]) {
   overflow: hidden;
   scrollbar-gutter: stable;
+}
+
+/* ----------------------------------------------------------------------------
+   Split-flap board (see components/v2/split-flap.tsx)
+   ----------------------------------------------------------------------------
+   One cell of a mechanical departure board. The look is three things: a panel
+   split into a slightly lighter top half and a darker bottom half, a hard seam
+   across the middle where the two flaps meet, and a character that pivots about
+   that seam as it lands.
+
+   The flip is CSS rather than JS because it has to restart on every character
+   change, several times a second across a couple of dozen cells. The component
+   remounts the character element (React `key`), which replays the animation
+   from the top — no timers, no animation state to keep in sync. The global
+   reduced-motion rule below collapses the duration, and the component stops
+   changing characters at all in that case, so the board simply holds still. */
+.flap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.3rem;
+  background: linear-gradient(
+    180deg,
+    #17171a 0 calc(50% - 1px),
+    #0b0b0d calc(50% + 1px) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px rgb(233 222 193 / 0.07),
+    0 1px 2px rgb(0 0 0 / 0.6);
+  perspective: 260px;
+}
+
+/* The seam. Sits above the character so the pivot reads as two flaps meeting
+   rather than one glyph rotating. */
+.flap::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-1px);
+  background: #050505;
+  z-index: 2;
+}
+
+.flap-char {
+  display: block;
+  transform-origin: 50% 50%;
+  animation: flap-drop 150ms cubic-bezier(0.2, 0.75, 0.3, 1);
+}
+
+@keyframes flap-drop {
+  0% {
+    transform: rotateX(-85deg);
+    opacity: 0.3;
+  }
+  60% {
+    transform: rotateX(9deg);
+  }
+  100% {
+    transform: rotateX(0deg);
+    opacity: 1;
+  }
 }
 
 /* Confetti burst keyframes */

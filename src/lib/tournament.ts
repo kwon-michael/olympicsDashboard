@@ -1,11 +1,14 @@
 // ============================================
 // Tournament engine — shared group-stage + playoff-bracket logic
 // ============================================
-// Both the Tug of War and Dodgeball tournaments are the same shape: the current
-// team standings are snapshotted into three groups of three, each group plays a
+// Both the Tug of War and Dodgeball tournaments are the same shape: a
+// leaderboard is snapshotted into three groups of three, each group plays a
 // round robin (best-of-3, round wins tracked), and the three group winners plus
 // the best 2nd-place team advance to a randomized 4-team bracket (semis -> final
-// + 3rd-place match).
+// + 3rd-place match). Which leaderboard is the tournament's own choice — Tug of
+// War draws from the solo board, Dodgeball from the team board (see
+// `SeedStanding` and the `seedFrom` config in
+// components/admin/tournament-admin.tsx).
 //
 // This module holds the pure, table-agnostic logic. Each tournament wraps it
 // with its own table names (via `fetchTournamentData`) and its own group-seeding
@@ -14,7 +17,6 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RosterTeam } from "@/lib/types";
-import type { TeamStanding } from "@/lib/roster";
 
 export const GROUP_LABELS = ["A", "B", "C"] as const;
 export type GroupLabel = (typeof GROUP_LABELS)[number];
@@ -98,12 +100,27 @@ export interface GroupAssignment {
 }
 
 /**
+ * The least a board has to carry to be seeded from: an ordered list of teams
+ * with a point total to show. Both `TeamStanding` (the team leaderboard) and
+ * `SoloTeamStanding` (the solo points leaderboard) satisfy it, which is what
+ * lets Tug of War seed off the solo board while Dodgeball seeds off the team
+ * board — see the `seedFrom` config in components/admin/tournament-admin.tsx.
+ *
+ * Seeding reads the array order, never `rank`, so the caller is responsible for
+ * handing these over already sorted best-first.
+ */
+export interface SeedStanding {
+  team: RosterTeam;
+  totalPoints: number;
+}
+
+/**
  * Interleaved seeding: positions 1,4,7 -> A ; 2,5,8 -> B ; 3,6,9 -> C. Uses the
  * array order (not the shared-rank field) so all nine teams get a distinct seed
  * even on point ties. Used by Tug of War.
  */
 export function assignGroupsInterleaved(
-  standings: TeamStanding[]
+  standings: SeedStanding[]
 ): GroupAssignment[] {
   return standings.map((s, i) => ({
     team_id: s.team.id,
@@ -117,7 +134,7 @@ export function assignGroupsInterleaved(
  * alternate direction (A,B,C then C,B,A then A,B,C…), balancing the strongest
  * and weakest teams across groups. Used by Dodgeball.
  */
-export function assignGroupsSnake(standings: TeamStanding[]): GroupAssignment[] {
+export function assignGroupsSnake(standings: SeedStanding[]): GroupAssignment[] {
   const n = GROUP_LABELS.length;
   return standings.map((s, i) => {
     const row = Math.floor(i / n);

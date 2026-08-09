@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -41,6 +42,7 @@ import {
   type TournamentTables,
   type TournamentData,
   type TournamentMatch,
+  type TournamentStage,
   type GroupAssignment,
   type Qualifiers,
   type GroupTeamStanding,
@@ -72,6 +74,9 @@ import type { RosterTeam, SoloResult } from "@/lib/types";
 // been applied.
 
 const EPOCH = "1970-01-01";
+
+/** Everything past the group stage — the rows a bracket reset clears. */
+const BRACKET_STAGES: TournamentStage[] = ["semi", "final", "third"];
 
 /** Kept as whole class names so Tailwind can see them. */
 const ACCENTS = {
@@ -329,6 +334,15 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
     (data?.groupMembers.length ?? 0) > 0 &&
     !(data?.matches ?? []).some((m) => m.stage === "group");
 
+  // A seeded flag with no bracket rows behind it is the same broken shape as
+  // `matchesMissing`: either the insert failed after the flag went through, or a
+  // reset deleted the matches and then couldn't clear the flag. Reading the rows
+  // rather than the flag means that state offers the draw again instead of
+  // rendering an empty bracket.
+  const bracketDrawn =
+    bracketSeeded &&
+    (data?.matches ?? []).some((m) => BRACKET_STAGES.includes(m.stage));
+
   const qualifiers = useMemo(
     () => computeQualifiers(groupStandings, priorityTeamIds),
     [groupStandings, priorityTeamIds]
@@ -437,6 +451,66 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
     if (!failed("reset the tournament", res)) {
       await logAudit(supabase, "delete", `${auditEntity}_tournament`, "1", {
         action: "reset",
+      });
+    }
+    await load();
+    setBusy(false);
+  }
+
+  /**
+   * Delete the playoff bracket and un-seed it, leaving the group stage alone.
+   *
+   * The bracket is the one stage that can be redrawn on its own: its pairings
+   * are random, so a bracket drawn too early — or drawn on a wildcard since
+   * corrected — is fixed by drawing it again, not by resetting the tournament
+   * and replaying nine group matches.
+   *
+   * The qualifiers survive, because they're group-stage outcomes: re-seeding
+   * pairs the same four teams differently. To change *who* is in the bracket,
+   * pick a different wildcard above first — that choice stays editable while a
+   * 2nd-place tie is open — and then draw again.
+   *
+   * Deleting the rows unwinds everything derived from them: the placement
+   * points go with the final and 3rd-place results, and the captains' wagers on
+   * these matches are refunded and voided by the `*_void_wagers` triggers in
+   * supabase/wagers.sql, so nobody is left staked on a match that no longer
+   * exists.
+   */
+  async function resetBracket() {
+    if (
+      !confirm(
+        `Reset the ${name.toLowerCase()} playoff bracket? The semifinals, final and 3rd-place match are deleted along with any results recorded in them, and wagers on those matches are refunded. The group stage and the qualifiers are kept, so you can draw the bracket again.`
+      )
+    )
+      return;
+    setBusy(true);
+    const supabase = createClient();
+    const del = await supabase
+      .from(tables.matches)
+      .delete()
+      .in("stage", BRACKET_STAGES)
+      .select("id");
+    // The flag drops only once the rows are actually gone. The other order
+    // would leave an un-seeded state over a live bracket, and drawing again
+    // would insert a second one alongside it.
+    if (failed("reset the bracket", del)) {
+      setBusy(false);
+      await load();
+      return;
+    }
+
+    const stateRes = await supabase
+      .from(tables.state)
+      .upsert({
+        id: 1,
+        bracket_seeded: false,
+        updated_at: new Date().toISOString(),
+      })
+      .select("id");
+    if (!failed("reset the bracket", stateRes)) {
+      await logAudit(supabase, "delete", `${auditEntity}_tournament`, "1", {
+        action: "reset_bracket",
+        matches: del.data?.length ?? 0,
       });
     }
     await load();
@@ -658,7 +732,7 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
             onClick={resetTournament}
             disabled={busy}
           >
-            <RotateCcw className="w-4 h-4" /> Reset
+            <RotateCcw className="w-4 h-4" /> Reset tournament
           </Button>
         )}
       </div>
@@ -831,8 +905,20 @@ export function TournamentAdmin({ id }: { id: TournamentId }) {
                     ? "Randomize the four qualifiers, then record results — round wins and placement only, no elimination tally"
                     : "Randomize the four qualifiers, then record results"
                 }
+                action={
+                  bracketDrawn && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={resetBracket}
+                      disabled={busy}
+                    >
+                      <RotateCcw className="w-4 h-4" /> Reset bracket
+                    </Button>
+                  )
+                }
               />
-              {!bracketSeeded ? (
+              {!bracketDrawn ? (
                 <div className="bg-card rounded-2xl border border-border p-6 flex flex-col items-center gap-3">
                   <p className="text-sm text-muted text-center">
                     {four
@@ -912,11 +998,14 @@ function SectionTitle({
   title,
   subtitle,
   accent,
+  action,
 }: {
   step: number;
   title: string;
   subtitle: string;
   accent: keyof typeof ACCENTS;
+  /** Optional control for this stage, aligned to the end of the header row. */
+  action?: ReactNode;
 }) {
   const colors = ACCENTS[accent];
   return (
@@ -932,6 +1021,7 @@ function SectionTitle({
         </h2>
         <p className="text-xs text-muted">{subtitle}</p>
       </div>
+      {action && <div className="ml-auto">{action}</div>}
     </div>
   );
 }

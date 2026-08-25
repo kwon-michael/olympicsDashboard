@@ -10,8 +10,8 @@
 // under way and the event being over, and the page had no way to say the second
 // one: once the clock ran out it declared "game day is here" and went on
 // declaring it, indefinitely. `archived` is where a finished Casualympics ends
-// up. The countdown to the *next* one lives on the new front door and is
-// deliberately not a clock at all — see components/v2/split-flap.tsx.
+// up. The *next* one is announced on the new front door as a date on a board
+// rather than as a clock counting down — see components/v2/date-slots.tsx.
 
 /** The 2026 opening ceremony — the moment the hero clock counts down to. */
 export const EVENT_TIME = new Date("2026-08-08T10:00:00").getTime();

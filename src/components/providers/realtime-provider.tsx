@@ -56,11 +56,26 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       )
       .subscribe();
 
+    // The shared gallery. A photo taken on court should appear on everyone
+    // else's phone without them reloading anything — that's most of the point
+    // of putting it on the site rather than in a group chat.
+    const photosChannel = supabase
+      .channel("event-photos")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "event_photos" },
+        () => {
+          window.dispatchEvent(new CustomEvent("photos-updated"));
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(scoresChannel);
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(scheduleChannel);
       supabase.removeChannel(settingsChannel);
+      supabase.removeChannel(photosChannel);
     };
   }, []);
 

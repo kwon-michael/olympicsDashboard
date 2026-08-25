@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
+  Camera,
   Trophy,
   Users,
   Info,
@@ -33,6 +34,7 @@ const publicLinks = [
   { href: "/format", label: "Format", icon: Info },
   { href: "/schedule", label: "Schedule", icon: Clock },
   { href: "/venue", label: "Venue", icon: MapPin },
+  { href: "/photos", label: "Photos", icon: Camera },
 ];
 
 export function Navbar() {

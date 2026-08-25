@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
-import { Oswald, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import {
+  Oswald,
+  Plus_Jakarta_Sans,
+  JetBrains_Mono,
+  Press_Start_2P,
+} from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { RealtimeProvider } from "@/components/providers/realtime-provider";
@@ -39,6 +44,22 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+// The next Casualympics is a gaming event, and its front door is an arcade
+// cabinet (see app/(v2)). Press Start 2P is the bitmap face that look is built
+// out of: one weight, every glyph on a square grid, no curves anywhere. It is
+// loaded here because fonts belong to the document, but nothing on the 2026
+// site asks for it — Next only serves it to routes that use `font-pixel`.
+//
+// It is a *display* face and the arcade pages treat it as one: headings,
+// labels, buttons and score-board copy. Anything longer than a line stays in
+// the mono face, which reads as a terminal next to it and stays legible.
+const pressStart = Press_Start_2P({
+  variable: "--font-pixel",
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Casualympics™",
   description:
@@ -54,7 +75,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${oswald.variable} ${plusJakarta.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${oswald.variable} ${plusJakarta.variable} ${jetbrainsMono.variable} ${pressStart.variable} antialiased`}
         suppressHydrationWarning
       >
         <QueryProvider>

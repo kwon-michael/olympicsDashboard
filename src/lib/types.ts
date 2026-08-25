@@ -85,6 +85,27 @@ export interface AppSettings {
   updated_by: string | null;
 }
 
+// ---- Event photos (the shared gallery) ----
+// A record of a photo; the bytes live in Supabase Storage and `path` /
+// `thumb_path` point at them. See supabase/photos.sql and src/lib/photos.ts.
+export interface EventPhoto {
+  id: string;
+  /** Storage key of the display rendition (longest edge 1600px). */
+  path: string;
+  /** Storage key of the grid thumbnail (longest edge 480px). */
+  thumb_path: string;
+  /** Display rendition size, so the grid can reserve space before it loads. */
+  width: number;
+  height: number;
+  caption: string | null;
+  uploaded_by: string | null;
+  /** Snapshot of the uploader's name, so the credit survives the account. */
+  uploader_name: string | null;
+  /** Identity in an imported Google Photos album; null for site uploads. */
+  source_id: string | null;
+  created_at: string;
+}
+
 // ---- Arrival check-in (registration desk) ----
 // A row exists only for players who have arrived; checking someone back out
 // deletes it. See supabase/checkins.sql.
@@ -377,6 +398,11 @@ export interface Database {
         Row: AppSettings;
         Insert: Partial<AppSettings> & { id: number };
         Update: Partial<Omit<AppSettings, "id">>;
+      };
+      event_photos: {
+        Row: EventPhoto;
+        Insert: Omit<EventPhoto, "created_at"> & Partial<Pick<EventPhoto, "id">>;
+        Update: Partial<Pick<EventPhoto, "caption">>;
       };
       wagers: {
         // Rows are only created via the place_wager RPC and mutated by triggers,

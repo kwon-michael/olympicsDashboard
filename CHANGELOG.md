@@ -4,7 +4,7 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 
 ---
 
-## v2.0 — The next one
+## v1.3 — The next one
 
 ### A new front door, on the opposite palette
 - `/` is now the front door for the **next** Casualympics. The 2026 site hasn't gone anywhere — it moved one door down to **`/2026`** — and every other URL it had is exactly where it was: `/leaderboard`, `/teams`, `/rules`, `/format`, `/schedule`, `/venue`, `/admin`, `/dashboard`, the lot. Links people shared on the day still work
@@ -14,14 +14,69 @@ All notable features and changes to the Casualympics™ Dashboard are documented
 - **The scrollbar follows the theme** — a teal thumb on a near-black track, the same design as the 2026 bar (accent thumb on the site's own chrome) with the palette swapped, instead of a coral stripe left over down the edge of a black page. Scoped in CSS with `:has` off a marker class on the layout, because the viewport's scrollbar belongs to `<html>` and can't be reached from a nested layout; the 2026 bar is untouched. Styled for both the standard `scrollbar-color` path and the older `-webkit-` one
 - The two sites are **route groups** (`(v1)` and `(v2)`) with a layout each, so the chrome belongs to the site instead of to the document. The root layout is now just the `<html>` element, the fonts and the providers both sites share. Route groups don't appear in URLs — this is a structural change with no visible one
 
-### The countdown is now a board that won't tell you
-- The 2026 hero had a clock ticking down to a known date. The next event doesn't have a date yet, and the new home page is built around **not having one** rather than apologising for it
-- A **split-flap board** — the mechanical clatter of an old departure board — shuffles continuously, settles for a couple of seconds on something unhelpful (`SOON`, `NOT YET`, `ANY DAY NOW`, `TBA`), and breaks up again. You can tell an event is coming. You can't tell when
-- Underneath it, a second board is shaped **exactly like a date** — two digits, a three-letter month, a four-digit year — and is given no phrases at all, so it never settles on anything. It's the most specific-looking thing on the page and says the least
-- Both boards are the same component: settling is just what a board does when you give it words, and the date board is the same machine handed an empty list
-- Cells flip on their **own cadence**, so the board rattles unevenly the way a real one does instead of strobing in lockstep. The flip is CSS, replayed by the character changing, so nothing has to keep animation state in sync across a couple of dozen cells
-- **It stops when nobody's looking** — a hidden tab doesn't clatter — and it holds completely still for anyone who's asked for reduced motion, showing a legible phrase rather than a frozen scramble. The flaps are hidden from screen readers, which get one plain sentence: the date hasn't been announced
-- Server-rendered as a still frame of itself, so there's no hydration mismatch and no flash of nothing
+### The next one is a spin-off, and the marquee says so
+- The event on 3 January is **Casualympics Showdown**, a spin-off rather than another numbered Casualympics, and the title on the front door is now a two-line lockup: the brand, and the spin-off's own name under it — the shape every arcade sequel's title card has ever taken
+- SHOWDOWN is the **splash**: the small tilted line a title screen drops on the corner of its own logo, after Minecraft's. It rests *on* the wordmark rather than sitting under it, hung off the bottom-right where the last letters are, and it throbs on a two-frame count
+- Everything about the tag is in the title's own em, so the two scale together — it is positioned against the wordmark's own box, which shrink-wraps to those twelve characters, so "right" means the end of the word rather than the end of the page
+- The one exception is a floor on its font size, because a quarter of 22px is five pixels of bitmap face and nobody has ever read that. That floor is also why it **drops below the corner on a phone** instead of resting on it: held to a legible nine pixels against a wordmark only 250px wide, the tag stops being a mark on the logo and starts being a line written across it
+- It sits on top of the marquee, so it carries the marquee's own screen-printed shadow shrunk to the one pixel of separation a line that size needs — enough to stay readable over the teal letters it lands on
+- The throb is **two frames rather than a swell**, on `steps(2, jump-none)` — the one step function that shows both ends of the range. Everything else on this screen moves in whole steps, and a smoothly breathing subtitle would be the one thing on the page that had come from a different machine
+- The attract line gives a message over to **`A CASUALYMPICS SPINOFF`**, which is what the new title says and nothing else on the page explains. It took the slot off the weekday, which the date board was already carrying under the date
+- Page title and description follow the event: **Casualympics™ Showdown**, opening Sunday 3 January 2027
+
+### The date is on the board
+- **The opening ceremony is Sunday 3 January 2027**, and the front door leads with it. The 2026 hero had a clock ticking down to a known date; this one states the date and lets the board hold it
+- Under the marquee, **one line of attract text** types itself out, holds long enough to read, clears, and is replaced by the next: the date, the day of the week that is, that the event is gaming themed, and that the 2026 site is still live. Four things the page knows, in the order somebody arriving wants them. A cabinet's attract text is instructional, not coy, so there are no teasers and no jokes in it
+- The date sits in the cells a date goes in — **two, three and four**, day, month and year. For a while there was no date and those cells were empty with the cursor waiting in the first one, which was the honest way to draw a date nobody had set; the cells stayed and the cursor went the day it was set, which was the only edit that needed making. The day/month/year captions went with it, because `03 JAN 2027` does not need to be told which end is the year — the weekday took their place, being the one thing the date doesn't say and the first thing anybody asks
+- Typed rather than faded in, because a bitmap display has no way to half-draw a character, and everything advances a **whole character or a whole line**. Each message is **centred on its own width** — the box is that line's length plus the cursor, so a short line sits down the middle of a page that is centred everywhere else instead of hanging off a shared left edge. The width is stated rather than measured: the face is one em per character, so `22ch` is twenty-two characters at any font size, on any screen, including the fallback face. Inside that box the text is left-aligned, which matters as much as the centring: characters land where they will stay, where centring the text itself would slide every character already typed left as the next one arrived
+- The cursor after the attract line blinks at **exactly half the rate of PRESS START**, so the two land together on every other blink. A cabinet runs off one clock, and a screen where the blinking things agree reads as one machine rather than as separate animations
+- **It stops when nobody's looking** — a hidden tab doesn't type — and under reduced motion it holds the opening line, whole, with a solid cursor. Server-rendered as that same still frame, so there's no hydration mismatch and no flash of nothing
+- The cycling text is hidden from screen readers, which get the whole of it once, as a sentence, rather than a fragment of marquee shouting each time one happens to be on screen
+
+### One line on the marquee, and a screen that plays itself
+- The front door's title is now **one line** — `CASUALYMPICS` unbroken, the way it reads on a marquee, instead of stacked over two. The bitmap face is exactly one em per character, so the size is arithmetic rather than a guess: twelve characters at `7vw` clear the page's padding at every width, and the cap is the width of the container it sits in
+- **The hero takes the room it's the centre of.** The screen's container went from 64rem to 72rem and the marquee's cap grew with it, with the HUD bar widened to match so the cabinet's chrome still lines up. The attract line, the date board, PRESS START and the padding around all of them stepped up with it
+- **The background plays the game.** A starfield falls past in two layers at different speeds, a **Galaga** squadron holds formation above the title while one bug at a time peels off and dives, and along the floor a **Pac-Man** chomper clears the pellet line with three ghosts on its tail
+- The fighter under the squadron **fires**, and what it fires at is a straggler bug out on its own above it. The round, the burst and the bug's blink all run the same 2.6 seconds, which is the only reason the hit lands where it does — nothing in there knows about anything else. The round's climb is the chase turned on its end: a full-height column with the round hung off its bottom edge, so translating the column by its own height carries the round exactly from the ship's nose to the bug
+- The pellets go out **exactly under the mouth** at every screen width, and nothing measures anything to do it: the runner is a full-width track with the sprite hung off its left edge, so translating the track by 40% puts the mouth at 40% of the lane — the same 40% the pellet row is clipped to. The row refills once the pack is off the right-hand edge
+- **The ghosts are three, and lit** — teal, blue and bone at full strength. Ghosts you can only just make out are a smudge along the bottom of the screen; ghosts you can see are the reason anybody looks down there. They trail by a **fixed distance** rather than a delay, because a delay is a fraction of the lane and a pack that strings out across a desktop would close into one clump on a phone
+- Two games rather than four: Duck Hunt's ducks and dog and a Pong rally across the middle were both tried and both cut. Between them they filled the screen from edge to edge, and a backdrop you watch is not a backdrop. One game at the top and one along the floor leave the middle to the marquee
+- It is **decoration and nothing else** — hidden from screen readers, ignores the mouse, and holds no state. Every moving part is a transform or a clip on its own layer, so none of it can reflow the page or repaint the type above it, and the sprites are masked away from the middle of the screen where the marquee lives
+- Nothing is seeded randomly: the stars are a written list, so the server and the browser draw the same sky and there's no hydration mismatch to throw the page away over
+- **Reduced motion gets the picture, not the movie** — the formation intact, and the chomper part-way along its lane with the pellets it hasn't reached still there. One frame, composed on purpose, rather than whatever frame the animations happened to stop on
+
+### The archive steps back
+- The stage select was competing with the marquee for the same attention, which is backwards on a page about the *next* event. It now sits in a **48rem column against the hero's 72rem**, a step down in every type size, in a hairline frame rather than an accent one
+- **CONTINUE is outlined rather than filled** — the same quiet control as the one in the header, going solid only on hover, like the menu rows under it. A solid accent button was pulling the eye past the hero to the thing that already happened
+
+### A tab icon that matches the door
+- The tab icon is the mark from the arcade header: the **runner sprite in void on a signal square**, square corners, drawn on the same 9×9 grid as every other icon on that site. Same subject as the one it replaces — a figure mid-stride — but the old one was a coral rounded square with a curved, anti-aliased figure in it, which is the 2026 site's language and reads as a different decade next to a bitmap face
+
+### The day gets a shared gallery
+- New **`/photos`** page on the 2026 site: a masonry grid of photos from the day, with a tap-to-enlarge view. Public to look at, like the rest of the site
+- **New photos appear on every open phone as they land**, over the same realtime channel the leaderboard switch uses. Nobody has to be told to refresh
+- **Photos are resized in the browser before they're uploaded** — a display copy at 1600px and a thumbnail at 480px. A phone photo is 4-6MB and 4000px across, so a grid of thirty untouched originals is a 150MB page that nobody on venue wifi will wait for, and a storage bill to match. EXIF orientation is honoured on the way through, so portrait photos don't land sideways
+- Each row stores its display dimensions, so a tile takes up its final shape before the image arrives. Without that the grid reflows as photos load and whatever you were about to tap moves out from under your thumb
+- Uploads go up **before** the row that describes them, and deletes remove the row **first**. Both orders are chosen so a failure halfway leaves an orphaned file — invisible and harmless — rather than a tile pointing at an image that isn't there
+- **Uploading needs an account** (admin, volunteer or captain); deleting is limited to an admin or whoever uploaded it, enforced in RLS on both the table and the storage bucket. The buttons follow the same rule, so nothing is offered that would fail
+- Not Google Photos: the Library API's read scopes were withdrawn in March 2025 and an app can now only see media it uploaded itself, so pointing the site at an album is no longer possible through supported means
+
+### A tile that can't get its picture stops taking up room
+- A photo whose image doesn't arrive **asks again** — twice, backing off — and only then drops out of the grid. The order matters: every file behind those rows is present in storage, so a tile that has failed has almost certainly hit a dropped request rather than a missing photograph, and removing it on the first `error` would quietly delete a good photo from somebody's gallery for the rest of their visit
+- The retry carries an attempt number in the query string, because a browser caches a failed request as a failure and asking the same question gets the same answer without leaving the machine
+- If **every** photo fails, the page says so rather than showing the empty state. "No photos yet" is a lie about a gallery that has three hundred of them and can't reach any
+
+### Importing a Google Photos album
+- **`npx tsx scripts/import-google-photos.ts <share-url>`** copies a public shared album into the gallery. Photos land in our own storage and the gallery neither knows nor cares where they came from
+- The album's share page is parsed for its photo URLs, and Google's own resizing (`=w1600`, `=w480`) supplies both renditions — so an import doesn't download a single full-size original
+- **The parsing never runs when somebody loads the site.** Reading a share page means depending on a format Google never promised to keep stable; doing it once, from a script, keeps that off the render path. If Google changes the page tomorrow the gallery doesn't notice — only the next import does
+- **Safe to re-run.** Photos are keyed by their Google id in a new `source_id` column, so a second run after more photos are added to the album brings in only the new ones
+- `--dry-run` reports what it would import without writing anything or needing Supabase configured; `--limit N` keeps a first run small; `--credit "Name"` sets the line under each photo
+- One unreadable photo is logged and skipped rather than taking the rest of the run down with it. Rows are timestamped in album order, so the gallery reads the way the album does — the share page carries no capture times to use instead
+- The page-parsing and JPEG-header logic lives in `src/lib/googlePhotos.ts` under test, since it's the part most likely to break
+
+### Schema — one file to run, once
+- **`supabase/photos.sql`** — an `event_photos` table plus a public `event-photos` storage bucket, with size and MIME limits set on the bucket as a backstop to the browser-side resizing. Added to the realtime publication
 
 ### Getting back to 2026
 - A **Still live** widget on the new home page opens the 2026 site — the home page itself plus a direct link to each of its pages, including both tournament boards

@@ -3,6 +3,7 @@ import { AttractLine } from "@/components/v2/attract-line";
 import { DateSlots } from "@/components/v2/date-slots";
 import { PixelIcon, type PixelSpriteName } from "@/components/v2/pixel-icons";
 import { ArcadeBackdrop } from "@/components/v2/arcade-backdrop";
+import { BootScreen } from "@/components/v2/boot-screen";
 
 // ============================================
 // The front door for the next Casualympics
@@ -14,6 +15,12 @@ import { ArcadeBackdrop } from "@/components/v2/arcade-backdrop";
 // pixels and nothing on the page has a curve — the primitives are in the arcade
 // block of globals.css and the icons are hand-drawn sprites
 // (components/v2/pixel-icons.tsx).
+//
+// The cabinet takes the whole screen. The hero is the viewport less the header,
+// so arriving puts you in front of it rather than beside it, and it boots
+// before it plays: the first arrival in a tab gets a loading bar and the power
+// cutting into the marquee (components/v2/boot-screen.tsx), and every arrival
+// after that goes straight through.
 //
 // The 2026 home page led with a countdown clock. This one leads with the line
 // of attract text a cabinet would show and the opening-ceremony date entered
@@ -87,10 +94,23 @@ const ARCHIVE_LINKS: { href: string; label: string; sprite: PixelSpriteName }[] 
 export default function NextHomePage() {
   return (
     <div>
+      {/* The boot sequence — the loading bar the cabinet runs before it drops
+          into attract mode. First arrival in a tab only; everything after it
+          lands straight on the marquee. It renders here, first, because its
+          inline script has to reach the parser before the overlay does. */}
+      <BootScreen />
+
       {/* The screen. `crt-screen` lays scanlines and a phosphor wash over
           everything inside it, so this section is the glass and the rest of the
-          page sits outside the cabinet. */}
-      <section className="crt-screen relative overflow-hidden border-b-4 border-hairline">
+          page sits outside the cabinet.
+
+          It is the whole viewport, less the header sitting above it — a cabinet
+          is a screen you stand in front of, not a banner you scroll past, and
+          the archive below is something you go looking for rather than
+          something that shares the first screenful with the marquee. `svh`
+          rather than `vh` so a phone's disappearing browser chrome doesn't
+          leave the hero an address bar taller than the window. */}
+      <section className="crt-screen relative flex min-h-[calc(100svh-4rem)] flex-col overflow-hidden border-b-4 border-hairline">
         {/* An 8px pixel grid instead of the old site's soft blobs — the same
             job the 56px hairline grid did, on the arcade's own scale, so it
             reads as a screen rather than a drawing. Decorative only. */}
@@ -116,8 +136,8 @@ export default function NextHomePage() {
         {/* The HUD. A cabinet puts the current player's score against the best
             one anybody has managed — which, here, is genuinely the 2026 event:
             the score to beat is the last one that actually happened. */}
-        <div className="font-pixel relative border-b-4 border-hairline">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 text-[8px] leading-none sm:px-6 sm:text-[10px] lg:px-8">
+        <div className="font-pixel relative shrink-0 border-b-4 border-hairline">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 text-[8px] leading-none sm:px-6 sm:text-[10px] lg:px-8">
             <p className="flex items-center gap-2 text-signal">
               <PixelIcon name="coin" className="h-3 w-3" />
               <span>
@@ -130,8 +150,16 @@ export default function NextHomePage() {
           </div>
         </div>
 
-        <div className="relative mx-auto max-w-6xl px-4 py-16 text-center sm:px-6 sm:py-28 lg:px-8">
-          <p className="font-pixel mb-12 inline-flex items-center gap-2.5 bg-void px-5 py-3 text-[9px] leading-none text-dust ring-2 ring-hairline ring-inset sm:text-[11px]">
+        {/* The screen's contents, centred in whatever is left of it after the
+            HUD. `flex-1` and `justify-center` rather than a stack of padding:
+            the block has to sit in the middle of a 700px laptop window and a
+            1200px desktop one alike, and only one of those is a number this
+            file could have guessed. */}
+        <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center px-4 py-12 text-center sm:px-6 sm:py-16 lg:px-8">
+          {/* `w-fit` because the badge is a flex item now and would otherwise
+              stretch to the width of the screen, taking its background with
+              it. */}
+          <p className="font-pixel mx-auto mb-12 flex w-fit items-center gap-2.5 bg-void px-5 py-3 text-[9px] leading-none text-dust ring-2 ring-hairline ring-inset sm:text-[11px]">
             <PixelIcon name="gamepad" className="h-3 w-4 text-signal sm:h-3.5 sm:w-5" />
             THE NEXT ONE
           </p>
@@ -144,11 +172,13 @@ export default function NextHomePage() {
               are arithmetic rather than guesses. Twelve characters cost a
               knowable 12em: at 7vw that's 84% of the viewport, which clears the
               section's padding at every width and still leaves room for the
-              shadow hanging off the right edge, and the cap stops it at 5.5rem
-              — 12em grown to the full width of the 72rem container it sits in.
-              The container was widened from 64rem for exactly this reason, and
-              the HUD above was widened with it so the cabinet's chrome still
-              lines up.
+              shadow hanging off the right edge, and the cap stops it at 6rem —
+              12em, or 72rem, inside the 80rem container it sits in with 4rem
+              spare for the padding, the screen-print shadow and the splash
+              hanging off the corner. The container has been widened twice for
+              exactly this reason, 64rem to 72rem to 80rem, and the HUD above
+              was widened with it each time so the cabinet's chrome still lines
+              up.
 
               SHOWDOWN is the splash: the small tilted line a title screen
               drops on the corner of its own logo. It rests *on* the wordmark
@@ -173,7 +203,7 @@ export default function NextHomePage() {
               `nowrap` on both is the belt to those braces — a fallback face
               that measures wider must overhang the screen rather than break a
               word in half. */}
-          <h1 className="font-pixel mx-auto text-[clamp(1.1rem,7vw,5.5rem)] leading-[1.2] font-normal tracking-normal">
+          <h1 className="font-pixel mx-auto text-[clamp(1.1rem,7vw,6rem)] leading-[1.2] font-normal tracking-normal">
             <span className="relative inline-block">
               <span className="pixel-marquee block whitespace-nowrap">
                 <span className="text-bone">CASUAL</span>
@@ -228,11 +258,12 @@ export default function NextHomePage() {
       {/* Stage select — the way back into the 2026 site.
 
           Deliberately the quiet half of the page. It is a menu of somewhere
-          you have already been, so it sits in a narrower column than the hero
-          (48rem against the screen's 72rem), a step down in every type size,
-          and in hairline rather than accent. Somebody who came here for the
-          next event should meet the cabinet first and find this underneath it
-          — not choose between two things shouting equally. */}
+          you have already been, so it sits in a much narrower column than the
+          hero (48rem against the screen's 80rem), a step down in every type
+          size, and in hairline rather than accent. Now that the cabinet takes
+          the whole viewport this is below the fold outright, which is the same
+          decision made twice: somebody who came here for the next event should
+          meet the cabinet first and go looking for this. */}
       <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <h2 className="font-pixel mb-5 flex items-center gap-2.5 text-[9px] leading-none text-dust sm:text-[11px]">
           <span className="text-signal-deep" aria-hidden>

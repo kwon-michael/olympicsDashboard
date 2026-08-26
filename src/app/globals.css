@@ -822,6 +822,59 @@ html:has(.app-modal[open]) {
   animation: pixel-blink 550ms steps(1, end) infinite;
 }
 
+/* ----------------------------------------------------------------------------
+   The boot screen (see components/v2/boot-screen.tsx)
+   ----------------------------------------------------------------------------
+   The cabinet loads before it plays. The screen that does it is server-rendered
+   so it is over the page from the first paint, which leaves CSS two jobs:
+
+     hide it on a return visit   the inline script in that component stamps
+                                 `data-booted` on <html> as the parser goes
+                                 past, ahead of the overlay's own markup — so
+                                 for anybody who has already seen it, the
+                                 screen is display:none before it is painted
+                                 rather than mounted and then torn down
+     hold the page still         a screen you can scroll behind is a screen the
+                                 page is only pretending to be under. The
+                                 `:not([data-booted])` matters: on a return
+                                 visit the overlay is in the markup but hidden,
+                                 and locking the scrollbar for it would be
+                                 locking it for nothing. */
+html:has(.boot-screen):not([data-booted]) {
+  overflow: hidden;
+}
+
+html[data-booted] .boot-screen {
+  display: none;
+}
+
+/* Cutting the power. A CRT losing its supply doesn't fade — the picture
+   collapses into a bright horizontal line and the line goes out, and it does it
+   in fewer frames than the eye resolves. Hence `steps()`: three frames of
+   collapse, three of the line dying. `forwards` holds the last frame for the
+   moment between the animation ending and React unmounting the node.
+
+   Under reduced motion the boot screen never renders in the first place, so the
+   global rule at the foot of this file has nothing to collapse here. */
+.boot-off {
+  animation: boot-off 320ms steps(3, end) forwards;
+}
+
+@keyframes boot-off {
+  0% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  55% {
+    transform: scaleY(0.02);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(0.02);
+    opacity: 0;
+  }
+}
+
 /* Confetti burst keyframes */
 @keyframes confetti-fall {
   0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }

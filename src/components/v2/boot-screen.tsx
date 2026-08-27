@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
 //                                   short
 
 /** Where the "you have already seen this" flag lives, for this tab only. */
-const BOOT_KEY = "casualympics:booted";
+const BOOT_KEY = "virtualympics:booted";
 
 /**
  * Rendered ahead of the overlay and run by the parser on the way past. If this
@@ -199,15 +199,15 @@ export function BootScreen() {
         {/* One sentence, once. The bar, the percentage and the subsystem
             narration are a performance for the eye; announced, they would be a
             counter shouting numbers over a page that is already loaded. */}
-        <p className="sr-only">Loading Casualympics Showdown.</p>
+        <p className="sr-only">Loading the Virtualympics.</p>
 
         <div aria-hidden className="w-full max-w-lg">
           <p className="font-pixel mb-2 text-center text-xs leading-none sm:text-lg">
-            <span className="text-bone">CASUAL</span>
+            <span className="text-bone">VIRTUAL</span>
             <span className="text-signal">YMPICS</span>
           </p>
           <p className="font-pixel mb-10 text-center text-[8px] leading-none text-dust sm:text-[10px]">
-            SHOWDOWN
+            BY CASUALYMPICS
           </p>
 
           {/* The bar. A frame in accent rather than hairline: on a screen with

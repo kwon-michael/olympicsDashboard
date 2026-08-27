@@ -57,8 +57,8 @@ export function Navbar() {
                   spare and the arrow carries the meaning. */}
               <Link
                 href="/"
-                aria-label="Go to the next Casualympics"
-                title="The next Casualympics"
+                aria-label="Go to the Virtualympics, the next event"
+                title="The Virtualympics — the next event"
                 className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2 py-2 text-white/60 transition-colors hover:border-white/25 hover:bg-white/5 hover:text-white sm:px-3"
               >
                 <ArrowLeft className="w-4 h-4 shrink-0" />

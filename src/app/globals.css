@@ -31,7 +31,7 @@
   --color-celebration: #A855F7;
 
   /* ------------------------------------------------------------------
-     The next Casualympics — the inverted palette
+     The Virtualympics — the inverted palette
      ------------------------------------------------------------------
      The 2026 site above is a light site: near-white paper, navy ink, coral
      and gold. The next one is its opposite, and "opposite" here is a rule
@@ -263,7 +263,7 @@ html:has(.app-modal[open]) {
 }
 
 /* ============================================================================
-   The arcade cabinet — the next Casualympics
+   The arcade cabinet — the Virtualympics
    ============================================================================
    The next event is gaming-themed, so its front door is a cabinet in attract
    mode: a bitmap face, hard edges, phosphor glow, scanlines over the whole

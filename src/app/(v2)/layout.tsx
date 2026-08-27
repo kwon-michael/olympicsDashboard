@@ -3,12 +3,13 @@ import Link from "next/link";
 import { PixelIcon } from "@/components/v2/pixel-icons";
 
 // ============================================
-// Casualympics Showdown — the front door
+// The Virtualympics — the front door
 // ============================================
-// The next event is a spin-off, and the marquee on the home page says so. This
-// is its site, on the inverted palette (see the second block of globals.css).
-// It shares the document and the providers with the 2026 site and nothing else:
-// no navy navbar, no light background, no countdown to a date anybody knows.
+// The next event is a Casualympics spin-off, and the marquee on the home page
+// says so. This is its site, on the inverted palette (see the second block of
+// globals.css). It shares the document and the providers with the 2026 site
+// and nothing else: no navy navbar, no light background, no countdown to a date
+// anybody knows.
 //
 // The next event is gaming-themed, so the chrome is a cabinet's: a bitmap face,
 // hard 4px edges, sprites instead of line icons, and a marquee bar across the
@@ -21,9 +22,9 @@ import { PixelIcon } from "@/components/v2/pixel-icons";
 // you're on before you've read a word of it.
 
 export const metadata: Metadata = {
-  title: "Casualympics™ Showdown | Press start",
+  title: "Virtualympics™ | Press start",
   description:
-    "Insert coin. Casualympics™ Showdown — a spin-off of the 2026 event — is gaming-themed and opens on Sunday 3 January 2027. The 2026 site, leaderboard, teams, rules and results included, is still live.",
+    "Insert coin. The Virtualympics™ — a Casualympics spin-off of the 2026 event — is gaming-themed and opens on Sunday 3 January 2027. The 2026 site, leaderboard, teams, rules and results included, is still live.",
 };
 
 export default function NextLayout({
@@ -43,7 +44,7 @@ export default function NextLayout({
               <PixelIcon name="runner" className="h-5 w-5 text-void" />
             </span>
             <span className="font-pixel truncate text-[11px] leading-none sm:text-sm">
-              <span className="text-bone">CASUAL</span>
+              <span className="text-bone">VIRTUAL</span>
               <span className="text-signal">YMPICS</span>
             </span>
           </Link>

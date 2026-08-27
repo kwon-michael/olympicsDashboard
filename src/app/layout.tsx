@@ -19,8 +19,8 @@ import { NavigationProgress } from "@/components/layout/navigation-progress";
 //   (v1)  the 2026 Casualympics — the light site, its navy chrome, and every
 //         page that ran the event. Its URLs are unchanged; only its home page
 //         moved, to /2026.
-//   (v2)  the next Casualympics — the new front door at /, on the inverted
-//         palette (see globals.css).
+//   (v2)  the Virtualympics — the next event, a Casualympics spin-off, and the
+//         new front door at /, on the inverted palette (see globals.css).
 //
 // So the chrome belongs to each site's own layout, not here. This file owns the
 // things a *document* has exactly one of: the html/body element, the fonts, and
@@ -44,7 +44,7 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-// The next Casualympics is a gaming event, and its front door is an arcade
+// The Virtualympics is a gaming event, and its front door is an arcade
 // cabinet (see app/(v2)). Press Start 2P is the bitmap face that look is built
 // out of: one weight, every glyph on a square grid, no curves anywhere. It is
 // loaded here because fonts belong to the document, but nothing on the 2026

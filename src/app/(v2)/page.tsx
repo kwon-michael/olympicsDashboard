@@ -6,10 +6,10 @@ import { ArcadeBackdrop } from "@/components/v2/arcade-backdrop";
 import { BootScreen } from "@/components/v2/boot-screen";
 
 // ============================================
-// The front door for the next Casualympics
+// The front door for the next event
 // ============================================
-// The next one is a spin-off — Casualympics Showdown — and it's gaming-themed,
-// so the page is a cabinet left in attract mode:
+// The next one is a spin-off — the Virtualympics, by Casualympics — and it's
+// gaming-themed, so the page is a cabinet left in attract mode:
 // a marquee, a HUD across the top, a demo playing itself in the background, and
 // PRESS START blinking at nobody in particular. Every edge is a whole number of
 // pixels and nothing on the page has a curve — the primitives are in the arcade
@@ -47,21 +47,21 @@ const OPENING = {
   groups: ["03", "JAN", "2027"],
   weekday: "SUNDAY",
   /** The same date in a sentence, for anyone not looking at the cells. */
-  spoken: "The Showdown's opening ceremony is on Sunday 3 January 2027.",
+  spoken: "The Virtualympics opening ceremony is on Sunday 3 January 2027.",
 };
 
 /**
  * The attract line, in order, looping.
  *
  * Four things the page knows, in the order somebody arriving wants them: the
- * date, what the Showdown is, what it's like, and where everything from last
- * time still lives. A cabinet's attract text is instructional — no teasing and
+ * date, what the Virtualympics is, what it's like, and where everything from
+ * last time still lives. A cabinet's attract text is instructional — no teasing and
  * no jokes, and now that there's a date the page leads with it rather than
  * with the fact that it exists.
  *
  * The weekday used to have a line of its own here. It lost it to the spin-off:
- * the date board already says SUNDAY under the date, and what the title now
- * says and nothing else explains is what a Showdown is.
+ * the date board already says SUNDAY under the date, and the line the marquee
+ * carries instead is whose event this is.
  *
  * Kept inside 26 characters each, which is what a 320px phone fits on one line
  * at this size (see `AttractLine`).
@@ -164,38 +164,46 @@ export default function NextHomePage() {
             THE NEXT ONE
           </p>
 
-          {/* The marquee: the brand on one line and the spin-off's own name
-              under it, which is the shape every arcade sequel's title card has
-              ever taken.
+          {/* The marquee: the event's own name on one line and whose event it
+              is under it, which is the shape every arcade spin-off's title card
+              has ever taken.
 
               A bitmap face is exactly one em wide per glyph, so the sizes here
-              are arithmetic rather than guesses. Twelve characters cost a
-              knowable 12em: at 7vw that's 84% of the viewport, which clears the
-              section's padding at every width and still leaves room for the
-              shadow hanging off the right edge, and the cap stops it at 6rem —
-              12em, or 72rem, inside the 80rem container it sits in with 4rem
-              spare for the padding, the screen-print shadow and the splash
-              hanging off the corner. The container has been widened twice for
-              exactly this reason, 64rem to 72rem to 80rem, and the HUD above
-              was widened with it each time so the cabinet's chrome still lines
-              up.
+              are arithmetic rather than guesses. Thirteen characters cost a
+              knowable 13em: at 6.4vw that's 83% of the viewport, which clears
+              the section's padding at every width and still leaves room for the
+              shadow hanging off the right edge, and the cap stops it at 5.5rem
+              — 13em, or 71.5rem, inside the 80rem container it sits in with
+              4.5rem spare for the padding, the screen-print shadow and the
+              splash hanging off the corner. Both numbers came down a notch when
+              the name went from twelve characters to thirteen; the container is
+              already as wide as this page's grid goes, so the title gives way
+              rather than the layout. It has been widened twice before for this
+              same reason, 64rem to 72rem to 80rem, and the HUD above was
+              widened with it each time so the cabinet's chrome still lines up.
 
-              SHOWDOWN is the splash: the small tilted line a title screen
-              drops on the corner of its own logo. It rests *on* the wordmark
-              rather than sitting under it, hung off the bottom-right where the
-              last letters are, and it throbs on a two-frame count.
+              BY CASUALYMPICS is the splash: the small tilted line a title
+              screen drops on the corner of its own logo. It rests *on* the
+              wordmark rather than sitting under it, hung off the bottom-right
+              where the last letters are, and it throbs on a two-frame count.
+              It is carrying a second job now that the title no longer names the
+              parent event: it is the only thing on the page that says whose
+              spin-off this is.
 
               The wordmark's own span is what it's positioned against —
               `inline-block`, so the box shrink-wraps to those twelve characters
               and `right` means the end of the word rather than the end of the
               page. Everything about the tag is in the title's own em, so the
               two scale together; the one exception is the floor on its font
-              size, because a quarter of 22px is five pixels of bitmap face and
-              nobody has ever read that.
+              size, because a fifth of 22px is four pixels of bitmap face and
+              nobody has ever read that. A fifth rather than the quarter it was:
+              fifteen characters at a quarter would lie across most of the
+              wordmark, and a splash is a mark on a logo rather than a second
+              line of it.
 
               That floor is also why it drops below the corner on a phone
               instead of resting on it. Held to a legible nine pixels against a
-              wordmark only 250px wide, the tag stops being a mark on the logo
+              wordmark only 270px wide, the tag stops being a mark on the logo
               and starts being a line written across it — so at that size it
               hangs off the bottom-right instead, and takes the corner back at
               `sm`, where the title is big enough to carry it.
@@ -203,16 +211,16 @@ export default function NextHomePage() {
               `nowrap` on both is the belt to those braces — a fallback face
               that measures wider must overhang the screen rather than break a
               word in half. */}
-          <h1 className="font-pixel mx-auto text-[clamp(1.1rem,7vw,6rem)] leading-[1.2] font-normal tracking-normal">
+          <h1 className="font-pixel mx-auto text-[clamp(1.1rem,6.4vw,5.5rem)] leading-[1.2] font-normal tracking-normal">
             <span className="relative inline-block">
               <span className="pixel-marquee block whitespace-nowrap">
-                <span className="text-bone">CASUAL</span>
+                <span className="text-bone">VIRTUAL</span>
                 <span className="text-signal">YMPICS</span>
                 <span className="sr-only">™</span>
               </span>
               <span className="absolute right-[-0.15em] bottom-[-0.42em] rotate-[-12deg] sm:right-[-0.1em] sm:bottom-[0.05em]">
-                <span className="pixel-splash block text-[max(9px,0.26em)] leading-none whitespace-nowrap text-bone">
-                  SHOWDOWN
+                <span className="pixel-splash block text-[max(9px,0.2em)] leading-none whitespace-nowrap text-bone">
+                  BY CASUALYMPICS
                 </span>
               </span>
             </span>
@@ -223,7 +231,7 @@ export default function NextHomePage() {
               two boards and a paragraph not saying. */}
           <AttractLine
             lines={ATTRACT}
-            label="Casualympics Showdown, a spin-off event, is on Sunday 3 January 2027. It is gaming themed, and the 2026 site is still live."
+            label="The Virtualympics, a Casualympics spin-off event, is on Sunday 3 January 2027. It is gaming themed, and the 2026 site is still live."
             className="mt-12 text-[10px] sm:text-base"
           />
 

@@ -267,8 +267,8 @@ function Digit({
 /**
  * The event is behind us. There is nothing left to count, so the clock stands
  * down and points at the thing people actually come back for — the final
- * standings. The countdown to the *next* Casualympics lives on the new front
- * door at `/`, and is deliberately not a clock at all — it's the date on a
+ * standings. The countdown to the next event — the Virtualympics — lives on
+ * the new front door at `/`, and is deliberately not a clock at all — it's the date on a
  * board, not a number counting down to it (see components/v2/date-slots.tsx).
  */
 function Archived() {

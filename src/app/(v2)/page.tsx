@@ -3,17 +3,24 @@ import { AttractLine } from "@/components/v2/attract-line";
 import { DateSlots } from "@/components/v2/date-slots";
 import { PixelIcon, type PixelSpriteName } from "@/components/v2/pixel-icons";
 import { ArcadeBackdrop } from "@/components/v2/arcade-backdrop";
+import { BootScreen } from "@/components/v2/boot-screen";
 
 // ============================================
-// The front door for the next Casualympics
+// The front door for the next event
 // ============================================
-// The next one is a spin-off — Casualympics Showdown — and it's gaming-themed,
-// so the page is a cabinet left in attract mode:
+// The next one is a spin-off — the Virtualympics, by Casualympics — and it's
+// gaming-themed, so the page is a cabinet left in attract mode:
 // a marquee, a HUD across the top, a demo playing itself in the background, and
 // PRESS START blinking at nobody in particular. Every edge is a whole number of
 // pixels and nothing on the page has a curve — the primitives are in the arcade
 // block of globals.css and the icons are hand-drawn sprites
 // (components/v2/pixel-icons.tsx).
+//
+// The cabinet takes the whole screen. The hero is the viewport less the header,
+// so arriving puts you in front of it rather than beside it, and it boots
+// before it plays: the first arrival in a tab gets a loading bar and the power
+// cutting into the marquee (components/v2/boot-screen.tsx), and every arrival
+// after that goes straight through.
 //
 // The 2026 home page led with a countdown clock. This one leads with the line
 // of attract text a cabinet would show and the opening-ceremony date entered
@@ -40,21 +47,21 @@ const OPENING = {
   groups: ["03", "JAN", "2027"],
   weekday: "SUNDAY",
   /** The same date in a sentence, for anyone not looking at the cells. */
-  spoken: "The Showdown's opening ceremony is on Sunday 3 January 2027.",
+  spoken: "The Virtualympics opening ceremony is on Sunday 3 January 2027.",
 };
 
 /**
  * The attract line, in order, looping.
  *
  * Four things the page knows, in the order somebody arriving wants them: the
- * date, what the Showdown is, what it's like, and where everything from last
- * time still lives. A cabinet's attract text is instructional — no teasing and
+ * date, what the Virtualympics is, what it's like, and where everything from
+ * last time still lives. A cabinet's attract text is instructional — no teasing and
  * no jokes, and now that there's a date the page leads with it rather than
  * with the fact that it exists.
  *
  * The weekday used to have a line of its own here. It lost it to the spin-off:
- * the date board already says SUNDAY under the date, and what the title now
- * says and nothing else explains is what a Showdown is.
+ * the date board already says SUNDAY under the date, and the line the marquee
+ * carries instead is whose event this is.
  *
  * Kept inside 26 characters each, which is what a 320px phone fits on one line
  * at this size (see `AttractLine`).
@@ -87,10 +94,23 @@ const ARCHIVE_LINKS: { href: string; label: string; sprite: PixelSpriteName }[] 
 export default function NextHomePage() {
   return (
     <div>
+      {/* The boot sequence — the loading bar the cabinet runs before it drops
+          into attract mode. First arrival in a tab only; everything after it
+          lands straight on the marquee. It renders here, first, because its
+          inline script has to reach the parser before the overlay does. */}
+      <BootScreen />
+
       {/* The screen. `crt-screen` lays scanlines and a phosphor wash over
           everything inside it, so this section is the glass and the rest of the
-          page sits outside the cabinet. */}
-      <section className="crt-screen relative overflow-hidden border-b-4 border-hairline">
+          page sits outside the cabinet.
+
+          It is the whole viewport, less the header sitting above it — a cabinet
+          is a screen you stand in front of, not a banner you scroll past, and
+          the archive below is something you go looking for rather than
+          something that shares the first screenful with the marquee. `svh`
+          rather than `vh` so a phone's disappearing browser chrome doesn't
+          leave the hero an address bar taller than the window. */}
+      <section className="crt-screen relative flex min-h-[calc(100svh-4rem)] flex-col overflow-hidden border-b-4 border-hairline">
         {/* An 8px pixel grid instead of the old site's soft blobs — the same
             job the 56px hairline grid did, on the arcade's own scale, so it
             reads as a screen rather than a drawing. Decorative only. */}
@@ -116,8 +136,8 @@ export default function NextHomePage() {
         {/* The HUD. A cabinet puts the current player's score against the best
             one anybody has managed — which, here, is genuinely the 2026 event:
             the score to beat is the last one that actually happened. */}
-        <div className="font-pixel relative border-b-4 border-hairline">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 text-[8px] leading-none sm:px-6 sm:text-[10px] lg:px-8">
+        <div className="font-pixel relative shrink-0 border-b-4 border-hairline">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 text-[8px] leading-none sm:px-6 sm:text-[10px] lg:px-8">
             <p className="flex items-center gap-2 text-signal">
               <PixelIcon name="coin" className="h-3 w-3" />
               <span>
@@ -130,42 +150,60 @@ export default function NextHomePage() {
           </div>
         </div>
 
-        <div className="relative mx-auto max-w-6xl px-4 py-16 text-center sm:px-6 sm:py-28 lg:px-8">
-          <p className="font-pixel mb-12 inline-flex items-center gap-2.5 bg-void px-5 py-3 text-[9px] leading-none text-dust ring-2 ring-hairline ring-inset sm:text-[11px]">
+        {/* The screen's contents, centred in whatever is left of it after the
+            HUD. `flex-1` and `justify-center` rather than a stack of padding:
+            the block has to sit in the middle of a 700px laptop window and a
+            1200px desktop one alike, and only one of those is a number this
+            file could have guessed. */}
+        <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center px-4 py-12 text-center sm:px-6 sm:py-16 lg:px-8">
+          {/* `w-fit` because the badge is a flex item now and would otherwise
+              stretch to the width of the screen, taking its background with
+              it. */}
+          <p className="font-pixel mx-auto mb-12 flex w-fit items-center gap-2.5 bg-void px-5 py-3 text-[9px] leading-none text-dust ring-2 ring-hairline ring-inset sm:text-[11px]">
             <PixelIcon name="gamepad" className="h-3 w-4 text-signal sm:h-3.5 sm:w-5" />
             THE NEXT ONE
           </p>
 
-          {/* The marquee: the brand on one line and the spin-off's own name
-              under it, which is the shape every arcade sequel's title card has
-              ever taken.
+          {/* The marquee: the event's own name on one line and whose event it
+              is under it, which is the shape every arcade spin-off's title card
+              has ever taken.
 
               A bitmap face is exactly one em wide per glyph, so the sizes here
-              are arithmetic rather than guesses. Twelve characters cost a
-              knowable 12em: at 7vw that's 84% of the viewport, which clears the
-              section's padding at every width and still leaves room for the
+              are arithmetic rather than guesses. Thirteen characters cost a
+              knowable 13em: at 6.4vw that's 83% of the viewport, which clears
+              the section's padding at every width and still leaves room for the
               shadow hanging off the right edge, and the cap stops it at 5.5rem
-              — 12em grown to the full width of the 72rem container it sits in.
-              The container was widened from 64rem for exactly this reason, and
-              the HUD above was widened with it so the cabinet's chrome still
-              lines up.
+              — 13em, or 71.5rem, inside the 80rem container it sits in with
+              4.5rem spare for the padding, the screen-print shadow and the
+              splash hanging off the corner. Both numbers came down a notch when
+              the name went from twelve characters to thirteen; the container is
+              already as wide as this page's grid goes, so the title gives way
+              rather than the layout. It has been widened twice before for this
+              same reason, 64rem to 72rem to 80rem, and the HUD above was
+              widened with it each time so the cabinet's chrome still lines up.
 
-              SHOWDOWN is the splash: the small tilted line a title screen
-              drops on the corner of its own logo. It rests *on* the wordmark
-              rather than sitting under it, hung off the bottom-right where the
-              last letters are, and it throbs on a two-frame count.
+              BY CASUALYMPICS is the splash: the small tilted line a title
+              screen drops on the corner of its own logo. It rests *on* the
+              wordmark rather than sitting under it, hung off the bottom-right
+              where the last letters are, and it throbs on a two-frame count.
+              It is carrying a second job now that the title no longer names the
+              parent event: it is the only thing on the page that says whose
+              spin-off this is.
 
               The wordmark's own span is what it's positioned against —
               `inline-block`, so the box shrink-wraps to those twelve characters
               and `right` means the end of the word rather than the end of the
               page. Everything about the tag is in the title's own em, so the
               two scale together; the one exception is the floor on its font
-              size, because a quarter of 22px is five pixels of bitmap face and
-              nobody has ever read that.
+              size, because a fifth of 22px is four pixels of bitmap face and
+              nobody has ever read that. A fifth rather than the quarter it was:
+              fifteen characters at a quarter would lie across most of the
+              wordmark, and a splash is a mark on a logo rather than a second
+              line of it.
 
               That floor is also why it drops below the corner on a phone
               instead of resting on it. Held to a legible nine pixels against a
-              wordmark only 250px wide, the tag stops being a mark on the logo
+              wordmark only 270px wide, the tag stops being a mark on the logo
               and starts being a line written across it — so at that size it
               hangs off the bottom-right instead, and takes the corner back at
               `sm`, where the title is big enough to carry it.
@@ -173,16 +211,16 @@ export default function NextHomePage() {
               `nowrap` on both is the belt to those braces — a fallback face
               that measures wider must overhang the screen rather than break a
               word in half. */}
-          <h1 className="font-pixel mx-auto text-[clamp(1.1rem,7vw,5.5rem)] leading-[1.2] font-normal tracking-normal">
+          <h1 className="font-pixel mx-auto text-[clamp(1.1rem,6.4vw,5.5rem)] leading-[1.2] font-normal tracking-normal">
             <span className="relative inline-block">
               <span className="pixel-marquee block whitespace-nowrap">
-                <span className="text-bone">CASUAL</span>
+                <span className="text-bone">VIRTUAL</span>
                 <span className="text-signal">YMPICS</span>
                 <span className="sr-only">™</span>
               </span>
               <span className="absolute right-[-0.15em] bottom-[-0.42em] rotate-[-12deg] sm:right-[-0.1em] sm:bottom-[0.05em]">
-                <span className="pixel-splash block text-[max(9px,0.26em)] leading-none whitespace-nowrap text-bone">
-                  SHOWDOWN
+                <span className="pixel-splash block text-[max(9px,0.2em)] leading-none whitespace-nowrap text-bone">
+                  BY CASUALYMPICS
                 </span>
               </span>
             </span>
@@ -193,7 +231,7 @@ export default function NextHomePage() {
               two boards and a paragraph not saying. */}
           <AttractLine
             lines={ATTRACT}
-            label="Casualympics Showdown, a spin-off event, is on Sunday 3 January 2027. It is gaming themed, and the 2026 site is still live."
+            label="The Virtualympics, a Casualympics spin-off event, is on Sunday 3 January 2027. It is gaming themed, and the 2026 site is still live."
             className="mt-12 text-[10px] sm:text-base"
           />
 
@@ -228,11 +266,12 @@ export default function NextHomePage() {
       {/* Stage select — the way back into the 2026 site.
 
           Deliberately the quiet half of the page. It is a menu of somewhere
-          you have already been, so it sits in a narrower column than the hero
-          (48rem against the screen's 72rem), a step down in every type size,
-          and in hairline rather than accent. Somebody who came here for the
-          next event should meet the cabinet first and find this underneath it
-          — not choose between two things shouting equally. */}
+          you have already been, so it sits in a much narrower column than the
+          hero (48rem against the screen's 80rem), a step down in every type
+          size, and in hairline rather than accent. Now that the cabinet takes
+          the whole viewport this is below the fold outright, which is the same
+          decision made twice: somebody who came here for the next event should
+          meet the cabinet first and go looking for this. */}
       <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <h2 className="font-pixel mb-5 flex items-center gap-2.5 text-[9px] leading-none text-dust sm:text-[11px]">
           <span className="text-signal-deep" aria-hidden>

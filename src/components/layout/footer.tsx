@@ -26,12 +26,12 @@ export function Footer() {
               sporting event. Track scores, join teams, and celebrate together.
             </p>
             {/* The way out of the archive and back to the front door. `/` is the
-                next Casualympics now; this site is the last one. */}
+                Virtualympics now; this site is the last one. */}
             <Link
               href="/"
               className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-gold hover:text-gold-light transition-colors"
             >
-              The next Casualympics
+              The Virtualympics
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
